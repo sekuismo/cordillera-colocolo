@@ -50,6 +50,20 @@ export class UI {
       env.forceStorm = !env.forceStorm; storm.classList.toggle('on', env.forceStorm);
       storm.textContent = env.forceStorm ? 'Dejar que pase la tormenta' : 'Provocar una tormenta';
     });
+    const aa = $('#aa'); aa.checked = !!quality.antialias;
+    aa.addEventListener('change', () => { this.saved.aa = aa.checked; this.save(); location.reload(); }); // el suavizado se fija al crear el contexto WebGL
+    // Pantalla completa: en Android además fija la orientación horizontal. iOS Safari en iPhone no lo permite, y ahí el botón no aparece.
+    const fs = $('#fullscreen'), root = document.documentElement;
+    if (root.requestFullscreen) {
+      fs.hidden = false;
+      fs.addEventListener('click', async () => {
+        try {
+          if (document.fullscreenElement) await document.exitFullscreen();
+          else { await root.requestFullscreen({ navigationUI: 'hide' }); try { await screen.orientation.lock('landscape'); } catch { /* escritorio o navegador que no deja fijar la orientación */ } }
+        } catch { this.toast('Este navegador no permite pantalla completa'); }
+      });
+      document.addEventListener('fullscreenchange', () => { fs.textContent = document.fullscreenElement ? 'Salir de pantalla completa' : 'Pantalla completa'; });
+    }
     document.querySelectorAll('#calidad button').forEach((b) => {
       b.classList.toggle('on', b.dataset.q === quality.tier);
       b.addEventListener('click', () => { if (b.dataset.q !== quality.tier) { const u = new URL(location.href); u.searchParams.set('q', b.dataset.q); location.href = u; } });

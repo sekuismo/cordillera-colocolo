@@ -346,12 +346,12 @@ void main() {
   // Cirros altos: una capa plana de ruido proyectada, tenue y sin costo real.
   if (d.y > 0.015) {
     vec2 p = d.xz / (d.y + 0.08) * 0.11 + uTime * vec2(0.0012, 0.0004);
-    float c = texture2D(uNoise, p).w * 0.6 + texture2D(uNoise, p * 3.1 + 0.37).w * 0.3 + texture2D(uNoise, p * 0.31).x * 0.5;
+    float c = texture2D(uNoise, p).w * 0.72 + texture2D(uNoise, p * 0.31).x * 0.5;
     c = smoothstep(0.22, 0.85, c) * smoothstep(0.015, 0.16, d.y) * 0.6;
     vec3 cc = uSunColor * (0.26 + 0.25 * pow(s, 6.0)) + uAmbient * 0.75;
     col = mix(col, cc, c);
     // Frente de mal tiempo: capa cerrada de nubes grises.
-    float ov = 0.75 + 0.25 * texture2D(uNoise, p * 0.7 + uTime * 0.004).w;
+    float ov = 0.75 + (uStorm > 0.01 ? 0.25 * textureLod(uNoise, p * 0.7 + uTime * 0.004, 0.0).w : 0.0);
     col = mix(col, (uSkyHorizon * 0.8 + uAmbient * 0.35) * ov, uStorm * 0.92);
   }
   gl_FragColor = vec4(col, 1.0);

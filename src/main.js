@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pickQuality, loadAll, demTexture, normalTexture, albedoTexture, landTexture } from './data.js';
+import { pickQuality, pickAntialias, loadAll, demTexture, normalTexture, albedoTexture, landTexture } from './data.js';
 import { Heightfield, makeNoise, noiseTexture } from './heightfield.js';
 import { Environment, FAR } from './env.js';
 import { Overlay } from './overlay.js';
@@ -27,10 +27,11 @@ function fail(e) {
 async function boot() {
   const canvas = $('#c');
   let renderer;
-  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: devicePixelRatio < 2, powerPreference: 'high-performance' }); }
+  const antialias = pickAntialias();
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias, powerPreference: 'high-performance' }); }
   catch { throw new Error('tu navegador o dispositivo no soporta WebGL2.'); }
   renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.82;
-  const quality = pickQuality(renderer.capabilities.maxTextureSize);
+  const quality = pickQuality(renderer.capabilities.maxTextureSize); quality.antialias = antialias;
 
   const manifest = await (await fetch(new URL('../data/manifest.json', import.meta.url))).json();
   const data = await loadAll(manifest, quality, (p) => { $('#bar i').style.width = (p * 100).toFixed(1) + '%'; $('#status').textContent = `Cargando relieve e imagen satelital… ${(p * 100) | 0}%`; });
@@ -50,7 +51,7 @@ async function boot() {
   const env = new Environment(tex.noise, quality.props);
   let shadowDirty = false, shadowAt = 0;
   env.onSunChange = () => { shadowDirty = true; };
-  shadows.start(env.uniforms.uSunDir.value); shadows.step(5000); // la primera vez, completo
+  shadows.start(env.uniforms.uSunDir.value);
   const overlay = new Overlay(quality);
   overlay.setLines(data.lines);
   const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
@@ -71,9 +72,9 @@ async function boot() {
   const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border });
 
   // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
-  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false, sink = 0, stalled = false, pendingResize = true, slow = 0, fast = 0;
+  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false, sink = 0, stalled = false, pendingResize = true, slow = 0, fast = 0, lastW = 0, lastH = 0;
   const resize = () => {
-    const w = innerWidth, h = innerHeight;
+    const w = (lastW = innerWidth), h = (lastH = innerHeight);
     renderer.setPixelRatio(Math.min(devicePixelRatio, quality.maxPixelRatio) * scale);
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
@@ -92,6 +93,8 @@ async function boot() {
   const frame = () => {
     const raw = clock.getDelta(), dt = Math.min(raw, 0.1), t = clock.elapsedTime;
     if (raw > 0.4 || document.hidden) stalled = true; // pestaña en segundo plano: el navegador frena los cuadros, no es lentitud real
+    // Al girar el teléfono, el evento de orientación a veces llega antes de que cambien las medidas: se comparan en cada cuadro.
+    if (innerWidth !== lastW || innerHeight !== lastH) pendingResize = true;
     if (pendingResize) { pendingResize = false; resize(); }
     const io = input.poll();
     let fp = false;
@@ -105,9 +108,8 @@ async function boot() {
     cat.update(dt, t, { x: player.x, y: player.y - sink, z: player.z, heading: player.heading, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy });
     terrain.uniforms.uCatPos.value.set(player.x - camera.position.x, hf.height(player.x, player.z) - camera.position.y, player.z - camera.position.z);
     env.update(camera, t, dt);
-    // Las sombras del relieve se recalculan solo cuando el sol se movió, de a 4 ms por cuadro.
-    if (shadowDirty && !shadows.busy && t - shadowAt > 0.25) { shadows.start(env.uniforms.uSunDir.value); shadowDirty = false; shadowAt = t; }
-    shadows.step(4);
+    // Las sombras del relieve se recalculan (en un worker) solo cuando el sol se movió.
+    if (shadowDirty && t - shadowAt > 0.3) { shadows.start(env.uniforms.uSunDir.value); shadowDirty = false; shadowAt = t; }
     cat.shade.value += (shadows.at(player.x, player.z) - cat.shade.value) * (1 - Math.exp(-dt * 8));
     city.update(camera, env.elevation);
     speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
@@ -122,11 +124,12 @@ async function boot() {
       ui.update(dt, camera);
     }
     frames++; acc += dt;
-    if (acc >= 1.5) {
+    if (acc >= 1) {
       fps = frames / acc; frames = 0; acc = 0;
-      // Histéresis: la resolución solo cambia tras 2 ventanas lentas seguidas (o 4 holgadas), para que no oscile.
-      slow = !stalled && fps < 33 ? slow + 1 : 0; fast = !stalled && fps > 54 ? fast + 1 : 0;
-      const next = slow >= 2 ? Math.max(0.55, scale * 0.85) : fast >= 4 && scale < 1 ? Math.min(1, scale * 1.12) : scale;
+      // Resolución dinámica: bajo 40 fps se achica la resolución interna (2 s seguidos); sobre 56, se recupera (4 s).
+      // La histéresis evita que oscile. El costo de píxeles del terreno escala casi lineal con la resolución.
+      slow = !stalled && fps < 40 ? slow + 1 : 0; fast = !stalled && fps > 56 ? fast + 1 : 0;
+      const next = slow >= 2 ? Math.max(0.5, scale * 0.88) : fast >= 4 && scale < 1 ? Math.min(1, scale * 1.1) : scale;
       if (next !== scale) { scale = next; slow = fast = 0; pendingResize = true; }
       stalled = false;
       $('#stats').textContent = `${fps.toFixed(0)} fps · ${(terrain.stats.tris / 1000).toFixed(0)} mil triángulos · relieve a ${quality.tier === 'hi' ? 34 : 68} m · escala de render ${(scale * 100).toFixed(0)} %`;

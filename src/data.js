@@ -1,6 +1,25 @@
 // Carga de datos: los binarios pesados se decodifican en un worker; las imágenes las decodifica el navegador.
 import * as THREE from 'three';
 
+// ¿Suavizado de bordes (MSAA 4x)? Medido en una gráfica integrada: cada cuadro cuesta ~44 % más con él.
+// Por defecto va apagado en gráficas integradas y en pantallas de alta densidad (donde casi no se nota);
+// la preferencia del usuario (Capas) o ?aa=1 / ?aa=0 mandan. Hay que decidirlo antes de crear el contexto WebGL.
+export function pickAntialias() {
+  const q = new URLSearchParams(location.search).get('aa');
+  if (q === '1' || q === '0') return q === '1';
+  try { const s = JSON.parse(localStorage.getItem('cordillera:v1') || '{}'); if (typeof s.aa === 'boolean') return s.aa; } catch { /* sin almacenamiento */ }
+  if (devicePixelRatio >= 2) return false;
+  let name = '';
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2'), ext = gl.getExtension('WEBGL_debug_renderer_info');
+    name = ext ? gl.getParameter(ext.UNMASKED_RENDERER_WEBGL) : '';
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+  } catch { /* sin WebGL2: fallará más adelante con su propio mensaje */ }
+  const integrated = /Intel|Iris|UHD|HD Graphics|Radeon\(TM\) Graphics|Radeon Graphics|Vega|Mali|Adreno|PowerVR|SwiftShader|llvmpipe/i.test(name)
+    && !/Arc\(TM\) [AB]\d|GeForce|RTX|GTX|Radeon RX|Radeon Pro/i.test(name);
+  return !integrated;
+}
+
 export function pickQuality(maxTexture) {
   const params = new URLSearchParams(location.search);
   const mobile = matchMedia('(pointer: coarse)').matches && Math.min(screen.width, screen.height) < 900;

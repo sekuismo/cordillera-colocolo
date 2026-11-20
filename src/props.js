@@ -88,7 +88,8 @@ uniform float uCamY;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
 varying float vVar, vShade;
-float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
+// Hash sin seno: el moteado del follaje llama a esto 16 veces por píxel.
+float hash(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float vnoise(vec3 p) {
   vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
   return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),

@@ -155,10 +155,21 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   .panel { left: 12px; right: 12px; width: auto; }
   .panel.wide { width: auto; }
 }
-@media (max-height: 480px) and (orientation: landscape) {
-  #mini { width: 64px; height: 64px; bottom: auto; top: calc(56px + var(--sat)); }
-  #card { top: calc(52px + var(--sat)); left: 22%; right: 22%; max-height: 62dvh; }
-  #compass { top: calc(12px + var(--sat)); }
-  #jump { bottom: calc(84px + var(--sab)); width: 58px; height: 58px; }
+/* Teléfono en horizontal: poca altura. Todo lo fijo se compacta y se pega a los bordes para dejar libre el centro. */
+@media (max-height: 500px) and (orientation: landscape) {
+  #place { max-width: 34vw; padding: 5px 9px; } #place b { font-size: 13.5px; } #place span { font-size: 11px; } #place-next { display: none !important; }
+  #menu button { padding: 7px 9px; font-size: 12.5px; } #menu em { display: none; }
+  #compass { top: calc(10px + var(--sat)); width: 170px; margin-left: -85px; }
+  #toast { top: calc(44px + var(--sat)); }
+  #mini { left: auto; right: calc(12px + var(--sar)); bottom: auto; top: calc(52px + var(--sat)); width: 64px; height: 64px; border-radius: 10px; }
+  #card { left: 24%; right: 24%; width: auto; min-width: 0; transform: none; bottom: auto; top: calc(46px + var(--sat)); max-height: 58dvh; overflow-y: auto; padding: 10px 13px 8px; }
+  @keyframes rise { from { opacity: 0; transform: translateY(-10px); } }
+  #card h2 { font-size: 17px; } #card p { font-size: 13px; line-height: 1.42; }
+  #speed { padding: 4px; } #kmh { font-size: 10.5px; }
+  #jump { bottom: calc(80px + var(--sab)); width: 58px; height: 58px; }
+  .panel { left: auto; right: calc(12px + var(--sar)); top: calc(50px + var(--sat)); width: min(380px, 62vw); max-height: calc(100dvh - 60px - var(--sat) - var(--sab)); }
+  .panel.wide { width: min(520px, 72vw); }
+  #bigmap { max-height: calc(100dvh - 150px - var(--sat) - var(--sab)); }
+  #intro { padding: 10px; } #intro h1 { font-size: 50px; margin: 2px 0 6px; } .lead { font-size: 14px; margin-bottom: 12px; } #start { padding: 10px 22px; font-size: 15px; margin-top: 2px; }
 }
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
