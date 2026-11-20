@@ -3,7 +3,7 @@ export class Input {
   constructor(canvas, stickEl) {
     this.move = { x: 0, y: 0 };   // x: derecha, y: adelante (relativo a la cámara)
     this.lookX = 0; this.lookY = 0; this.zoom = 0;
-    this.jump = false; this.boost = false; this.auto = false;
+    this.jump = false; this.jumpHeld = false; this.boost = false; this.auto = false; this.locked = false; this.onLock = null;
     this.keys = new Set(); this.handlers = {};
     this.joy = null; this.joyVec = { x: 0, y: 0 };
     this.pointers = new Map(); this.pinch = 0;
@@ -43,7 +43,7 @@ export class Input {
         return;
       }
       const p = this.pointers.get(e.pointerId); if (!p) return;
-      if (this.pointers.size === 1) {
+      if (this.pointers.size === 1 && !this.locked) {
         this.lookX += e.clientX - p.x; this.lookY += e.clientY - p.y; this.lastLook = performance.now() / 1000;
       }
       p.x = e.clientX; p.y = e.clientY;
@@ -62,6 +62,17 @@ export class Input {
     canvas.addEventListener('pointerup', up); canvas.addEventListener('pointercancel', up);
     canvas.addEventListener('wheel', (e) => { e.preventDefault(); this.zoom += Math.sign(e.deltaY) * Math.min(1.5, Math.abs(e.deltaY) / 100); }, { passive: false });
     canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+    // Mirada tipo FPS: un clic captura el mouse (Pointer Lock) y la cámara sigue al mouse sin arrastrar; Esc lo suelta.
+    canvas.addEventListener('click', (e) => {
+      if (e.pointerType === 'touch' || !matchMedia('(pointer: fine)').matches || document.pointerLockElement) return;
+      try { const r = canvas.requestPointerLock(); if (r && r.catch) r.catch(() => {}); } catch { /* el navegador puede negarlo: queda el arrastre */ }
+    });
+    document.addEventListener('pointerlockchange', () => { this.locked = document.pointerLockElement === canvas; this.onLock?.(this.locked); });
+    document.addEventListener('mousemove', (e) => {
+      if (!this.locked) return;
+      this.lookX += e.movementX; this.lookY += e.movementY; this.lastLook = performance.now() / 1000;
+    });
   }
   on(code, fn) { this.handlers[code] = fn; }
   // Llamar una vez por frame: deja `move` listo y devuelve los deltas acumulados.
@@ -73,7 +84,7 @@ export class Input {
     else { x = this.joyVec.x; y = this.joyVec.y; }
     if (this.auto && !(x || y)) y = 1;
     this.move.x = x; this.move.y = y;
-    this.boost = k.has('ShiftLeft') || k.has('ShiftRight');
+    this.boost = k.has('ShiftLeft') || k.has('ShiftRight'); this.jumpHeld = k.has('Space') || this.touchJump;
     const out = { lookX: this.lookX, lookY: this.lookY, zoom: this.zoom, jump: this.jump };
     this.lookX = this.lookY = this.zoom = 0; this.jump = false;
     return out;

@@ -17,7 +17,7 @@ void main() {
 
 const FRAG = /* glsl */ `
 uniform vec3 uSunDir, uSunColor, uAmbient;
-uniform float uPart, uSeg;
+uniform float uPart, uSeg, uShade;
 varying vec3 vPos, vNrm, vViewPos, vViewNrm;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -71,7 +71,7 @@ void main() {
   float ndl = dot(N, L);
   float wrap = clamp(ndl * 0.6 + 0.4, 0.0, 1.0);          // difuso envolvente: el pelaje no corta en seco
   vec3 up = (viewMatrix * vec4(0.0, 1.0, 0.0, 0.0)).xyz;
-  vec3 light = uSunColor * wrap * wrap * 0.85 + uAmbient * (0.6 + 0.4 * dot(N, up));
+  vec3 light = uSunColor * wrap * wrap * 0.85 * uShade + uAmbient * (0.6 + 0.4 * dot(N, up));
   float rim = pow(1.0 - max(dot(N, V), 0.0), 3.0);
   vec3 c = col * light + rim * fuzz * (uSunColor * max(ndl + 0.5, 0.0) * 0.07 + uAmbient * 0.1);
   if (fuzz < 0.5) c += uSunColor * pow(max(dot(reflect(-L, N), V), 0.0), 60.0) * 0.5;
@@ -84,8 +84,9 @@ export class Cat {
   constructor(env) {
     this.root = new THREE.Group();
     this.root.scale.setScalar(CAT_SCALE);
+    this.shade = { value: 1 }; // baja a 0 cuando el gato está a la sombra de un cerro
     const mat = (part, seg = 0) => new THREE.ShaderMaterial({
-      uniforms: { uSunDir: env.uSunDir, uSunColor: env.uSunColor, uAmbient: env.uAmbient, uLogF: env.uLogF, uPart: { value: part }, uSeg: { value: seg } },
+      uniforms: { uSunDir: env.uSunDir, uSunColor: env.uSunColor, uAmbient: env.uAmbient, uLogF: env.uLogF, uShade: this.shade, uPart: { value: part }, uSeg: { value: seg } },
       vertexShader: VERT, fragmentShader: FRAG,
     });
     const mesh = (geo, m, parent, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.frustumCulled = false; parent.add(o); return o; };

@@ -22,10 +22,10 @@ attribute vec2 iSV;   // escala y semilla de variación
 uniform vec3 uCamRel; // cámara relativa al ancla
 uniform vec2 uAnchor, uCoreSize;
 uniform float uTime, uRange;
-uniform sampler2D uCoreAlb;
+uniform sampler2D uCoreAlb, uShadow;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
-varying float vVar;
+varying float vVar, vShade;
 void main() {
   vec3 p = position;
   float fade = 1.0 - smoothstep(uRange * 0.72, uRange, length(iPR.xyz - uCamRel)); // se encoge al borde del alcance: sin "pop"
@@ -46,7 +46,8 @@ void main() {
   vN = vec3(c * normal.x + s * normal.z, normal.y, -s * normal.x + c * normal.z);
   vec3 wp = p + iPR.xyz;
   vRel = wp - uCamRel; vUv = uv; vVar = iSV.y;
-  vGround = textureLod(uCoreAlb, (uAnchor + iPR.xz) / uCoreSize, 2.0).rgb; // color del suelo donde está parada
+  vGround = textureLod(uCoreAlb, (uAnchor + iPR.xz) / uCoreSize, 2.0).rgb;
+  vShade = textureLod(uShadow, (uAnchor + iPR.xz) / uCoreSize, 0.0).r; // color del suelo donde está parada
   gl_Position = logDepth(projectionMatrix * modelViewMatrix * vec4(wp, 1.0));
 }`;
 
@@ -56,7 +57,7 @@ uniform vec3 uCamRel;
 uniform float uCamY;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
-varying float vVar;
+varying float vVar, vShade;
 float hash(vec3 p) { return fract(sin(dot(p, vec3(12.9898, 78.233, 37.719))) * 43758.5453); }
 float vnoise(vec3 p) {
   vec3 i = floor(p), f = fract(p); f = f * f * (3.0 - 2.0 * f);
@@ -91,8 +92,11 @@ void main() {
     float win = step(0.45, fract(vUv.y * (1.6 + tall * 1.6) * 1.57)) * step(0.4, fract((wp.x + wp.z) * 0.42 + wp.y * 0.01));
     col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) : wall * (1.0 - 0.5 * win * step(abs(N.y), 0.5));
   #endif
+  // Nieve sobre la línea de nieve de la estación: se posa en lo que mira hacia arriba.
+  float sn = smoothstep(uSnowLine - 40.0, uSnowLine + 220.0, wp.y) * smoothstep(-0.1, 0.65, N.y);
+  col = mix(col, vec3(0.80, 0.84, 0.90), sn * 0.88);
   float ndl = clamp((dot(N, uSunDir) + wrap) / (1.0 + wrap), 0.0, 1.0);
-  vec3 c = col * (uSunColor * ndl + uAmbient * (0.55 + 0.45 * N.y));
+  vec3 c = col * (uSunColor * ndl * vShade + uAmbient * (0.55 + 0.45 * N.y));
   float dist = length(vRel);
   c = applyFog(c, uCamY, vRel, dist);
   gl_FragColor = vec4(c, 1.0);
@@ -173,7 +177,8 @@ const hash2 = (ix, iz, k) => { let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class Props {
-  constructor({ hf, manifest, env, coreAlb, mapPixels, amount, labels }) {
+  constructor({ hf, manifest, env, coreAlb, mapPixels, amount, labels, shadowTex }) {
+    this._c = [0, 0];
     this.hf = hf; this.m = manifest; this.map = mapPixels; this.amount = amount;
     this._buildUrban(labels);
     this.group = new THREE.Group();
@@ -186,7 +191,7 @@ export class Props {
       const iPR = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4), iSV = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2);
       iPR.setUsage(THREE.DynamicDrawUsage); iSV.setUsage(THREE.DynamicDrawUsage);
       g.setAttribute('iPR', iPR); g.setAttribute('iSV', iSV); g.instanceCount = 0;
-      const uniforms = { ...env, uCamRel: { value: new THREE.Vector3() }, uAnchor: { value: new THREE.Vector2() }, uCoreSize: { value: new THREE.Vector2(manifest.core.sizeX, manifest.core.sizeZ) }, uRange: { value: range }, uCoreAlb: { value: coreAlb }, uCamY: { value: 0 } };
+      const uniforms = { ...env, uCamRel: { value: new THREE.Vector3() }, uAnchor: { value: new THREE.Vector2() }, uCoreSize: { value: new THREE.Vector2(manifest.core.sizeX, manifest.core.sizeZ) }, uRange: { value: range }, uCoreAlb: { value: coreAlb }, uShadow: { value: shadowTex }, uCamY: { value: 0 } };
       const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, defines: { TYPE: i }, side: i === 0 ? THREE.DoubleSide : THREE.FrontSide }));
       mesh.frustumCulled = false; this.group.add(mesh);
       return { ...t, range, max, mesh, uniforms, iPR, iSV, cache: new Map(), cx: NaN, cz: NaN, ax: 0, az: 0 };
@@ -248,6 +253,34 @@ export class Props {
       out.push(x, y, z, rot, scale, vary);
     }
     return new Float32Array(out);
+  }
+
+  // Colisiones contra lo que tiene cuerpo: casas (caja orientada), troncos, quiscos y rocas grandes.
+  // Usa las mismas celdas ya generadas para dibujar; devuelve la posición corregida.
+  collide(x, z) {
+    let nx = x, nz = z;
+    for (const ti of [1, 3, 4, 5]) {
+      const t = this.types[ti], cx = Math.floor(nx / t.cell), cz = Math.floor(nz / t.cell);
+      for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
+        const c = t.cache.get((cx + dx) * 65536 + (cz + dz)); if (!c) continue;
+        for (let i = 0; i < c.length; i += 6) {
+          const ox = nx - c[i], oz = nz - c[i + 2], sc = c[i + 4];
+          if (ti === 5) {
+            const k = 1 + Math.floor(c[i + 5]) * 0.05, hx = 3.5 * sc * k + 0.35, hz = 2.7 * sc * k + 0.35;
+            const co = Math.cos(c[i + 3]), si = Math.sin(c[i + 3]);
+            let lx = co * ox - si * oz, lz = si * ox + co * oz;
+            if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
+            if (hx - Math.abs(lx) < hz - Math.abs(lz)) lx = Math.sign(lx || 1) * hx; else lz = Math.sign(lz || 1) * hz;
+            nx = c[i] + co * lx + si * lz; nz = c[i + 2] - si * lx + co * lz;
+          } else {
+            const r = ti === 1 ? (sc > 0.75 ? sc * 0.8 : 0) : ti === 3 ? 0.13 * sc + 0.28 : 0.2 * sc + 0.22;
+            const d = Math.hypot(ox, oz);
+            if (r && d < r && d > 1e-4) { nx = c[i] + (ox / d) * r; nz = c[i + 2] + (oz / d) * r; }
+          }
+        }
+      }
+    }
+    this._c[0] = nx; this._c[1] = nz; return this._c;
   }
 
   update(camera, speed) {

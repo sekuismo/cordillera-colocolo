@@ -1,5 +1,6 @@
 // Interfaz: HUD, fichas educativas, guía, mapa con viaje rápido y capas.
-import { LUGARES, PISOS, INTRO } from './lugares.js';
+import { LUGARES, PISOS, INTRO, ESTACIONES, TORMENTA } from './lugares.js';
+import { SEASONS } from './env.js';
 import { SPEEDS } from './player.js';
 
 const $ = (s) => document.querySelector(s);
@@ -9,7 +10,7 @@ const STORE = 'cordillera:v1';
 export class UI {
   constructor({ manifest, player, labels, terrain, env, input, quality, border }) {
     Object.assign(this, { m: manifest, player, labels, terrain, env, input, quality, border });
-    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5 };
+    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5, year: 0.04, auto: true, epocas: [], tormenta: false };
     try { Object.assign(this.saved, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { /* almacenamiento bloqueado: se juega igual */ }
     this.seen = new Set(this.saved.seen); this.pisos = new Set(this.saved.pisos);
     this.lugares = LUGARES.map((l) => ({ ...l, x: (l.lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - l.lat) * manifest.mPerDegLat }));
@@ -37,6 +38,18 @@ export class UI {
     };
     hora.value = this.saved.hour; setHour(+hora.value, false);
     hora.addEventListener('input', () => setHour(+hora.value));
+
+    // --- estaciones
+    this.epocas = new Set(this.saved.epocas); this.seasonDelay = 45; this.wasStorm = false;
+    const epoca = (this.epoca = $('#epoca')), auto = $('#epoca-auto'), storm = $('#tormenta');
+    env.year = this.saved.year; env.auto = auto.checked = this.saved.auto; env.setYear(env.year);
+    epoca.addEventListener('input', () => { env.auto = auto.checked = false; env.setYear(+epoca.value); this.saved.auto = false; this.saved.year = env.year; this.save(); });
+    auto.addEventListener('change', () => { env.auto = this.saved.auto = auto.checked; this.save(); });
+    storm.addEventListener('click', () => {
+      if (env.winter < 0.25) return this.toast('En verano casi no entran frentes: prueba en otoño o invierno', 3200);
+      env.forceStorm = !env.forceStorm; storm.classList.toggle('on', env.forceStorm);
+      storm.textContent = env.forceStorm ? 'Dejar que pase la tormenta' : 'Provocar una tormenta';
+    });
     document.querySelectorAll('#calidad button').forEach((b) => {
       b.classList.toggle('on', b.dataset.q === quality.tier);
       b.addEventListener('click', () => { if (b.dataset.q !== quality.tier) { const u = new URL(location.href); u.searchParams.set('q', b.dataset.q); location.href = u; } });
@@ -46,7 +59,11 @@ export class UI {
     this.levelBtns = [...document.querySelectorAll('#speed-levels button')];
     this.levelBtns.forEach((b, i) => { b.addEventListener('click', () => this.setLevel(i)); input.on('Digit' + (i + 1), () => this.setLevel(i)); });
     this.setLevel(player.level, false);
-    $('#jump').addEventListener('pointerdown', (e) => { e.preventDefault(); input.jump = true; });
+    const jb = $('#jump');
+    jb.addEventListener('pointerdown', (e) => { e.preventDefault(); input.jump = true; input.touchJump = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jb.addEventListener(ev, () => { input.touchJump = false; });
+    input.on('KeyV', () => { player.firstPerson = !player.firstPerson; this.toast(player.firstPerson ? 'Primera persona' : 'Tercera persona'); });
+    input.onLock = (on) => this.toast(on ? 'Mouse capturado · Esc para soltarlo' : 'Mouse libre · clic en el paisaje para volver a mirar', 2600);
 
     // --- ficha
     $('#card-close').addEventListener('click', () => this.closeCard());
@@ -108,6 +125,7 @@ export class UI {
   }
   toggle(name) {
     for (const p of document.querySelectorAll('.panel')) p.hidden = name === null || p.id !== 'panel-' + name || !p.hidden;
+    if (name && document.pointerLockElement) document.exitPointerLock();
     const open = document.querySelector('.panel:not([hidden])');
     document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('on', !!open && open.id === 'panel-' + b.dataset.panel));
     if (open && open.id === 'panel-mapa') { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = 'Toca cualquier punto del mapa para viajar ahí.'; this.drawBig(); }
@@ -164,7 +182,21 @@ export class UI {
       const near = this.labels.nearest(p.x, p.z);
       $('#place-name').textContent = near ? near.name : this.country === 'ar' ? 'Cordillera de Mendoza' : 'Cordillera de Santiago';
       $('#place-meta').textContent = `${fmt(p.y)} m s. n. m. · ${Math.abs(lat).toFixed(3).replace('.', ',')}° S ${Math.abs(lon).toFixed(3).replace('.', ',')}° O`;
-      $('#kmh').textContent = `${fmt(p.speed * 3.6)} km/h`;
+      const env = this.env, temp = Math.round(env.temperature(p.y)), line = fmt(Math.round(env.snowLine / 50) * 50);
+      const sky = env.storm > 0.4 ? (env.snowingHere ? 'nevando' : `lloviendo (nieva sobre ${fmt(Math.round(env.fallLine / 50) * 50)} m)`) : `nieve sobre ${line} m`;
+      $('#place-clima').textContent = `${SEASONS[env.season]} · ${temp} °C · ${sky}`;
+      $('#epoca-out').textContent = `${SEASONS[env.season]} · ${env.month}`;
+      if (env.auto) { this.epoca.value = env.year; this.saved.year = env.year; }
+      if (!env.forceStorm && $('#tormenta').classList.contains('on')) { $('#tormenta').classList.remove('on'); $('#tormenta').textContent = 'Provocar una tormenta'; }
+      $('#kmh').textContent = `${fmt(p.speed * 3.6)} km/h · ${(p.odo / 1000).toFixed(p.odo < 1e5 ? 1 : 0).replace('.', ',')} km recorridos`;
+      // Próximo lugar sin visitar, con rumbo y distancia: ayuda a dimensionar cuánto falta de verdad.
+      let nextL = null, nd = Infinity;
+      for (const l of this.lugares) { if (this.seen.has(l.id)) continue; const d = Math.hypot(l.x - p.x, l.z - p.z); if (d < nd) { nd = d; nextL = l; } }
+      if (nextL) {
+        const brg = ((Math.atan2(nextL.x - p.x, -(nextL.z - p.z)) * 180) / Math.PI + 360) % 360, dir = ['N', 'NE', 'E', 'SE', 'S', 'SO', 'O', 'NO'][Math.round(brg / 45) % 8];
+        const eta = p.speed > 1 ? nd / p.speed : 0;
+        $('#place-next').textContent = `Próximo: ${nextL.n} · ${(nd / 1000).toFixed(nd < 1e4 ? 1 : 0).replace('.', ',')} km al ${dir}${eta > 5 ? ` · ${eta > 5400 ? (eta / 3600).toFixed(1).replace('.', ',') + ' h' : eta > 90 ? Math.round(eta / 60) + ' min' : Math.round(eta) + ' s'}` : ''}`;
+      } else $('#place-next').textContent = '';
     }
     if ((this.tick -= dt) <= 0) {
       this.tick = 0.3;
@@ -181,6 +213,20 @@ export class UI {
       if (piso >= 0 && !this.pisos.has(piso) && p.speed < 80) {
         this.pisos.add(piso); this.save();
         this.showCard({ tag: `Piso de vegetación · ${fmt(PISOS[piso].min)}–${PISOS[piso].max > 8000 ? '6.570' : fmt(PISOS[piso].max)} m`, title: PISOS[piso].n, text: PISOS[piso].d });
+      }
+      // Estaciones y clima: ficha la primera vez que llega cada estación y en la primera tormenta.
+      const env = this.env;
+      if ((this.seasonDelay -= 0.3) <= 0 && !this.epocas.has(env.season)) {
+        this.epocas.add(env.season); this.saved.epocas = [...this.epocas]; this.save();
+        this.showCard({ tag: `Estación · ${env.month}`, title: ESTACIONES[env.season].n, text: ESTACIONES[env.season].d });
+      }
+      const stormy = env.storm > 0.5;
+      if (stormy !== this.wasStorm) {
+        this.wasStorm = stormy;
+        if (stormy) {
+          this.toast(`Entra un frente: isoterma 0 °C a ${fmt(Math.round(env.iso0 / 50) * 50)} m`, 4200);
+          if (!this.saved.tormenta) { this.saved.tormenta = true; this.save(); this.showCard({ tag: TORMENTA.t, title: TORMENTA.n, text: TORMENTA.d }); }
+        } else this.toast('Pasó el frente: mira hasta dónde bajó la nieve', 3600);
       }
       const c = this._country(p.x, p.z);
       if (c !== this.country) { this.country = c; this.toast(c === 'ar' ? 'Cruzaste el límite: estás en Argentina' : 'De vuelta en Chile', 3600); }

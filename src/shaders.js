@@ -13,7 +13,7 @@ vec4 logDepth(vec4 p) { p.z = (log2(max(1e-6, 1.0 + p.w)) * uLogF - 1.0) * p.w; 
 
 export const ATMOS_GLSL = /* glsl */ `
 uniform vec3 uSunDir, uSunColor, uSkyZenith, uSkyHorizon, uAmbient, uFogColor;
-uniform float uFogDensity, uTime;
+uniform float uFogDensity, uTime, uSnowLine, uStorm, uGreen;
 
 vec3 skyColor(vec3 d) {
   float t = pow(clamp(d.y, 0.0, 1.0), 0.45);
@@ -119,7 +119,9 @@ uniform sampler2D uCoreAlb, uCtxAlb, uOv0, uOv1, uOv2;
 uniform vec2 uCamFrac[${OCTAVES.length}];
 uniform vec2 uWaterFrac;
 uniform vec3 uOv[3];   // xy: cámara − centro de la cascada, z: tamaño
-uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional, z: nieve invernal, w: —
+uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional
+uniform sampler2D uShadow; // sombras arrojadas por el relieve (se recalculan en CPU cuando cambia el sol)
+float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 vec4 overlay(vec2 rel) {
   vec4 o = vec4(0.0);
@@ -152,6 +154,22 @@ void main() {
   alb /= mix(1.0, clamp(bake, 0.6, 1.2), 0.6);
   // Las sombras arrojadas de la imagen no se pueden quitar con la normal: al menos se levantan los negros.
   alb *= 1.0 + 0.9 * (1.0 - smoothstep(0.0, 0.11, dot(alb, vec3(0.333))));
+
+  // Mancha urbana: gris, plana y en el valle. Desde un cerro la ciudad debe leerse como una trama de
+  // calles y manzanas, no como una mancha: se dibuja una cuadrícula que se desvanece con la distancia.
+  float lum0 = dot(alb, vec3(0.333));
+  float sat0 = (max(alb.r, max(alb.g, alb.b)) - min(alb.r, min(alb.g, alb.b))) / (lum0 + 0.02);
+  float urbanish = (1.0 - smoothstep(0.14, 0.26, sat0)) * smoothstep(0.03, 0.07, lum0) * (1.0 - smoothstep(900.0, 1150.0, y)) * (1.0 - smoothstep(0.002, 0.012, s2));
+  vec2 gcell = xz / vec2(118.0, 124.0), gfw = fwidth(gcell);
+  vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
+  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish;
+  float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
+  alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
+  alb = mix(alb, alb * 0.5, street * gfade * 0.75);
+  // Estaciones: la imagen satelital es de verano (cerros secos). Con las lluvias de invierno el valle y la
+  // precordillera reverdecen, y vuelven a amarillear hacia el verano.
+  float lowland = 1.0 - smoothstep(1500.0, 2700.0, y);
+  alb = mix(alb, vec3(alb.g * 0.60, alb.g * 0.98 + 0.012, alb.b * 0.5), uGreen * lowland * (1.0 - urbanish) * 0.55 * (1.0 - smoothstep(0.25, 0.6, s2)));
 
   float amp = roughAmp(s2);
   float near = 1.0 - smoothstep(250.0, 2500.0, dist);
@@ -186,14 +204,21 @@ void main() {
   alb = mix(alb, vec3(0.055, 0.058, 0.062) * (1.0 + cvar * 0.25), road * 0.92);
   alb = mix(alb, (alb * 0.9 + vec3(0.075, 0.062, 0.045)) * (1.0 + cvar * 0.3), trail * 0.85); // huella de tierra: algo más clara que su entorno
 
-  vec2 g = -nxz / ny + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_);
+  // Nieve estacional: sobre la línea de nieve, con borde irregular, sin pegarse en los paredones y bajando
+  // unos 300 m más en las laderas que miran al sur (en el hemisferio sur son las de umbría).
+  float sline = uSnowLine - 320.0 * clamp(nxz.y * 2.2, -1.0, 1.0);
+  float snow = smoothstep(sline - 140.0, sline + 240.0, y + (t0.w * 0.55 + t1.w * 0.45) * 170.0);
+  snow *= (1.0 - smoothstep(0.42, 0.78, s2)) * (1.0 - water) * (1.0 - road * 0.6);
+  alb = mix(alb, vec3(0.80, 0.84, 0.90) * (1.0 + cvar * 0.06), snow);
+  vec2 g = -nxz / ny + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_) * (1.0 - 0.7 * snow);
   vec3 N = normalize(vec3(-g.x, 1.0, -g.y));
 
   float ndl = max(dot(N, uSunDir), 0.0);
   // Sombra de contacto del gato.
   vec2 dc = vRel.xz - uCatPos.xz + uSunDir.xz * 0.18;
   float blob = exp(-dot(dc, dc) / 0.16) * step(abs(vRel.y - uCatPos.y), 1.5);
-  vec3 light = uSunColor * ndl * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
+  float shade = mix(1.0, texture2D(uShadow, uvC).r, w);
+  vec3 light = uSunColor * ndl * shade * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
   vec3 col = alb * light;
 
   if (water > 0.004) {
@@ -241,7 +266,7 @@ void main() {
   vec3 d = normalize(vDir);
   vec3 col = skyColor(d);
   float s = max(dot(d, uSunDir), 0.0);
-  col += uSunColor * (smoothstep(0.99985, 0.99994, s) * 14.0 + pow(s, 900.0) * 1.2);
+  col += uSunColor * (smoothstep(0.99985, 0.99994, s) * 14.0 + pow(s, 900.0) * 1.2) * (1.0 - uStorm);
   // Cirros altos: una capa plana de ruido proyectada, tenue y sin costo real.
   if (d.y > 0.015) {
     vec2 p = d.xz / (d.y + 0.08) * 0.11 + uTime * vec2(0.0012, 0.0004);
@@ -249,6 +274,9 @@ void main() {
     c = smoothstep(0.22, 0.85, c) * smoothstep(0.015, 0.16, d.y) * 0.6;
     vec3 cc = uSunColor * (0.26 + 0.25 * pow(s, 6.0)) + uAmbient * 0.75;
     col = mix(col, cc, c);
+    // Frente de mal tiempo: capa cerrada de nubes grises.
+    float ov = 0.75 + 0.25 * texture2D(uNoise, p * 0.7 + uTime * 0.004).w;
+    col = mix(col, (uSkyHorizon * 0.8 + uAmbient * 0.35) * ov, uStorm * 0.92);
   }
   gl_FragColor = vec4(col, 1.0);
   #include <tonemapping_fragment>

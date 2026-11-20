@@ -13,6 +13,15 @@ export const LUGARES = [
   { id: 'pirque', n: 'Pirque', t: 'Valle agrícola', lat: -33.6355, lon: -70.5730, r: 2200,
     d: 'Al sur del río Maipo, Pirque conserva su carácter rural: parcelas, viñas y canales de riego que sacan agua del Maipo desde tiempos coloniales. El valle del Maipo es una de las zonas vitivinícolas más conocidas del país.' },
 
+  { id: 'costanera', n: 'Gran Torre Costanera', t: 'Hito urbano', lat: -33.4170, lon: -70.6065, r: 650,
+    d: 'Con 300 m es el edificio más alto de Sudamérica, y por lejos lo más alto del valle: desde cualquier cerro sirve para ubicar Providencia. A su alrededor está el barrio financiero que los santiaguinos apodaron "Sanhattan". Aun así, la torre completa cabría más de diez veces bajo la cumbre del cerro de Ramón.' },
+  { id: 'moneda', n: 'Palacio de La Moneda', t: 'Hito urbano', lat: -33.4430, lon: -70.6537, r: 500,
+    d: 'La sede del gobierno nació como casa de moneda colonial: la diseñó el arquitecto Joaquín Toesca y se terminó en 1805. Es baja y maciza a propósito, pensada para resistir terremotos. Fue bombardeada durante el golpe de Estado del 11 de septiembre de 1973.' },
+  { id: 'estadio', n: 'Estadio Nacional', t: 'Hito urbano', lat: -33.4645, lon: -70.6106, r: 600,
+    d: 'Inaugurado en 1938, aquí se jugó la final del Mundial de 1962. Tras el golpe de 1973 funcionó como centro de detención y hoy una parte de sus graderías se conserva como sitio de memoria. Desde la precordillera se reconoce por su anillo ovalado en medio de Ñuñoa.' },
+  { id: 'bahai', n: 'Templo Bahá’í', t: 'Hito urbano', lat: -33.4720, lon: -70.5090, r: 600,
+    d: 'Inaugurado en 2016 en plena precordillera de Peñalolén, es el templo bahá’í de Sudamérica. Sus nueve "velas" de mármol y vidrio dejan pasar la luz y se encienden al atardecer. Está casi encima de la traza de la falla San Ramón.' },
+
   // ---- Sierra de Ramón
   { id: 'sierraramon', n: 'Sierra de Ramón', t: 'Cordón montañoso', lat: -33.4510, lon: -70.4800, r: 2400,
     d: 'El muro que ves desde todo Santiago. Este cordón de unos 25 km separa la ciudad de la alta cordillera, entre los ríos Mapocho y Maipo, y sube más de 2.500 m desde las calles hasta la cumbre del cerro de Ramón (3.253 m) en apenas 10 km.' },
@@ -112,4 +121,16 @@ export const PISOS = [
 export const INTRO = {
   n: 'Eres un gato colocolo', t: 'Leopardus colocola',
   d: 'Un felino silvestre nativo, apenas más grande que un gato doméstico (3 a 4 kg). Lo reconoces por las bandas café rojizas de sus flancos, los anillos oscuros de las patas y la cola gruesa. Vive desde el matorral del valle hasta sobre los 4.000 m, y está amenazado por la pérdida de hábitat, los perros y los atropellos. Parte por subir la Sierra de Ramón.',
+};
+
+// Estaciones: una ficha la primera vez que llega cada una, más la de la primera tormenta.
+export const ESTACIONES = [
+  { n: 'Verano seco', d: 'De diciembre a marzo casi no llueve en la zona central: es clima mediterráneo. La nieve se refugia sobre los 4.000 m y los cerros bajos se ponen amarillos. Los ríos, en cambio, llevan su mayor caudal: viven del deshielo, no de la lluvia.' },
+  { n: 'Otoño: llegan los frentes', d: 'Desde abril empiezan a entrar frentes de mal tiempo desde el Pacífico. Cada uno deja nieve nueva en la cordillera, y qué tan abajo cae depende de la isoterma cero: la altitud a la que el aire está a 0 °C.' },
+  { n: 'Invierno: la cordillera blanca', d: 'En un invierno normal la nieve cubre la cordillera sobre los 2.000 a 2.500 m. Fíjate en las laderas: las que miran al sur reciben menos sol y guardan la nieve varios cientos de metros más abajo. Con una tormenta muy fría puede nevar en la precordillera y, rara vez, en Santiago mismo.' },
+  { n: 'Primavera: el deshielo', d: 'El manto de nieve empieza a derretirse y a alimentar ríos y embalses hasta bien entrado el verano: es la reserva de agua de Santiago. La precordillera está en su momento más verde. Desde 2010, la megasequía ha dejado inviernos con bastante menos nieve que el promedio histórico.' },
+];
+export const TORMENTA = {
+  n: 'Isoterma cero', t: 'Tormenta',
+  d: 'Sobre la isoterma cero la precipitación cae como nieve; más abajo, como lluvia. Si el frente llega tibio y la isoterma sube sobre los 3.000 m, llueve donde normalmente nieva: el agua escurre de golpe en vez de quedar guardada como nieve, y bajan los aluviones.',
 };

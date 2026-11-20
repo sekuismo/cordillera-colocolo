@@ -32,6 +32,7 @@ export class Labels {
     this._vp = new THREE.Matrix4(); this._rects = [];
   }
   setLayer(group, on) { this.enabled[group] = on; }
+  add(list) { for (const l of list) this.items.push({ kind: 'hito', group: 'lugares', rank: 1, ele: 0, ...l }); }
 
   _project(it, out) {
     const e = this._vp.elements, x = it.x, y = it.y, z = it.z;
@@ -72,7 +73,8 @@ export class Labels {
     el.className = `lbl g-${it.group} r${it.rank}`;
     el.textContent = it.name;
     if (it.ele > 0 && it.group === 'cumbres') el.appendChild(document.createElement('i')).textContent = `${fmt(it.ele)} m`;
-    it.w = it.name.length * (it.rank < 2 ? 7.8 : 6.9) + 14; it.h = it.ele > 0 && it.group === 'cumbres' ? 48 : 36;
+    else if (it.note) el.appendChild(document.createElement('i')).textContent = it.note;
+    it.w = it.name.length * (it.rank < 2 ? 7.8 : 6.9) + 14; it.h = (it.ele > 0 && it.group === 'cumbres') || it.note ? 48 : 36;
     this.els.set(it, el);
     return el;
   }

@@ -7,7 +7,10 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 - Relieve real (DEM de 30 m) de un área de 111 × 139 km: Santiago, Sierra de Ramón, Farellones y El Plomo, todo el Cajón del Maipo, los volcanes San José, Tupungato y Maipo, y unos 20 km de Mendoza.
 - Imagen satelital Sentinel-2 como color base, con suelo, vegetación y rocas procedurales de cerca.
 - 2.500 nombres (cumbres, localidades, ríos, glaciares, refugios…) que se prenden y apagan por capa.
-- 44 fichas explicativas que aparecen al llegar a cada lugar, más los pisos de vegetación por altitud.
+- 48 fichas explicativas que aparecen al llegar a cada lugar, más los pisos de vegetación por altitud.
+- Estaciones del año: la línea de nieve sube y baja, entran frentes con su isoterma cero (nieva arriba, llueve abajo), el valle reverdece en invierno y el sol pasa más bajo.
+- Sombras arrojadas por los cerros según la hora y la época.
+- Santiago reconocible desde los cerros: skyline por barrio e hitos a escala real (Gran Torre Costanera, Torre Entel, La Moneda, Estadio Nacional, Templo Bahá’í, Virgen del San Cristóbal…).
 - Funciona en escritorio y en móvil (joystick táctil, calidad adaptativa).
 
 ## Controles
@@ -15,9 +18,10 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 | Escritorio | Acción |
 | --- | --- |
 | `W A S D` / flechas | Moverse |
-| Arrastrar / rueda | Mirar / acercar la cámara |
-| `1` `2` `3` `4`, `Shift` | Marchas: Paseo, Carrera, Turbo, Híper |
-| `Espacio`, `E` | Saltar, avance automático |
+| Clic (Esc para soltar) | Capturar el mouse y mirar como en un FPS |
+| Rueda, `V` | Acercar o alejar la cámara, primera persona |
+| `1`–`5`, `Shift` | Marchas: Paseo, Trote, Carrera, Turbo, Híper |
+| `Espacio`, `E` | Saltar (mantener = más alto), avance automático |
 | `M`, `N` | Mapa (viaje rápido), mostrar/ocultar nombres |
 
 En móvil: joystick en el lado izquierdo, arrastrar en el derecho para mirar, pellizcar para alejar.
@@ -34,6 +38,8 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Detalle bajo 34 m | Ruido fBm periódico compartido entre CPU y GPU: desplaza la malla cerca de la cámara y la física del gato usa exactamente la misma función. |
 | Ríos, caminos, frontera | Vectores OSM rasterizados en GPU a 3 texturas en cascada centradas en la cámara (0,25 m/px cerca, 16 m/px lejos). |
 | Nombres | Etiquetas HTML priorizadas por aislamiento topográfico de la cumbre y distancia, con oclusión por el relieve. |
+| Sombras del relieve | Barrido O(N) sobre el DEM en CPU (altura de sombra por línea paralela al sol), repartido en varios cuadros y subido como textura de 1 canal. |
+| Estaciones | Un solo parámetro (fracción del año) mueve la declinación solar, la línea de nieve, el verdor y la probabilidad de frentes. |
 
 `src/heightfield.js` (CPU) y `HEIGHT_GLSL` en `src/shaders.js` (GPU) son la misma función escrita dos veces: si se cambia una, hay que cambiar la otra.
 

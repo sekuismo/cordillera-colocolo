@@ -15,7 +15,7 @@
 <div id="labels" aria-hidden="true"></div>
 
 <div id="hud" hidden>
-  <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-meta"></span></div>
+  <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-meta"></span><span id="place-clima"></span><span id="place-next"></span></div>
   <div id="compass" aria-hidden="true"><div id="compass-tape"></div><i></i></div>
   <nav id="menu">
     <button data-panel="capas">Capas</button>
@@ -34,7 +34,7 @@
   <div id="speed">
     <span id="kmh">0 km/h</span>
     <div id="speed-levels">
-      <button data-level="0">Paseo</button><button data-level="1">Carrera</button><button data-level="2">Turbo</button><button data-level="3">Híper</button>
+      <button data-level="0">Paseo</button><button data-level="1">Trote</button><button data-level="2">Carrera</button><button data-level="3">Turbo</button><button data-level="4">Híper</button>
     </div>
   </div>
   <button id="jump" aria-label="Saltar">Saltar</button>
@@ -56,6 +56,10 @@
     <label><input type="checkbox" data-layer="info" checked><span>Fichas explicativas al llegar a un lugar</span></label>
     <h3>Hora del día <output id="hora-out"></output></h3>
     <input type="range" id="hora" min="5.3" max="18.8" step="0.05" value="9.5">
+    <h3>Estación del año <output id="epoca-out"></output></h3>
+    <input type="range" id="epoca" min="0" max="0.999" step="0.004" value="0.04">
+    <label><input type="checkbox" id="epoca-auto" checked><span>Que las estaciones avancen solas</span></label>
+    <button class="wide-btn" id="tormenta">Provocar una tormenta</button>
     <h3>Calidad gráfica</h3>
     <div class="seg" id="calidad"><button data-q="lo">Liviana</button><button data-q="hi">Alta</button></div>
     <p class="note" id="stats"></p>
@@ -78,11 +82,11 @@
   <div class="body">
     <dl class="keys desktop">
       <dt>W A S D / flechas</dt><dd>Moverse (la cámara sigue al gato)</dd>
-      <dt>Arrastrar</dt><dd>Mirar alrededor</dd>
-      <dt>Rueda</dt><dd>Acercar o alejar la cámara</dd>
-      <dt>1 2 3 4</dt><dd>Paseo, Carrera, Turbo, Híper</dd>
+      <dt>Clic</dt><dd>Capturar el mouse y mirar como en un FPS (Esc lo suelta)</dd>
+      <dt>Rueda · V</dt><dd>Alejar o acercar la cámara · primera persona</dd>
+      <dt>1 2 3 4 5</dt><dd>Paseo, Trote, Carrera, Turbo, Híper</dd>
       <dt>Shift</dt><dd>Subir una marcha mientras lo aprietas</dd>
-      <dt>Espacio</dt><dd>Saltar</dd>
+      <dt>Espacio</dt><dd>Saltar (mantener para saltar más alto)</dd>
       <dt>E</dt><dd>Avance automático</dd>
       <dt>M · N</dt><dd>Mapa · mostrar/ocultar nombres</dd>
     </dl>
