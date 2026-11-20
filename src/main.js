@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { pickQuality, loadAll, demTexture, normalTexture, albedoTexture } from './data.js';
+import { pickQuality, loadAll, demTexture, normalTexture, albedoTexture, landTexture } from './data.js';
 import { Heightfield, makeNoise, noiseTexture } from './heightfield.js';
 import { Environment, FAR } from './env.js';
 import { Overlay } from './overlay.js';
@@ -12,6 +12,7 @@ import { UI } from './ui.js';
 import { Props } from './props.js';
 import { Shadows } from './shadows.js';
 import { City, HITOS } from './city.js';
+import { SpeedFX } from './speedfx.js';
 
 const $ = (s) => document.querySelector(s);
 const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
@@ -42,7 +43,7 @@ async function boot() {
     coreDem: demTexture(data.core), ctxDem: demTexture(data.ctx),
     coreNrm: normalTexture(data.core), ctxNrm: normalTexture(data.ctx),
     coreAlb: albedoTexture(data.coreImg, aniso), ctxAlb: albedoTexture(data.ctxImg, aniso),
-    noise: noiseTexture(noise),
+    noise: noiseTexture(noise), land: landTexture(data.land),
   };
   const shadows = new Shadows(hf.core); tex.shadow = shadows.tex;
   const env = new Environment(tex.noise, quality.props);
@@ -53,10 +54,11 @@ async function boot() {
   overlay.setLines(data.lines);
   const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
   const cat = new Cat(env.uniforms);
-  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, mapPixels: data.mapPixels, amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
+  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, land: data.land, amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
   const city = new City({ hf, manifest, env: env.uniforms });
   const scene = new THREE.Scene();
-  scene.add(terrain.group, props.group, city.mesh, cat.root, env.sky, env.precip);
+  const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props);
+  scene.add(terrain.group, props.group, city.mesh, cat.root, env.sky, env.precip, speedfx.mesh);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
 
   const input = new Input(canvas, $('#stick'));
@@ -103,6 +105,7 @@ async function boot() {
     shadows.step(4);
     cat.shade.value += (shadows.at(player.x, player.z) - cat.shade.value) * (1 - Math.exp(-dt * 8));
     city.update(camera, env.elevation);
+    speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
     overlay.update(renderer, camera.position);
     terrain.update(camera);
     props.update(camera, player.speed);

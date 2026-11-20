@@ -19,7 +19,7 @@ const demAt = (x, z) => {
 const demPeak = (x, z) => { let m = 0; for (let dz = -60; dz <= 60; dz += 30) for (let dx = -60; dx <= 60; dx += 30) m = Math.max(m, demAt(x + dx, z + dz)); return m; };
 
 // ---------- Etiquetas ----------
-const KINDS = ['cerro', 'volcan', 'paso', 'ciudad', 'pueblo', 'villa', 'caserio', 'barrio', 'lugar', 'refugio', 'mirador', 'atractivo', 'cascada', 'termas', 'glaciar', 'lago', 'rio', 'estero', 'parque', 'ski'];
+const KINDS = ['cerro', 'volcan', 'paso', 'ciudad', 'pueblo', 'villa', 'caserio', 'barrio', 'lugar', 'refugio', 'mirador', 'atractivo', 'cascada', 'termas', 'glaciar', 'lago', 'rio', 'estero', 'parque', 'ski', 'valle', 'cordon'];
 const labels = [];
 const add = (name, kind, lon, lat, rank, ele = null) => {
   const x = X(lon), z = Z(lat);
@@ -57,6 +57,11 @@ for (const e of await load('areas')) {
   else if (t.natural === 'water') add(t.name, 'lago', c.lon, c.lat, /embalse|laguna negra|diamante/i.test(t.name) ? 1 : 2);
   else if (t.landuse === 'winter_sports') add(t.name, 'ski', c.lon, c.lat, 1);
   else if (t.boundary === 'national_park' || t.boundary === 'protected_area' || t.leisure === 'nature_reserve') add(t.name, 'parque', c.lon, c.lat, 2);
+}
+
+for (const e of await load('relief')) {
+  const t = e.tags || {}, c = e.center || e; if (!t.name || c.lat === undefined) continue;
+  add(t.name, t.natural === 'valley' || t.natural === 'gorge' ? 'valle' : 'cordon', c.lon, c.lat, t.natural === 'cliff' ? 3 : 2);
 }
 
 // ---------- Geometría ----------

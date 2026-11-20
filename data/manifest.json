@@ -33,12 +33,14 @@
   "hi": {
    "dem": "core_hi.dem",
    "img": "core_hi.webp",
+   "land": "land_hi.bin",
    "w": 3272,
    "h": 4080
   },
   "lo": {
    "dem": "core_lo.dem",
    "img": "core_lo.webp",
+   "land": "land_lo.bin",
    "w": 1636,
    "h": 2040
   }
@@ -54,6 +56,8 @@
   "ctx.dem": 1044460,
   "ctx.webp": 748538,
   "lines.bin": 894424,
-  "labels.json": 103426
+  "labels.json": 103426,
+  "land_hi.bin": 1486117,
+  "land_lo.bin": 437300
  }
 }

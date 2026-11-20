@@ -1,6 +1,12 @@
-// Vegetación y rocas instanciadas alrededor de la cámara: es lo que da la escala humana al paisaje.
-// La distribución es determinista (hash por celda) y sigue reglas simples de la zona central:
-// altitud, pendiente, exposición (los quiscos van en laderas que miran al norte) y el verdor de la imagen satelital.
+// Vegetación, rocas y construcciones instanciadas alrededor de la cámara: es lo que da la escala humana al paisaje.
+// La distribución es determinista (hash por celda). Qué crece en cada punto lo decide la cobertura de suelo real
+// (ESA WorldCover + polígonos OSM) cruzada con altitud, pendiente y exposición, siguiendo la vegetación de la zona central:
+//   nativa   → espinal en el valle; bosque esclerófilo (quillay, litre, peumo) en laderas y quebradas; quiscos en las
+//              laderas que miran al norte; ciprés de la cordillera en umbrías altas; neneo y coirón en el piso andino;
+//              llareta sobre los 3.000 m; vegas verdes en los humedales de altura.
+//   plantada → álamos en hilera en los campos, eucaliptos y pinos en plantaciones, frutales y viñas en cuadrícula,
+//              árboles de calle y parque en la ciudad. Lo caduco amarillea en otoño y queda pelado en invierno;
+//              lo nativo es siempre verde: esa es la gracia del bosque esclerófilo.
 import * as THREE from 'three';
 import { COMMON_VERT, ATMOS_GLSL } from './shaders.js';
 
@@ -11,6 +17,8 @@ const TYPES = [
   { key: 'arbol', cell: 26, range: 560, per: 4, max: 5000 },
   { key: 'quisco', cell: 26, range: 420, per: 2, max: 1500 },
   { key: 'casa', cell: 15, range: 560, per: 1, max: 6000 },
+  { key: 'alto', cell: 6, range: 520, per: 1, max: 5000 },  // árboles columnares o cónicos
+  { key: 'vid', cell: 9, range: 190, per: 3, max: 6000 },    // hileras de parra
 ];
 // Radio (m) y densidad máxima de construcciones alrededor de cada localidad OSM, según su tipo.
 const URBAN = { ciudad: [4500, 1], pueblo: [950, 0.85], barrio: [1500, 0.8], villa: [430, 0.7], caserio: [150, 0.5] };
@@ -22,6 +30,7 @@ attribute vec2 iSV;   // escala y semilla de variación
 uniform vec3 uCamRel; // cámara relativa al ancla
 uniform vec2 uAnchor, uCoreSize;
 uniform float uTime, uRange;
+uniform vec3 uLeaf; // x: hoja en los caducos (0 = invierno), y: color de otoño, z: floración
 uniform sampler2D uCoreAlb, uShadow;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
@@ -29,16 +38,37 @@ varying float vVar, vShade;
 void main() {
   vec3 p = position;
   float fade = 1.0 - smoothstep(uRange * 0.72, uRange, length(iPR.xyz - uCamRel)); // se encoge al borde del alcance: sin "pop"
+  float kind = floor(iSV.y), crown = step(0.5, uv.x);
+  vec2 sway = vec2(sin(uTime * 0.9 + iPR.x * 0.2), cos(uTime * 0.7 + iPR.z * 0.2)) * 0.03 * crown;
   #if TYPE == 0
     p.xz += uv.y * uv.y * vec2(sin(uTime * 1.7 + iPR.x * 0.6), cos(uTime * 1.3 + iPR.z * 0.6)) * 0.07;
-    p *= iSV.x * fade * vec3(1.0, 0.7 + iSV.y * 0.6, 1.0);
+    p *= iSV.x * fade * vec3(1.0, 0.7 + fract(iSV.y) * 0.6, 1.0);
   #elif TYPE == 1
     p *= iSV.x * fade * vec3(1.0, 0.55 + fract(iSV.y * 7.3) * 0.45, 0.7 + fract(iSV.y * 3.1) * 0.5);
+  #elif TYPE == 2
+    // 0 matorral esclerófilo · 1 neneo (cojín bajo) · 2 llareta (cojín plano) · 3 frutal
+    float sy = kind < 0.5 ? 0.85 + fract(iSV.y * 5.7) * 0.4 : kind < 1.5 ? 0.6 : kind < 2.5 ? 0.3 : 1.3;
+    p.xz += uv.y * sway * step(2.5, kind);
+    p *= iSV.x * fade * vec3(1.0, sy, 1.0);
+  #elif TYPE == 3
+    // 0 espino (copa ancha y aplanada) · 1 quillay/litre · 2 peumo · 4 árbol urbano caduco
+    vec3 shape = kind < 0.5 ? vec3(1.35, 0.76, 1.35) : vec3(1.0, 0.9 + fract(iSV.y * 5.7) * 0.35, 1.0);
+    p.xz += uv.y * sway;
+    p.xz *= mix(1.0, 0.6, crown * step(3.5, kind) * (1.0 - uLeaf.x)); // sin hojas queda solo el ramaje
+    p *= iSV.x * fade * shape;
   #elif TYPE == 5
     float tall = floor(iSV.y); // pisos extra: edificios en el centro de las ciudades
     p *= iSV.x * fade * vec3(1.0 + tall * 0.05, 1.0 + tall * 0.9, 1.0 + tall * 0.05);
+  #elif TYPE == 6
+    // 0 álamo (columna) · 1 ciprés de la cordillera (cono) · 2 eucalipto · 3 pino (cono ancho)
+    float cone = step(0.5, kind) * step(kind, 1.5) + step(2.5, kind);
+    float width = kind < 0.5 ? 0.42 * mix(0.7, 1.0, uLeaf.x) : kind < 1.5 ? 0.7 : kind < 2.5 ? 0.85 : 1.0;
+    p.xz *= mix(1.0, width * mix(1.0, mix(1.5, 0.12, smoothstep(0.25, 1.0, uv.y)), cone), crown);
+    p.xz += uv.y * sway * 2.0;
+    p *= iSV.x * fade * vec3(1.0, 0.9 + fract(iSV.y * 5.7) * 0.25, 1.0);
+  #elif TYPE == 7
+    p *= fade * vec3(1.0, mix(0.62, 1.0, uLeaf.x), 1.0); // podada en invierno
   #else
-    p.xz += uv.y * vec2(sin(uTime * 0.9 + iPR.x * 0.2), cos(uTime * 0.7 + iPR.z * 0.2)) * 0.03 * step(0.5, uv.x);
     p *= iSV.x * fade * vec3(1.0, 0.85 + fract(iSV.y * 5.7) * 0.4, 1.0);
   #endif
   float c = cos(iPR.w), s = sin(iPR.w);
@@ -70,31 +100,54 @@ void main() {
   vec3 col; float wrap = 0.0;
   vec3 wp = vRel + uCamRel;
   float speck = vnoise(wp * 7.0) * 0.6 + vnoise(wp * 23.0) * 0.4;
-  #if TYPE == 0      // coirón: pasto duro en champas, color paja
-    col = mix(vec3(0.15, 0.13, 0.055), vec3(0.30, 0.25, 0.10), vUv.y) * (0.75 + vVar * 0.5);
-    col = mix(col, vGround * 1.25, 0.3); wrap = 0.6; N = normalize(N + vec3(0.0, 1.4, 0.0));
+  float kind = floor(vVar), v = fract(vVar);
+  // Follaje caduco: verde → amarillo de otoño → ramaje gris en invierno → brote verde claro en primavera.
+  vec3 decid = mix(mix(vec3(0.075, 0.062, 0.05), mix(vec3(0.04, 0.095, 0.022), vec3(0.075, 0.14, 0.035), v), uLeaf.x), vec3(0.36, 0.25, 0.035), uLeaf.y * 0.85);
+  #if TYPE == 0      // coirón en champas (paja) y pasto verde en vegas, parques y campos regados
+    vec3 straw = mix(vec3(0.15, 0.13, 0.055), vec3(0.30, 0.25, 0.10), vUv.y);
+    vec3 green = mix(vec3(0.045, 0.09, 0.025), vec3(0.13, 0.22, 0.06), vUv.y);
+    col = mix(straw, green, max(step(0.5, kind), uGreen * 0.65 * (1.0 - smoothstep(1500.0, 2700.0, wp.y)))) * (0.75 + v * 0.5);
+    col = mix(col, vGround * 1.25, 0.25); wrap = 0.6; N = normalize(N + vec3(0.0, 1.4, 0.0));
   #elif TYPE == 1    // roca: toma el color del suelo, más gris
     float g = dot(vGround, vec3(0.33));
-    col = mix(vGround, vec3(g), 0.45) * (0.8 + vVar * 0.55) * (0.85 + 0.3 * speck);
-  #elif TYPE == 2    // arbusto del matorral
-    col = mix(vec3(0.03, 0.042, 0.016), vec3(0.075, 0.08, 0.032), vVar) * (0.55 + 0.9 * speck) * (0.6 + 0.5 * vUv.y); wrap = 0.5;
-  #elif TYPE == 3    // árbol esclerófilo (quillay, litre) o espino
-    col = vUv.x < 0.5 ? vec3(0.055, 0.04, 0.028) * (0.7 + 0.6 * speck)
-      : mix(vec3(0.02, 0.036, 0.014), vec3(0.055, 0.07, 0.028), vVar) * (0.5 + 1.0 * speck) * (0.55 + 0.55 * vUv.y);
+    col = mix(vGround, vec3(g), 0.45) * (0.8 + v * 0.55) * (0.85 + 0.3 * speck);
+  #elif TYPE == 2
+    vec3 base = kind < 0.5 ? mix(vec3(0.03, 0.042, 0.016), vec3(0.075, 0.08, 0.032), v)   // matorral esclerófilo: oliva oscuro
+      : kind < 1.5 ? mix(vec3(0.10, 0.105, 0.035), vec3(0.17, 0.155, 0.05), v)             // neneo: cojín amarillento del piso andino
+      : kind < 2.5 ? mix(vec3(0.06, 0.14, 0.025), vec3(0.10, 0.19, 0.035), v)              // llareta: verde intenso, casi una roca viva
+      : decid;                                                                              // frutal
+    col = base * (0.55 + 0.9 * speck) * (0.6 + 0.5 * vUv.y); wrap = 0.5;
+    col = mix(col, vec3(0.62, 0.50, 0.52), uLeaf.z * step(2.5, kind) * smoothstep(0.45, 0.7, speck)); // frutales en flor
+  #elif TYPE == 3
+    vec3 leaf = kind < 0.5 ? mix(vec3(0.05, 0.062, 0.03), vec3(0.085, 0.095, 0.045), v)   // espino: verde grisáceo, copa rala
+      : kind < 1.5 ? mix(vec3(0.022, 0.04, 0.015), vec3(0.055, 0.072, 0.028), v)           // quillay y litre
+      : kind < 2.5 ? mix(vec3(0.014, 0.03, 0.012), vec3(0.03, 0.05, 0.02), v)              // peumo: el más oscuro, en quebradas
+      : decid;                                                                              // árbol urbano
+    col = vUv.x < 0.5 ? vec3(0.055, 0.04, 0.028) * (0.7 + 0.6 * speck) : leaf * (0.5 + 1.0 * speck) * (0.55 + 0.55 * vUv.y);
     wrap = vUv.x < 0.5 ? 0.0 : 0.5;
   #elif TYPE == 4    // quisco: cactus columnar con costillas
     float rib = 0.72 + 0.28 * abs(sin(vUv.x * 37.7));
-    col = vec3(0.075, 0.12, 0.06) * rib * (0.8 + 0.4 * vVar); wrap = 0.25;
-  #else              // casas y edificios: muros claros, techos de zinc o teja
-    float v = fract(vVar), tall = floor(vVar);
+    col = vec3(0.075, 0.12, 0.06) * rib * (0.8 + 0.4 * v); wrap = 0.25;
+  #elif TYPE == 5    // casas y edificios: muros claros, techos de zinc o teja
     vec3 wall = v < 0.3 ? vec3(0.40, 0.38, 0.33) : v < 0.55 ? vec3(0.33, 0.26, 0.18) : v < 0.8 ? vec3(0.35, 0.35, 0.34) : vec3(0.27, 0.32, 0.34);
     vec3 roof = v < 0.4 ? vec3(0.20, 0.21, 0.23) : v < 0.75 ? vec3(0.24, 0.085, 0.055) : vec3(0.11, 0.11, 0.12);
-    float win = step(0.45, fract(vUv.y * (1.6 + tall * 1.6) * 1.57)) * step(0.4, fract((wp.x + wp.z) * 0.42 + wp.y * 0.01));
+    float win = step(0.45, fract(vUv.y * (1.6 + kind * 1.6) * 1.57)) * step(0.4, fract((wp.x + wp.z) * 0.42 + wp.y * 0.01));
     col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) : wall * (1.0 - 0.5 * win * step(abs(N.y), 0.5));
+  #elif TYPE == 6
+    vec3 leaf = kind < 0.5 ? decid * 1.15                                                  // álamo: el amarillo del otoño en el Cajón
+      : kind < 1.5 ? mix(vec3(0.014, 0.032, 0.016), vec3(0.03, 0.055, 0.026), v)           // ciprés de la cordillera
+      : kind < 2.5 ? mix(vec3(0.04, 0.062, 0.05), vec3(0.075, 0.10, 0.08), v)              // eucalipto: verde azulado
+      : mix(vec3(0.016, 0.035, 0.016), vec3(0.035, 0.06, 0.026), v);                       // pino
+    vec3 bark = kind > 1.5 && kind < 2.5 ? vec3(0.22, 0.20, 0.17) : vec3(0.06, 0.045, 0.032);
+    col = vUv.x < 0.5 ? bark * (0.7 + 0.6 * speck) : leaf * (0.5 + 1.0 * speck) * (0.5 + 0.6 * vUv.y);
+    wrap = vUv.x < 0.5 ? 0.0 : 0.5;
+  #else              // parra en espaldera
+    vec3 vine = mix(mix(vec3(0.09, 0.07, 0.05), mix(vec3(0.04, 0.10, 0.02), vec3(0.08, 0.15, 0.035), v), uLeaf.x), vec3(0.33, 0.14, 0.03), uLeaf.y * 0.9);
+    col = mix(vec3(0.07, 0.055, 0.04), vine, smoothstep(0.25, 0.5, vUv.y)) * (0.55 + 0.9 * speck); wrap = 0.5;
   #endif
   // Nieve sobre la línea de nieve de la estación: se posa en lo que mira hacia arriba.
   float sn = smoothstep(uSnowLine - 40.0, uSnowLine + 220.0, wp.y) * smoothstep(-0.1, 0.65, N.y);
-  col = mix(col, vec3(0.80, 0.84, 0.90), sn * 0.88);
+  col = mix(col, vec3(0.64, 0.68, 0.74), sn * 0.88);
   float ndl = clamp((dot(N, uSunDir) + wrap) / (1.0 + wrap), 0.0, 1.0);
   vec3 c = col * (uSunColor * ndl * vShade + uAmbient * (0.55 + 0.45 * N.y));
   float dist = length(vRel);
@@ -162,6 +215,10 @@ function geometries() {
   const ri = [0, 4, 1, 1, 4, 5, 2, 3, 4, 3, 5, 4, 0, 2, 4, 1, 5, 3], rpos = [];
   for (const i of ri) rpos.push(rp[i * 3], rp[i * 3 + 1], rp[i * 3 + 2]);
   const roofGeo = new THREE.BufferGeometry(); roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(rpos, 3)); roofGeo.computeVertexNormals();
+  // Árbol alto: tronco + copa alargada. En el vertex shader se vuelve columna (álamo) o cono (ciprés, pino).
+  const tallTrunk = new THREE.CylinderGeometry(0.06, 0.11, 1.4, 6, 1, true); tallTrunk.translate(0, 0.6, 0);
+  const tallCrown = blob(1, 0.28, 5.5, 1, true); tallCrown.scale(0.62, 2.0, 0.62); tallCrown.translate(0, 2.9, 0);
+  const vineRow = new THREE.BoxGeometry(0.6, 1.5, 9); vineRow.translate(0, 0.75, 0);
   const col = (r, h, x, y, z) => { const g = new THREE.CapsuleGeometry(r, h, 3, 9); g.translate(x, y + h / 2 + r * 0.3, z); return g; };
   return {
     pasto: merge([{ geo: pasto, part: 0 }]),
@@ -170,6 +227,8 @@ function geometries() {
     arbol: merge([{ geo: trunk, part: 0 }, { geo: crownA, part: 1 }, { geo: crownB, part: 1 }]),
     quisco: merge([{ geo: col(0.17, 2.4, 0, -0.2, 0), ang: [0, 0] }, { geo: col(0.13, 1.3, 0.42, 0.5, 0.05), ang: [0.42, 0.05] }, { geo: col(0.12, 0.9, -0.3, 0.9, -0.22), ang: [-0.3, -0.22] }]),
     casa: merge([{ geo: walls, part: 0 }, { geo: roofGeo, part: 1 }]),
+    alto: merge([{ geo: tallTrunk, part: 0 }, { geo: tallCrown, part: 1 }]),
+    vid: merge([{ geo: vineRow, part: 1 }]),
   };
 }
 
@@ -177,9 +236,9 @@ const hash2 = (ix, iz, k) => { let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class Props {
-  constructor({ hf, manifest, env, coreAlb, mapPixels, amount, labels, shadowTex }) {
+  constructor({ hf, manifest, env, coreAlb, land, amount, labels, shadowTex }) {
     this._c = [0, 0];
-    this.hf = hf; this.m = manifest; this.map = mapPixels; this.amount = amount;
+    this.hf = hf; this.m = manifest; this.land = land; this.amount = amount;
     this._buildUrban(labels);
     this.group = new THREE.Group();
     const geos = geometries(), nrm = new THREE.Vector3();
@@ -198,21 +257,17 @@ export class Props {
     });
   }
 
-  // Verdor (0..1) estimado desde la miniatura satelital: verde oliva oscuro = matorral/bosque; gris o blanco = ciudad, roca o nieve.
-  _veg(x, z) {
-    const mp = this.map, i = Math.min(mp.w - 1, Math.max(0, Math.floor((x / this.m.core.sizeX) * mp.w))), j = Math.min(mp.h - 1, Math.max(0, Math.floor((z / this.m.core.sizeZ) * mp.h))), o = (j * mp.w + i) * 4;
-    const r = mp.data[o], g = mp.data[o + 1], b = mp.data[o + 2], lum = (r + g + b) / 3;
-    const sat = (Math.max(r, g, b) - Math.min(r, g, b)) / (lum + 1);
-    this._bare = sat < 0.13 || lum > 175 ? 1 : 0; // ciudad, nieve o roca clara
-    this._grey = sat < 0.13 && lum > 80 && lum < 175; // gris medio: en el valle es mancha urbana
-    return sm(-20, 8, g - r) * sm(175, 95, lum);
+  // Clase de cobertura de suelo en un punto (ver CLASES en tools/build_landcover.mjs).
+  _cls(x, z) {
+    const l = this.land, i = Math.floor((x / this.m.core.sizeX) * l.w), j = Math.floor((z / this.m.core.sizeZ) * l.h);
+    return i < 0 || j < 0 || i >= l.w || j >= l.h ? 0 : l.data[j * l.w + i];
   }
 
   // Grilla de densidad urbana (100 m) a partir de las localidades OSM.
   _buildUrban(labels) {
     const G = 100, W = (this.uw = Math.ceil(this.m.core.sizeX / G)), H = Math.ceil(this.m.core.sizeZ / G);
-    // Dos grillas: pueblos chicos (se confía en el nodo OSM) y ciudades/barrios (radio grande: además se exige gris urbano en la imagen,
-    // o aparecerían edificios en los cerros isla y parques).
+    // Dos grillas: pueblos chicos (se confía en el nodo OSM, porque WorldCover no siempre los marca como urbanos) y
+    // ciudades/barrios (solo deciden dónde van los edificios altos; la mancha urbana misma viene de la cobertura).
     const small = (this.urban = new Uint8Array(W * H)), big = (this.urbanBig = new Uint8Array(W * H));
     for (const [, k, x, z] of labels.items) {
       const cfg = URBAN[labels.kinds[k]]; if (!cfg) continue;
@@ -223,34 +278,78 @@ export class Props {
       }
     }
   }
-  _urbanAt(x, z, grey) { const i = Math.floor(z / 100) * this.uw + Math.floor(x / 100); return Math.max(this.urban[i] || 0, grey ? this.urbanBig[i] || 0 : 0) / 255; }
+  _urbanAt(x, z, big) { return ((big ? this.urbanBig : this.urban)[Math.floor(z / 100) * this.uw + Math.floor(x / 100)] || 0) / 255; }
 
   _cell(t, ti, ix, iz) {
-    const hf = this.hf, out = [], n = this._n;
+    const hf = this.hf, out = [], C = t.cell;
     for (let k = 0; k < t.per; k++) {
+      const h0 = hash2(ix, iz, k * 5 + ti * 101), h1 = hash2(ix, iz, k * 5 + 1 + ti * 101);
       const jit = ti === 5 ? 0.3 : 1; // las casas van una por celda, casi centradas: así no se enciman
-      const x = (ix + 0.5 + (hash2(ix, iz, k * 5 + ti * 101) - 0.5) * jit) * t.cell, z = (iz + 0.5 + (hash2(ix, iz, k * 5 + 1 + ti * 101) - 0.5) * jit) * t.cell;
+      let x = (ix + 0.5 + (h0 - 0.5) * jit) * C, z = (iz + 0.5 + (h1 - 0.5) * jit) * C;
       if (x < 0 || z < 0 || x > this.m.core.sizeX || z > this.m.core.sizeZ) continue;
+      const c = this._cls(x, z);
+      if (c === 8 || c === 14) continue;                        // agua y glaciar: nada
       const r = hash2(ix, iz, k * 5 + 2 + ti * 101), v = hash2(ix, iz, k * 5 + 3 + ti * 101);
       const s2 = hf.slope2(x, z);
-      if (s2 < 2.5e-5) continue; // superficie perfectamente plana = lago
-      const alt = hf.base(x, z), veg = this._veg(x, z), bare = this._bare, steep = sm(0.12, 0.5, s2);
-      const urban = Math.max(this._urbanAt(x, z, this._grey), this._grey && alt < 1050 && s2 < 0.004 ? 0.75 : 0);
-      let dens, scale, rot = v * 6.283, vary = v;
-      if (ti === 0) { dens = (0.3 + 0.6 * veg) * (1 - steep) * (1 - sm(3400, 4000, alt)) * (1 - bare) * (1 - urban * 0.8); scale = 0.28 + v * 0.3; }
-      else if (ti === 1) { dens = 0.1 + 0.55 * sm(0.04, 0.35, s2) + 0.25 * sm(2300, 3300, alt) - bare * 0.5 * (alt < 1200 ? 1 : 0); scale = 0.14 + v * v * v * 1.3 + (v > 0.985 ? 1.4 : 0); }
-      else if (ti === 2) { dens = (0.12 + 0.75 * veg) * (1 - sm(2500, 3250, alt)) * (1 - bare) * (1 - steep * 0.6) * (1 - urban * 0.7); scale = 0.45 + v * 0.75; }
-      else if (ti === 3) { dens = veg * veg * 0.95 * (1 - sm(1500, 2050, alt)) * (1 - bare) * (1 - steep * 0.8); scale = 1.5 + v * 1.7; }
-      else if (ti === 4) { hf.core.slope(x, z, hf._s); dens = sm(0.12, 0.3, -hf._s[1]) * 0.75 * (1 - sm(1500, 1950, alt)) * (1 - bare) * (1 - urban); scale = 0.8 + v * 1.1; }
-      else { // construcciones: solo en terreno poco inclinado; en las ciudades siguen la cuadrícula de calles
+      if (s2 < 2.5e-5) continue;                                // superficie perfectamente plana = lago
+      const south = hf._s[1];                                   // > 0: ladera que mira al sur (umbría); < 0: al norte (solana)
+      const alt = hf.base(x, z), steep = sm(0.12, 0.5, s2);
+      let dens = 0, scale = 1, rot = v * 6.283, kind = 0;
+      if (ti === 0) {         // pastos
+        dens = [0.25, 0.3, 0.6, 0.9, 0, 0.04, 0.12, 0, 0, 1, 0.12, 0.2, 0.55, 0.15][c] * (1 - steep) * (1 - sm(3500, 4100, alt));
+        kind = c >= 9 && c <= 12 ? 1 : 0; scale = 0.28 + v * 0.3;
+      } else if (ti === 1) {  // rocas
+        dens = (0.1 + 0.55 * sm(0.04, 0.35, s2) + 0.25 * sm(2300, 3300, alt)) * [1, 0.5, 0.8, 0.7, 0.05, 0.03, 1.2, 1, 0, 0.2, 0.03, 0.03, 0.1, 0.4][c];
+        scale = 0.14 + v * v * v * 1.3 + (v > 0.985 ? 1.4 : 0);
+      } else if (ti === 2) {  // arbustos, cojines andinos y frutales
+        if (c === 11) { // frutales: marco de plantación de 7 m
+          x = (ix + ((k % 2) + 0.5) / 2) * C; z = (iz + (Math.floor(k / 2) + 0.5) / 2) * C;
+          if (this._cls(x, z) !== 11) continue;
+          kind = 3; dens = 0.96; scale = 1.45 + v * 0.35;
+        } else {
+          const cover = [0.25, 0.5, 0.85, 0.3, 0, 0.05, 0.12, 0, 0, 0.3, 0, 0, 0.25, 0.3][c];
+          if (alt > 2950 + h0 * 400) { kind = 2; dens = (c === 6 ? 0.22 : cover * 0.4) * (1 - sm(3900, 4350, alt)); scale = 0.5 + v * 0.9; }
+          else if (alt > 1900 + h1 * 350) { kind = 1; dens = Math.max(cover, c === 6 ? 0.3 : 0) * 0.8; scale = 0.35 + v * 0.5; }
+          else { dens = cover * (1 - steep * 0.6); scale = 0.45 + v * 0.75; }
+        }
+      } else if (ti === 3) {  // árboles de copa redonda
+        const low = 1 - sm(1600, 2050, alt);
+        if (c === 1 && s2 < 0.004 && alt < 1000) { kind = 4; dens = 0.5; scale = 1.6 + v * 1.5; }                              // arboleda en el plano del valle: plantada
+        else if (c === 1) { kind = south > 0.1 ? 2 : 1; dens = 0.9 * low; scale = 1.6 + v * 1.9; }                             // bosque esclerófilo
+        else if (c === 2) { if (alt < 1150) { dens = 0.2; scale = 1.3 + v * 1.0; } else { kind = 1; dens = (0.1 + (south > 0.12 ? 0.22 : 0)) * low; scale = 1.4 + v * 1.4; } } // espinal abajo; esclerófilo en umbrías
+        else if (c === 3 && alt < 1100) { dens = 0.06; scale = 1.3 + v * 0.9; }                                                // espinos sueltos en la pradera
+        else if (c === 5) { kind = 4; dens = 0.3; scale = 1.5 + v * 1.4; }                                                     // árboles de calle
+        else if (c === 12) { kind = v > 0.4 ? 4 : 1; dens = 0.55; scale = 1.7 + v * 1.6; }                                     // parques
+        else if (c === 4) { kind = 4; dens = 0.015; scale = 1.8 + v; }
+        dens *= (1 - steep * 0.8) * (1 - sm(2000, 2300, alt)); // sobre los 2.200 m ya no crecen árboles, ni plantados
+      } else if (ti === 4) {  // quiscos: laderas de solana, bajo los 1.900 m
+        dens = c === 2 || c === 3 || c === 6 || c === 1 ? sm(0.12, 0.3, -south) * 0.75 * (1 - sm(1500, 1950, alt)) : 0; scale = 0.8 + v * 1.1;
+      } else if (ti === 5) {  // construcciones: solo en terreno poco inclinado; en las ciudades siguen la cuadrícula de calles
+        const urban = Math.max(this._urbanAt(x, z, false), c === 5 ? 0.8 : 0), center = c === 5 ? this._urbanAt(x, z, true) : 0;
         dens = urban * 0.8 * (1 - sm(0.02, 0.07, s2)); scale = 0.8 + v * 0.35;
         rot = Math.round(hash2(ix, iz, k * 5 + 4) * 4) * 1.5708 + (urban > 0.6 ? 0.1 : v * 0.8);
-        vary = v * 0.999 + (urban > 0.86 ? Math.floor(hash2(iz, ix, k + 9) ** 2 * 8) : 0);
+        kind = center > 0.86 ? Math.floor(hash2(iz, ix, k + 9) ** 2 * 8) : 0;
+      } else if (ti === 6) {  // árboles altos
+        if (c === 13) { kind = alt > 1400 ? 3 : 2; dens = 0.5; scale = 2.6 + v * 1.7; }                                       // plantaciones: eucalipto abajo, pino arriba
+        else if (c === 4 || c === 10 || c === 11) { // álamos en hilera (cortavientos) cada ~220 m, con tramos que existen y tramos que no
+          const lx = Math.round(x / 220) * 220, lz = Math.round(z / 260) * 260;
+          if (Math.abs(x - lx) < C / 2 && hash2(Math.round(x / 220), Math.floor(z / 450), 77) > 0.45) { x = lx; dens = 0.95; }
+          else if (Math.abs(z - lz) < C / 2 && hash2(Math.floor(x / 450), Math.round(z / 260), 78) > 0.6) { z = lz; dens = 0.95; }
+          scale = 3.4 + v * 1.0;
+        } else if (c === 1 && s2 < 0.004 && alt < 1000) { kind = v > 0.55 ? 2 : 0; dens = 0.07; scale = 3 + v * 1.4; }         // eucaliptos y álamos entre las arboledas del valle
+        else if (c === 1 && alt > 1050 && alt < 2250 && south > 0.12) { kind = 1; dens = 0.05; scale = 1.7 + v * 1.5; }        // ciprés de la cordillera
+        else if (c === 9 && alt < 2000) { dens = 0.06; scale = 2.8 + v; }                                                      // álamos y sauces junto al agua
+        else if (c === 5) { kind = 2; dens = 0.004; scale = 3 + v * 1.5; }
+        else if (c === 12) { kind = v > 0.5 ? 2 : 3; dens = 0.03; scale = 2.6 + v * 1.4; }
+        dens *= (1 - steep * 0.7) * (1 - sm(2000, 2300, alt));
+      } else {                // viñas: hileras cada 3 m
+        if (c !== 10) continue;
+        x = (ix + (k + 0.5) / 3) * C; z = (iz + 0.5) * C; rot = 0; dens = 1.1 / Math.max(this.amount, 0.5);
       }
       if (r > dens * this.amount) continue;
       let y = hf.height(x, z);
-      if (ti === 1) y -= scale * 0.12; else if (ti === 5) y -= 0.5; else if (ti >= 3) y -= 0.15;
-      out.push(x, y, z, rot, scale, vary);
+      if (ti === 1) y -= scale * 0.12; else if (ti === 5) y -= 0.5; else if (ti === 7) y -= 0.1; else if (ti >= 3) y -= 0.15;
+      out.push(x, y, z, rot, scale, v * 0.999 + kind);
     }
     return new Float32Array(out);
   }
@@ -259,7 +358,7 @@ export class Props {
   // Usa las mismas celdas ya generadas para dibujar; devuelve la posición corregida.
   collide(x, z) {
     let nx = x, nz = z;
-    for (const ti of [1, 3, 4, 5]) {
+    for (const ti of [1, 3, 4, 5, 6]) {
       const t = this.types[ti], cx = Math.floor(nx / t.cell), cz = Math.floor(nz / t.cell);
       for (let dz = -1; dz <= 1; dz++) for (let dx = -1; dx <= 1; dx++) {
         const c = t.cache.get((cx + dx) * 65536 + (cz + dz)); if (!c) continue;
@@ -273,7 +372,7 @@ export class Props {
             if (hx - Math.abs(lx) < hz - Math.abs(lz)) lx = Math.sign(lx || 1) * hx; else lz = Math.sign(lz || 1) * hz;
             nx = c[i] + co * lx + si * lz; nz = c[i + 2] - si * lx + co * lz;
           } else {
-            const r = ti === 1 ? (sc > 0.75 ? sc * 0.8 : 0) : ti === 3 ? 0.13 * sc + 0.28 : 0.2 * sc + 0.22;
+            const r = ti === 1 ? (sc > 0.75 ? sc * 0.8 : 0) : ti === 4 ? 0.2 * sc + 0.22 : 0.12 * sc + 0.28;
             const d = Math.hypot(ox, oz);
             if (r && d < r && d > 1e-4) { nx = c[i] + (ox / d) * r; nz = c[i + 2] + (oz / d) * r; }
           }

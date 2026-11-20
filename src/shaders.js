@@ -14,6 +14,7 @@ vec4 logDepth(vec4 p) { p.z = (log2(max(1e-6, 1.0 + p.w)) * uLogF - 1.0) * p.w; 
 export const ATMOS_GLSL = /* glsl */ `
 uniform vec3 uSunDir, uSunColor, uSkyZenith, uSkyHorizon, uAmbient, uFogColor;
 uniform float uFogDensity, uTime, uSnowLine, uStorm, uGreen;
+uniform vec3 uLeaf;
 
 vec3 skyColor(vec3 d) {
   float t = pow(clamp(d.y, 0.0, 1.0), 0.45);
@@ -121,6 +122,15 @@ uniform vec2 uWaterFrac;
 uniform vec3 uOv[3];   // xy: cámara − centro de la cascada, z: tamaño
 uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional
 uniform sampler2D uShadow; // sombras arrojadas por el relieve (se recalculan en CPU cuando cambia el sol)
+uniform sampler2D uLand;   // cobertura de suelo real: una clase por texel (ver tools/build_landcover.mjs)
+#define IS(k) (1.0 - step(0.5, abs(cls - k)))
+// Hash entero por parcela (estable entre GPUs, a diferencia de fract(sin())).
+float parcelHash(vec2 c) {
+  uvec2 q = uvec2(ivec2(c));
+  uint h = (q.x * 374761393u) ^ (q.y * 668265263u);
+  h = (h ^ (h >> 13u)) * 1274126177u;
+  return float((h ^ (h >> 16u)) & 0xffffu) / 65536.0;
+}
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 vec4 overlay(vec2 rel) {
@@ -155,22 +165,6 @@ void main() {
   // Las sombras arrojadas de la imagen no se pueden quitar con la normal: al menos se levantan los negros.
   alb *= 1.0 + 0.9 * (1.0 - smoothstep(0.0, 0.11, dot(alb, vec3(0.333))));
 
-  // Mancha urbana: gris, plana y en el valle. Desde un cerro la ciudad debe leerse como una trama de
-  // calles y manzanas, no como una mancha: se dibuja una cuadrícula que se desvanece con la distancia.
-  float lum0 = dot(alb, vec3(0.333));
-  float sat0 = (max(alb.r, max(alb.g, alb.b)) - min(alb.r, min(alb.g, alb.b))) / (lum0 + 0.02);
-  float urbanish = (1.0 - smoothstep(0.14, 0.26, sat0)) * smoothstep(0.03, 0.07, lum0) * (1.0 - smoothstep(900.0, 1150.0, y)) * (1.0 - smoothstep(0.002, 0.012, s2));
-  vec2 gcell = xz / vec2(118.0, 124.0), gfw = fwidth(gcell);
-  vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
-  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish;
-  float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
-  alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
-  alb = mix(alb, alb * 0.5, street * gfade * 0.75);
-  // Estaciones: la imagen satelital es de verano (cerros secos). Con las lluvias de invierno el valle y la
-  // precordillera reverdecen, y vuelven a amarillear hacia el verano.
-  float lowland = 1.0 - smoothstep(1500.0, 2700.0, y);
-  alb = mix(alb, vec3(alb.g * 0.60, alb.g * 0.98 + 0.012, alb.b * 0.5), uGreen * lowland * (1.0 - urbanish) * 0.55 * (1.0 - smoothstep(0.25, 0.6, s2)));
-
   float amp = roughAmp(s2);
   float near = 1.0 - smoothstep(250.0, 2500.0, dist);
   float close = 1.0 - smoothstep(6.0, 70.0, dist);
@@ -183,6 +177,53 @@ void main() {
   ${oct(5, 'gradM')}
   float cvar = t0.w * 0.30 + t1.w * 0.35 + t2.w * 0.30 + t3.w * 0.30;
   float cav = t2.x + t3.x * 0.7 + t4.x * 0.5;
+
+  // --- Cobertura de suelo real (ESA WorldCover + OSM). El uv se desordena con ruido para que los bordes
+  // entre clases sigan formas naturales y no los escalones del raster.
+  float cls = floor(texture2D(uLand, uvC + vec2(t0.w, t1.w) * 0.8 / uCoreTex).r * 255.0 + 0.5) * step(0.999, w);
+  // Viñas, frutales, parques, plantaciones y glaciares vienen de sus polígonos OSM; el resto, de WorldCover.
+  // Lo único sorteado es qué se siembra en cada parcela de campo abierto (WorldCover dice "cultivo", no cuál).
+  float ph = parcelHash(floor(xz / vec2(150.0, 205.0)));
+  vec3 foliage = mix(mix(vec3(0.15, 0.12, 0.085), vec3(0.07, 0.15, 0.035), uLeaf.x), vec3(0.30, 0.19, 0.04), uLeaf.y * 0.85);
+  // Ciudad: desde un cerro debe leerse como trama de calles y manzanas, no como mancha gris.
+  float urbanish = IS(5.0) * (1.0 - smoothstep(0.004, 0.02, s2));
+  vec2 gcell = xz / vec2(118.0, 124.0), gfw = fwidth(gcell);
+  vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
+  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish;
+  float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
+  alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
+  alb = mix(alb, alb * 0.5, street * gfade * 0.75);
+  // Campos: parcelas de bordes algo chuecos, cada una con su cultivo, y surcos que se ven de cerca.
+  float xfw = fwidth(xz.x) + fwidth(xz.y);
+  vec2 pedge = 0.5 - abs(fract(xz / vec2(150.0, 205.0)) - 0.5);
+  float lane = (1.0 - smoothstep(0.012, 0.02, min(pedge.x, pedge.y))) * (1.0 - smoothstep(1.0, 6.0, xfw)); // camino de tierra entre parcelas
+  vec3 cropCol = ph < 0.3 ? vec3(0.085, 0.15, 0.045) : ph < 0.55 ? vec3(0.15, 0.18, 0.06) : ph < 0.78 ? vec3(0.21, 0.175, 0.10) : vec3(0.11, 0.18, 0.06);
+  cropCol = mix(cropCol, vec3(0.19, 0.155, 0.10), (1.0 - uLeaf.x) * 0.45 * step(0.3, ph));  // en invierno, más barbecho
+  float furrow = 1.0 + 0.16 * sin((ph > 0.5 ? xz.x : xz.y) * 1.05) * (1.0 - smoothstep(0.5, 2.5, xfw));
+  alb = mix(alb, cropCol * furrow * (0.85 + cvar * 0.35), IS(4.0) * 0.72);
+  float farm = IS(4.0) + IS(10.0) + IS(11.0);
+  // Viñas: hileras cada 3 m (calzan con las parras instanciadas). Frutales: marco de 7 m.
+  float vrow = mix(0.55, smoothstep(-0.25, 0.5, cos((xz.x - 1.5) * 2.0944)), 1.0 - smoothstep(0.4, 1.6, xfw));
+  alb = mix(alb, mix(vec3(0.20, 0.165, 0.11), foliage, vrow) * (0.85 + cvar * 0.3), IS(10.0) * 0.85);
+  float odot = mix(0.5, 1.0 - smoothstep(0.22, 0.4, length(fract(xz / 7.0) - 0.5)), 1.0 - smoothstep(0.8, 3.0, xfw));
+  alb = mix(alb, mix(vec3(0.19, 0.16, 0.105), foliage * 0.9, odot) * (0.85 + cvar * 0.3), IS(11.0) * 0.8);
+  alb = mix(alb, vec3(0.20, 0.17, 0.12) * (0.9 + cvar * 0.3), lane * farm * 0.8);
+  // Parques (pasto regado), vegas y humedales (el verde intenso de la alta cordillera).
+  alb = mix(alb, vec3(0.085, 0.16, 0.045) * (0.85 + cvar * 0.4), IS(12.0) * 0.6 + IS(9.0) * 0.72);
+  // Bosque y plantaciones: más allá del alcance de los árboles instanciados, el dosel sigue leyéndose como bosque.
+  float canopy = (IS(1.0) + IS(13.0)) * smoothstep(150.0, 520.0, dist) * (1.0 - smoothstep(1900.0, 2300.0, y));
+  alb = mix(alb, vec3(0.04, 0.068, 0.028) * (0.65 + 0.7 * smoothstep(-0.35, 0.4, t2.w + t3.w * 0.7)), canopy * 0.55);
+  // Glaciares: hielo azulado con grietas y franjas de detritos; se distingue de la nieve de temporada.
+  float glacier = clamp(IS(14.0) + IS(7.0) * 0.6, 0.0, 1.0), ice = glacier; // la clase "nieve y hielo" permanente de WorldCover es, en la práctica, glaciar
+  float crev = (1.0 - smoothstep(0.015, 0.06, abs(t1.x + t2.x * 0.5))) * glacier * (1.0 - smoothstep(600.0, 4000.0, dist));
+  vec3 iceCol = mix(vec3(0.42, 0.56, 0.66), vec3(0.74, 0.81, 0.86), smoothstep(-0.4, 0.5, t0.w + t2.w * 0.6));
+  iceCol = mix(iceCol, alb * 0.75 + 0.03, smoothstep(0.25, 0.7, t1.w) * 0.4) * (1.0 - 0.55 * crev);
+  alb = mix(alb, iceCol, ice * 0.8);
+  // Estaciones: la imagen satelital es de verano (cerros secos). Con las lluvias de invierno la vegetación
+  // silvestre del valle y la precordillera reverdece, y vuelve a amarillear hacia el verano.
+  float lowland = 1.0 - smoothstep(1500.0, 2700.0, y);
+  float wild = clamp(IS(0.0) + IS(1.0) + IS(2.0) + IS(3.0) + IS(6.0) * 0.4, 0.0, 1.0);
+  alb = mix(alb, vec3(alb.g * 0.60, alb.g * 0.98 + 0.012, alb.b * 0.5), uGreen * lowland * wild * 0.55 * (1.0 - smoothstep(0.25, 0.6, s2)));
 
   // De cerca la imagen satelital (34 m/px) es solo un color medio: se le superpone un suelo procedural
   // de parches de tierra y pasto seco, grano fino y piedrecillas claras.
@@ -209,8 +250,8 @@ void main() {
   float sline = uSnowLine - 320.0 * clamp(nxz.y * 2.2, -1.0, 1.0);
   float snow = smoothstep(sline - 140.0, sline + 240.0, y + (t0.w * 0.55 + t1.w * 0.45) * 170.0);
   snow *= (1.0 - smoothstep(0.42, 0.78, s2)) * (1.0 - water) * (1.0 - road * 0.6);
-  alb = mix(alb, vec3(0.80, 0.84, 0.90) * (1.0 + cvar * 0.06), snow);
-  vec2 g = -nxz / ny + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_) * (1.0 - 0.7 * snow);
+  alb = mix(alb, vec3(0.64, 0.68, 0.74) * (1.0 + cvar * 0.10 + t1.x * 0.05), snow); // no más claro: con el sol encima se quemaría y se perdería el relieve
+  vec2 g = -nxz / ny + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_) * (1.0 - 0.45 * snow);
   vec3 N = normalize(vec3(-g.x, 1.0, -g.y));
 
   float ndl = max(dot(N, uSunDir), 0.0);
@@ -218,7 +259,8 @@ void main() {
   vec2 dc = vRel.xz - uCatPos.xz + uSunDir.xz * 0.18;
   float blob = exp(-dot(dc, dc) / 0.16) * step(abs(vRel.y - uCatPos.y), 1.5);
   float shade = mix(1.0, texture2D(uShadow, uvC).r, w);
-  vec3 light = uSunColor * ndl * shade * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
+  float gloss = pow(max(dot(reflect(V, N), uSunDir), 0.0), 40.0) * (ice * 0.35 + snow * 0.12) * shade; // el hielo brilla
+  vec3 light = uSunColor * (ndl + gloss) * shade * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
   vec3 col = alb * light;
 
   if (water > 0.004) {

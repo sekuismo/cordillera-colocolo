@@ -10,12 +10,12 @@ const manifest = {
   // Origen del contexto en coordenadas del mundo (el mundo parte en la esquina NO del core).
   ctx: { ...CTX, sizeX: ctx.w, sizeZ: ctx.h, originX: (CTX.west - CORE.west) * M_PER_DEG_LON, originZ: (CORE.north - CTX.north) * M_PER_DEG_LAT, dem: 'ctx.dem', img: 'ctx.webp', demSize: CTX_DEM, imgSize: CTX_IMG },
   tiers: {
-    hi: { dem: 'core_hi.dem', img: 'core_hi.webp', ...CORE_HI },
-    lo: { dem: 'core_lo.dem', img: 'core_lo.webp', ...CORE_LO },
+    hi: { dem: 'core_hi.dem', img: 'core_hi.webp', land: 'land_hi.bin', ...CORE_HI },
+    lo: { dem: 'core_lo.dem', img: 'core_lo.webp', land: 'land_lo.bin', ...CORE_LO },
   },
   labels: 'labels.json', lines: 'lines.bin', map: 'mapa.webp',
 };
-for (const f of ['core_hi.dem', 'core_hi.webp', 'core_lo.dem', 'core_lo.webp', 'ctx.dem', 'ctx.webp', 'lines.bin', 'labels.json'])
+for (const f of ['core_hi.dem', 'core_hi.webp', 'core_lo.dem', 'core_lo.webp', 'ctx.dem', 'ctx.webp', 'lines.bin', 'labels.json', 'land_hi.bin', 'land_lo.bin'])
   (manifest.bytes ??= {})[f] = (await fs.stat(path.join(DATA, f))).size;
 await fs.writeFile(path.join(DATA, 'manifest.json'), JSON.stringify(manifest, null, 1));
 console.log(manifest);

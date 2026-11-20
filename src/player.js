@@ -24,6 +24,7 @@ export class Player {
     this.heading = 0; this.level = 1; this.grounded = true; this.speed = 0; this.atEdge = false; this.odo = 0;
     this.camYaw = 0; this.camPitch = 0.13; this.camDist = 5.5; this.camY = 0; this.fov = 60; this.baseFov = 60;
     this.firstPerson = false; this.swimming = false; this.collide = null;
+    this.rush = 0; this.roll = 0; this.lag = 1; this._prevHeading = 0; this._turn = 0;
     this.normal = new THREE.Vector3(0, 1, 0);
     this._t = new THREE.Vector3();
   }
@@ -88,14 +89,22 @@ export class Player {
     // --- cámara
     this.camY += (this.y - this.camY) * (1 - Math.exp(-dt * 14));
     const sp = Math.min(1, this.speed / 180);
-    this.fov += (Math.min(100, this.baseFov + 14 * Math.sqrt(sp)) - this.fov) * (1 - Math.exp(-dt * 3));
+    // Viaje rápido (Turbo e Híper): el campo de visión se abre, la cámara se queda atrás al acelerar y alcanza
+    // después, se inclina en las curvas y vibra un poco. `rush` va de 0 (hasta Carrera) a 1 (Híper a fondo).
+    this.rush = Math.sqrt(Math.min(1, Math.max(0, (this.speed - 24) / 156)));
+    this.fov += (Math.min(104, this.baseFov + 32 * this.rush) - this.fov) * (1 - Math.exp(-dt * 2.2));
+    let dh = this.heading - this._prevHeading; if (dh > Math.PI) dh -= Math.PI * 2; if (dh < -Math.PI) dh += Math.PI * 2;
+    this._prevHeading = this.heading;
+    this._turn += (dh / Math.max(dt, 1e-3) - this._turn) * (1 - Math.exp(-dt * 6));
+    this.roll += (THREE.MathUtils.clamp(this._turn * 0.22, -0.3, 0.3) * this.rush - this.roll) * (1 - Math.exp(-dt * 4));
     const cp = Math.cos(this.camPitch), sn = Math.sin(this.camPitch);
     const lx = Math.sin(this.camYaw) * cp, lz = Math.cos(this.camYaw) * cp; // dirección de la mirada (ly = −sn)
     if (fp) {
       const hy = this.camY + 0.5 * CAT_SCALE;
       camera.position.set(this.x + Math.sin(this.heading) * 0.32, hy, this.z + Math.cos(this.heading) * 0.32);
     } else {
-      const dist = this.camDist * (1 + Math.sqrt(sp) * 1.8);
+      this.lag += (1 + Math.sqrt(sp) * 1.8 - this.lag) * (1 - Math.exp(-dt * 1.3)); // resorte lento: al acelerar, el gato se escapa y la cámara lo alcanza
+      const dist = this.camDist * this.lag;
       const tgtY = this.camY + 0.42 * CAT_SCALE + dist * 0.04;
       const cx = this.x - lx * dist, cz = this.z - lz * dist;
       // La cámara nunca queda bajo tierra ni con un cerro entre ella y el gato: sube, pero no se acerca de golpe.
@@ -105,8 +114,13 @@ export class Player {
         if (h > tgtY + (cyy - tgtY) * f) cyy = Math.min(tgtY + (h - tgtY) / f, cyy + dist);
       }
       camera.position.set(cx, cyy, cz);
+      if (this.rush > 0.01) { // vibración: dos senos desfasados por eje, amplitud con el cuadrado de la velocidad
+        const a = this.rush * this.rush * 0.05 * Math.min(1, dist / 6);
+        camera.position.x += (Math.sin(now * 47) + Math.sin(now * 71.3)) * a; camera.position.y += (Math.sin(now * 53.7) + Math.sin(now * 83.1)) * a * 0.7;
+      }
     }
     camera.lookAt(this._t.set(camera.position.x + lx, camera.position.y - sn, camera.position.z + lz));
+    if (Math.abs(this.roll) > 1e-4) camera.rotateZ(this.roll);
     if (Math.abs(camera.fov - this.fov) > 0.05) { camera.fov = this.fov; camera.updateProjectionMatrix(); }
     camera.updateMatrixWorld();
     return fp;

@@ -53,18 +53,22 @@ export async function loadAll(manifest, quality, onProgress) {
     fetch(new URL(manifest.labels, base)).then((r) => r.json()),
   ]);
   worker.terminate();
-  // Miniatura satelital en CPU: de ella se estima el verdor para distribuir la vegetación.
-  const mapBmp = await createImageBitmap(await (await fetch(new URL(manifest.map, base))).blob());
-  const cv = document.createElement('canvas'); cv.width = mapBmp.width; cv.height = mapBmp.height;
-  const g = cv.getContext('2d', { willReadFrequently: true }); g.drawImage(mapBmp, 0, 0);
-  const mapPixels = { data: g.getImageData(0, 0, cv.width, cv.height).data, w: cv.width, h: cv.height };
-  return { core, ctx, lines, coreImg, ctxImg, labels, mapPixels };
+  // Cobertura de suelo: 1 byte por texel, gzip. Decide qué vegetación crece en cada punto.
+  const lres = await fetch(new URL(tier.land, base));
+  if (!lres.ok) throw new Error(`${tier.land}: HTTP ${lres.status}`);
+  const land = { data: new Uint8Array(await new Response(lres.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()), w: tier.w, h: tier.h };
+  return { core, ctx, lines, coreImg, ctxImg, labels, land };
 }
 
 // Altura de 16 bits en una textura RG8 (byte bajo en R, alto en G); el shader hace el bilineal a mano
 // porque así funciona en cualquier GPU con WebGL2, sin depender de filtrado de texturas float.
 export function demTexture(d) {
   const t = new THREE.DataTexture(new Uint8Array(d.q.buffer), d.w, d.h, THREE.RGFormat, THREE.UnsignedByteType);
+  t.minFilter = t.magFilter = THREE.NearestFilter; t.unpackAlignment = 1; t.needsUpdate = true;
+  return t;
+}
+export function landTexture(l) {
+  const t = new THREE.DataTexture(l.data, l.w, l.h, THREE.RedFormat, THREE.UnsignedByteType);
   t.minFilter = t.magFilter = THREE.NearestFilter; t.unpackAlignment = 1; t.needsUpdate = true;
   return t;
 }

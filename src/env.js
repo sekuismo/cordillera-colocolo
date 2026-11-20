@@ -59,7 +59,7 @@ export class Environment {
     this.uniforms = {
       uSunDir: v3(), uSunColor: v3(), uSkyZenith: v3(), uSkyHorizon: v3(), uAmbient: v3(), uFogColor: v3(),
       uFogDensity: { value: 2.4e-5 }, uTime: { value: 0 }, uLogF: { value: 2 / Math.log2(FAR + 1) },
-      uSnowLine: { value: 4300 }, uStorm: { value: 0 }, uGreen: { value: 0 },
+      uSnowLine: { value: 4300 }, uStorm: { value: 0 }, uGreen: { value: 0 }, uLeaf: { value: new THREE.Vector3(1, 0, 0) },
     };
     this.sky = new THREE.Mesh(
       new THREE.SphereGeometry(1, 32, 16),
@@ -118,6 +118,9 @@ export class Environment {
     u.uFogDensity.value = 2.4e-5 * (1 + st * 14);
     u.uStorm.value = st; u.uSnowLine.value = this.snowLine;
     u.uGreen.value = 0.5 - 0.5 * Math.cos(2 * Math.PI * (this.year - 0.22)); // el verde llega con las lluvias: máximo en septiembre
+    // Caducos (álamos, frutales, parras, árboles de calle): hoja de septiembre a abril, amarillo en mayo, flor en septiembre.
+    const sm = (a, b, x) => { const k = Math.min(1, Math.max(0, (x - a) / (b - a))); return k * k * (3 - 2 * k); }, yr = this.year;
+    u.uLeaf.value.set(1 - sm(0.38, 0.47, yr) + sm(0.63, 0.72, yr), sm(0.24, 0.33, yr) * (1 - sm(0.4, 0.47, yr)), sm(0.66, 0.7, yr) * (1 - sm(0.74, 0.79, yr)));
     this.elevation = e;
     if (this.onSunChange && this._lastSun.angleTo(u.uSunDir.value) > 0.012) { this._lastSun.copy(u.uSunDir.value); this.onSunChange(u.uSunDir.value); }
   }

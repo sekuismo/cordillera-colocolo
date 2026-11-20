@@ -5,7 +5,8 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 **Jugar:** https://sekuismo.github.io/cordillera-colocolo/
 
 - Relieve real (DEM de 30 m) de un área de 111 × 139 km: Santiago, Sierra de Ramón, Farellones y El Plomo, todo el Cajón del Maipo, los volcanes San José, Tupungato y Maipo, y unos 20 km de Mendoza.
-- Imagen satelital Sentinel-2 como color base, con suelo, vegetación y rocas procedurales de cerca.
+- Imagen satelital Sentinel-2 como color base, con suelo y rocas procedurales de cerca.
+- Vegetación según la cobertura de suelo real (ESA WorldCover + polígonos OSM): espinal, bosque esclerófilo, quiscos en solana, ciprés de la cordillera, neneo, llareta y vegas; y lo plantado: álamos en hilera, viñas, frutales, eucaliptos y árboles urbanos, con follaje caduco que cambia por estación. Glaciares, cultivos y ciudad pintados desde la misma capa.
 - 2.500 nombres (cumbres, localidades, ríos, glaciares, refugios…) que se prenden y apagan por capa.
 - 48 fichas explicativas que aparecen al llegar a cada lugar, más los pisos de vegetación por altitud.
 - Estaciones del año: la línea de nieve sube y baja, entran frentes con su isoterma cero (nieva arriba, llueve abajo), el valle reverdece en invierno y el sol pasa más bajo.
@@ -39,6 +40,7 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Ríos, caminos, frontera | Vectores OSM rasterizados en GPU a 3 texturas en cascada centradas en la cámara (0,25 m/px cerca, 16 m/px lejos). |
 | Nombres | Etiquetas HTML priorizadas por aislamiento topográfico de la cumbre y distancia, con oclusión por el relieve. |
 | Sombras del relieve | Barrido O(N) sobre el DEM en CPU (altura de sombra por línea paralela al sol), repartido en varios cuadros y subido como textura de 1 canal. |
+| Vegetación | Raster de clases de 1 byte por texel (1,5 MB) compartido por CPU y GPU: la CPU decide qué especie instanciar en cada punto y el shader pinta cultivos, dosel y hielo. |
 | Estaciones | Un solo parámetro (fracción del año) mueve la declinación solar, la línea de nieve, el verdor y la probabilidad de frentes. |
 
 `src/heightfield.js` (CPU) y `HEIGHT_GLSL` en `src/shaders.js` (GPU) son la misma función escrita dos veces: si se cambia una, hay que cambiar la otra.
@@ -56,7 +58,7 @@ y abrir http://localhost:8123. Parámetro opcional `?q=hi` o `?q=lo` para forzar
 ```bash
 cd tools && npm install
 node download.mjs          # ~250 MB a /raw (ignorado por git)
-node build_dem.mjs && node build_albedo.mjs && node build_osm.mjs && node build_manifest.mjs
+node build_dem.mjs && node build_albedo.mjs && node build_osm.mjs && node build_landcover.mjs && node build_manifest.mjs
 node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
 ```
 
@@ -66,7 +68,8 @@ El área y las resoluciones se definen en `tools/config.mjs`.
 
 - **Relieve:** Copernicus DEM GLO-30 © DLR e.V. 2010-2014 y © Airbus Defence and Space GmbH 2014-2018, provisto bajo COPERNICUS por la Unión Europea y la ESA. Horizonte lejano: Terrain Tiles (Mapzen/AWS Open Data).
 - **Imagen:** [Sentinel-2 cloudless 2016](https://s2maps.eu) por EOX IT Services GmbH (contiene datos Copernicus Sentinel modificados 2016), CC BY 4.0.
+- **Cobertura de suelo:** © ESA WorldCover project 2021 / contiene datos Copernicus Sentinel modificados (2021) procesados por el consorcio ESA WorldCover, CC BY 4.0.
 - **Nombres, caminos, ríos y límite:** © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright), ODbL.
 - **Código:** MIT (ver `LICENSE`).
 
-Los textos de las fichas son divulgativos; el límite internacional dibujado es referencial.
+Los textos de las fichas son divulgativos; el límite internacional dibujado es referencial. Viñas, frutales, parques, plantaciones y glaciares salen de sus polígonos OSM; en el campo abierto restante, WorldCover indica que hay cultivo pero no cuál, así que el color de cada parcela es sorteado.

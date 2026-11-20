@@ -13,6 +13,15 @@ body { user-select: none; -webkit-user-select: none; -webkit-touch-callout: none
 button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; }
 [hidden] { display: none !important; }
 
+/* ---------- viaje rápido: líneas de velocidad y viñeta en los bordes ---------- */
+#rush { position: fixed; inset: -12%; pointer-events: none; opacity: 0; will-change: opacity;
+  background: repeating-conic-gradient(from 0deg at 50% 52%, rgba(255, 255, 255, .13) 0deg .5deg, transparent .5deg 5.5deg, rgba(255, 255, 255, .07) 5.5deg 5.9deg, transparent 5.9deg 13deg),
+    radial-gradient(ellipse at 50% 52%, transparent 55%, rgba(4, 8, 14, .5) 100%);
+  -webkit-mask: radial-gradient(ellipse at 50% 52%, transparent 34%, #000 82%); mask: radial-gradient(ellipse at 50% 52%, transparent 34%, #000 82%);
+  animation: rush 0.5s linear infinite; }
+@keyframes rush { from { transform: rotate(0deg) scale(1); } 50% { transform: rotate(.6deg) scale(1.03); } to { transform: rotate(1.2deg) scale(1); } }
+@media (prefers-reduced-motion: reduce) { #rush { display: none; } }
+
 /* ---------- etiquetas 3D ---------- */
 #labels { position: fixed; inset: 0; pointer-events: none; overflow: hidden; }
 .lbl { position: absolute; left: 0; top: 0; white-space: nowrap; font-size: 12px; font-weight: 600; letter-spacing: .01em; line-height: 1.15;
@@ -20,6 +29,9 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .lbl::after { content: ""; display: block; width: 1px; height: 16px; margin: 2px auto 0; background: linear-gradient(currentColor, transparent); opacity: .8; }
 .lbl i { display: block; font-style: normal; font-weight: 500; font-size: 10.5px; opacity: .85; }
 .lbl.r0 { font-size: 14px; } .lbl.r1 { font-size: 13px; }
+.g-relieve { color: #e9d9c4; font-style: italic; }
+.lbl.k-region { font-size: 15px; font-style: normal; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: rgba(255, 244, 226, .92); }
+.lbl.k-region::after { display: none; }
 .g-cumbres { color: #fff; } .g-localidades { color: #ffe2a6; } .g-agua { color: var(--ice); } .g-lugares { color: var(--moss); }
 
 /* ---------- HUD ---------- */

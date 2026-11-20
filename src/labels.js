@@ -7,7 +7,15 @@ const GROUP_OF = {
   ciudad: 'localidades', pueblo: 'localidades', villa: 'localidades', caserio: 'localidades', barrio: 'localidades', lugar: 'localidades',
   lago: 'agua', rio: 'agua', estero: 'agua', glaciar: 'agua', cascada: 'agua', termas: 'agua',
   refugio: 'lugares', mirador: 'lugares', atractivo: 'lugares', parque: 'lugares', ski: 'lugares',
+  valle: 'relieve', cordon: 'relieve', region: 'relieve',
 };
+// Grandes unidades del relieve: [nombre, lat, lon]. Son el "mapa mental" de la zona.
+const REGIONS = [
+  ['Cajón del Maipo', -33.70, -70.33], ['Sierra de Ramón', -33.47, -70.44], ['Cuenca de Santiago', -33.50, -70.70],
+  ['Valle del Yeso', -33.64, -70.02], ['Cajón del río Colorado', -33.50, -70.20], ['Cajón del río Olivares', -33.33, -70.14],
+  ['Valle del río Volcán', -33.82, -70.10], ['Cajón del Mapocho', -33.36, -70.42], ['Valle de Pirque', -33.66, -70.56],
+  ['Caldera Diamante', -34.17, -69.73], ['Cordillera de la Costa', -33.60, -71.08], ['Valle del Cachapoal', -34.20, -70.60],
+];
 const RANGE = [170000, 42000, 13000, 4200]; // alcance en metros según prioridad 0..3
 // Hitos fuera del área jugable que se ven en el horizonte: [nombre, tipo, lat, lon, altitud]
 const FAR = [
@@ -24,10 +32,12 @@ const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'
 export class Labels {
   constructor(container, data, hf, manifest, max) {
     this.hf = hf; this.max = max; this.container = container;
-    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true };
+    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true, relieve: true };
     this.items = data.items.map(([name, k, x, z, rank, ele]) => ({ name, kind: data.kinds[k], group: GROUP_OF[data.kinds[k]], x, z, rank, ele }));
     for (const [name, kind, lat, lon, ele] of FAR)
       this.items.push({ name, kind, group: GROUP_OF[kind], x: (lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - lat) * manifest.mPerDegLat, rank: 0, ele, far: true });
+    for (const [name, lat, lon] of REGIONS)
+      this.items.push({ name, kind: 'region', group: 'relieve', x: (lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - lat) * manifest.mPerDegLat, rank: 0, ele: 0, lift: 180 });
     this.active = []; this.els = new Map(); this.pool = [];
     this._vp = new THREE.Matrix4(); this._rects = [];
   }
@@ -50,10 +60,10 @@ export class Labels {
       if (!this.enabled[it.group]) continue;
       const R = RANGE[it.rank], dx = it.x - cam.x, dz = it.z - cam.z, d2 = dx * dx + dz * dz;
       if (d2 > R * R) continue;
-      if (it.y === undefined) it.y = Math.max(hf.base(it.x, it.z), it.far ? it.ele * 0.97 : 0);
+      if (it.y === undefined) it.y = Math.max(hf.base(it.x, it.z), it.far ? it.ele * 0.97 : 0) + (it.lift || 0);
       if (!this._project(it, p) || Math.abs(p[0]) > 1.08 || p[1] > 1.15 || p[1] < -1.05) continue;
       it.d = Math.sqrt(d2 + (it.y - cam.y) ** 2);
-      it.score = it.d / R + it.rank * 0.1 + (it.group === 'cumbres' ? 0 : 0.04);
+      it.score = it.d / R + it.rank * 0.1 + (it.group === 'cumbres' ? 0 : 0.04) + (it.kind === 'region' ? (it.d < 2500 ? 9 : 0.12) : 0); // estando dentro de un valle, su nombre estorba
       cands.push(it);
     }
     cands.sort((a, b) => a.score - b.score);
@@ -70,11 +80,11 @@ export class Labels {
     let el = this.els.get(it);
     if (el) return el;
     el = this.pool.pop() || this.container.appendChild(document.createElement('div'));
-    el.className = `lbl g-${it.group} r${it.rank}`;
+    el.className = `lbl g-${it.group} r${it.rank} k-${it.kind}`;
     el.textContent = it.name;
     if (it.ele > 0 && it.group === 'cumbres') el.appendChild(document.createElement('i')).textContent = `${fmt(it.ele)} m`;
     else if (it.note) el.appendChild(document.createElement('i')).textContent = it.note;
-    it.w = it.name.length * (it.rank < 2 ? 7.8 : 6.9) + 14; it.h = (it.ele > 0 && it.group === 'cumbres') || it.note ? 48 : 36;
+    it.w = it.name.length * (it.kind === 'region' ? 11.5 : it.rank < 2 ? 7.8 : 6.9) + 14; it.h = (it.ele > 0 && it.group === 'cumbres') || it.note ? 48 : 36;
     this.els.set(it, el);
     return el;
   }

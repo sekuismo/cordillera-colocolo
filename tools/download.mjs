@@ -88,6 +88,17 @@ const tasks = {
       border: `[out:json][timeout:180][bbox:${bb}];(
         way[boundary=administrative][admin_level=2];
       );out geom;`,
+      // Cobertura hecha por personas (viñas, frutales, plantaciones, parques) y glaciares: polígonos.
+      land: `[out:json][timeout:300][bbox:${bb}];(
+        way[landuse~"^(vineyard|orchard|forest)$"];relation[landuse~"^(vineyard|orchard|forest)$"];
+        way[leisure~"^(park|golf_course)$"];relation[leisure~"^(park|golf_course)$"];
+        way[natural=glacier];relation[natural=glacier];
+      );out geom;`,
+      // Formas del relieve con nombre: valles, cajones, cordones, filos, paredes.
+      relief: `[out:json][timeout:180][bbox:${bb}];(
+        node[natural~"^(valley|ridge|arete|cliff|gorge)$"][name];
+        way[natural~"^(valley|ridge|arete|cliff|gorge)$"][name];
+      );out tags center;`,
     };
     const hosts = ['https://overpass-api.de/api/interpreter', 'https://overpass.kumi.systems/api/interpreter'];
     for (const [name, query] of Object.entries(q)) {
