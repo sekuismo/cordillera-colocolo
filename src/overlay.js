@@ -1,12 +1,12 @@
 // Capas vectoriales (ríos, lagos, caminos, senderos, frontera) pintadas sobre el terreno.
 // Un DEM/imagen de 34 m no resuelve un sendero de 1,4 m, así que las líneas se rasterizan en GPU
-// a 3 texturas en cascada centradas en la cámara (512 m, 4 km y 32 km de lado) que el shader del terreno muestrea.
+// a 3 texturas en cascada centradas en la cámara (512 m, 4 km y 41 km de lado) que el shader del terreno muestrea.
 import * as THREE from 'three';
 
-const SIZES = [512, 4096, 32768];
+const SIZES = [512, 4096, 40960];
 const CELL = 2048;   // m: grilla espacial para dibujar solo los tramos cercanos a cada cascada
 const MAX_SEG = 400; // m: los tramos más largos se parten, así cada uno vive en una sola celda
-const CHANNEL = { pav: 0, dirt: 1, path: 1, river: 2, border: 3 };
+const CHANNEL = { pav: 0, ter: 0, res: 0, dirt: 1, path: 1, river: 2, border: 3 };
 
 const LINE_VERT = /* glsl */ `
 attribute vec4 iSeg;  // x0, z0, x1, z1
@@ -59,10 +59,11 @@ export class Overlay {
     this.lineMat = new THREE.ShaderMaterial({ uniforms: { uRect: this.uRect, uTexel: this.uTexel }, vertexShader: LINE_VERT, fragmentShader: LINE_FRAG, ...blend });
     this.fillMat = new THREE.ShaderMaterial({ uniforms: { uRect: this.uRect }, vertexShader: FILL_VERT, fragmentShader: FILL_FRAG, ...blend });
     this.cells = [];
-    this.ready = false;
+    this.ready = false; this.hasStreets = false;
   }
 
   setLines(classes) {
+    this.hasStreets = !!(classes.res && classes.res.types.length);
     const buckets = new Map();
     const put = (x0, z0, x1, z1, hw, ch) => {
       const key = Math.floor((x0 + x1) / 2 / CELL) + ',' + Math.floor((z0 + z1) / 2 / CELL);

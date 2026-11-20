@@ -44,7 +44,8 @@ export class SpeedFX {
     this.k += (rush - this.k) * (1 - Math.exp(-dt * 3));
     const on = this.k > 0.02;
     this.mesh.visible = on;
-    if (this.el) { this.el.style.opacity = on ? (this.k * 0.9).toFixed(3) : '0'; }
+    if (this.el && on !== this.shown) { this.shown = on; this.el.style.display = on ? 'block' : 'none'; }
+    if (this.el && on) this.el.style.opacity = (this.k * 0.9).toFixed(3);
     if (!on) return;
     const c = camera.position, fr = (v, b) => v / b - Math.floor(v / b);
     this.mesh.position.copy(c);

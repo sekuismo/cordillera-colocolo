@@ -70,7 +70,7 @@ async function boot() {
   const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border });
 
   // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
-  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false, sink = 0, stalled = false;
+  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false, sink = 0, stalled = false, pendingResize = true, slow = 0, fast = 0;
   const resize = () => {
     const w = innerWidth, h = innerHeight;
     renderer.setPixelRatio(Math.min(devicePixelRatio, quality.maxPixelRatio) * scale);
@@ -81,13 +81,17 @@ async function boot() {
     camera.updateProjectionMatrix();
     env.pu.uPx.value = renderer.domElement.height / (2 * Math.tan((camera.fov * Math.PI) / 360));
   };
-  addEventListener('resize', resize); addEventListener('orientationchange', resize); resize();
+  // Redimensionar un canvas WebGL lo borra. Si se hace después de dibujar, ese cuadro se ve negro: por eso
+  // aquí solo se marca, y el cambio se aplica al comienzo del cuadro siguiente, justo antes de dibujar.
+  const askResize = () => { pendingResize = true; };
+  addEventListener('resize', askResize); addEventListener('orientationchange', askResize); resize();
 
   const clock = new THREE.Clock();
   const idle = { move: { x: 0, y: 0 }, boost: false, lastLook: -10, pointers: new Map() };
   const frame = () => {
     const raw = clock.getDelta(), dt = Math.min(raw, 0.1), t = clock.elapsedTime;
     if (raw > 0.4 || document.hidden) stalled = true; // pestaña en segundo plano: el navegador frena los cuadros, no es lentitud real
+    if (pendingResize) { pendingResize = false; resize(); }
     const io = input.poll();
     let fp = false;
     if (started) fp = player.update(dt, performance.now() / 1000, input, io, camera);
@@ -119,8 +123,10 @@ async function boot() {
     frames++; acc += dt;
     if (acc >= 1.5) {
       fps = frames / acc; frames = 0; acc = 0;
-      const next = fps < 34 ? Math.max(0.55, scale * 0.85) : fps > 52 && scale < 1 ? Math.min(1, scale * 1.12) : scale;
-      if (next !== scale && !stalled) { scale = next; resize(); }
+      // Histéresis: la resolución solo cambia tras 2 ventanas lentas seguidas (o 4 holgadas), para que no oscile.
+      slow = !stalled && fps < 33 ? slow + 1 : 0; fast = !stalled && fps > 54 ? fast + 1 : 0;
+      const next = slow >= 2 ? Math.max(0.55, scale * 0.85) : fast >= 4 && scale < 1 ? Math.min(1, scale * 1.12) : scale;
+      if (next !== scale) { scale = next; slow = fast = 0; pendingResize = true; }
       stalled = false;
       $('#stats').textContent = `${fps.toFixed(0)} fps · ${(terrain.stats.tris / 1000).toFixed(0)} mil triángulos · relieve a ${quality.tier === 'hi' ? 34 : 68} m · escala de render ${(scale * 100).toFixed(0)} %`;
     }

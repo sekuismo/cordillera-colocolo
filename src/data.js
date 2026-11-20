@@ -21,7 +21,8 @@ export function pickQuality(maxTexture) {
 
 export async function loadAll(manifest, quality, onProgress) {
   const base = new URL('../data/', import.meta.url);
-  const tier = manifest.tiers[quality.tier], files = [tier.dem, tier.img, manifest.ctx.dem, manifest.ctx.img, manifest.lines];
+  const streets = (manifest.streets || []).filter((s) => s.tiers.includes(quality.tier)).map((s) => s.file);
+  const tier = manifest.tiers[quality.tier], files = [tier.dem, tier.img, manifest.ctx.dem, manifest.ctx.img, manifest.lines, ...streets];
   const total = files.reduce((s, f) => s + (manifest.bytes[f] || 0), 0), loaded = {};
   const report = (f, n) => { loaded[f] = n; onProgress(Math.min(1, Object.values(loaded).reduce((a, b) => a + b, 0) / total)); };
 
@@ -45,6 +46,7 @@ export async function loadAll(manifest, quality, onProgress) {
     return createImageBitmap(new Blob(chunks, { type: 'image/webp' }), { premultiplyAlpha: 'none', colorSpaceConversion: 'none' });
   };
 
+  const streetsP = Promise.all(streets.map((f) => viaWorker('lines', f)));
   const [core, ctx, lines, coreImg, ctxImg, labels] = await Promise.all([
     viaWorker('dem', tier.dem, { texelX: manifest.core.sizeX / tier.w, texelZ: manifest.core.sizeZ / tier.h }),
     viaWorker('dem', manifest.ctx.dem, { texelX: manifest.ctx.sizeX / manifest.ctx.demSize.w, texelZ: manifest.ctx.sizeZ / manifest.ctx.demSize.h }),
@@ -52,6 +54,7 @@ export async function loadAll(manifest, quality, onProgress) {
     image(tier.img), image(manifest.ctx.img),
     fetch(new URL(manifest.labels, base)).then((r) => r.json()),
   ]);
+  for (const s of await streetsP) Object.assign(lines, s); // calles menores: mismas estructuras, otras clases
   worker.terminate();
   // Cobertura de suelo: 1 byte por texel, gzip. Decide qué vegetación crece en cada punto.
   const lres = await fetch(new URL(tier.land, base));

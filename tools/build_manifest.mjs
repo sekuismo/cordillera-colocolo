@@ -17,5 +17,10 @@ const manifest = {
 };
 for (const f of ['core_hi.dem', 'core_hi.webp', 'core_lo.dem', 'core_lo.webp', 'ctx.dem', 'ctx.webp', 'lines.bin', 'labels.json', 'land_hi.bin', 'land_lo.bin'])
   (manifest.bytes ??= {})[f] = (await fs.stat(path.join(DATA, f))).size;
+// Calles menores (opcionales: existen si se corrió download_streets + build_streets). Las residenciales solo en calidad alta.
+manifest.streets = [];
+for (const [file, tiers] of [['streets_ter.bin', ['hi', 'lo']], ['streets_res.bin', ['hi']]]) {
+  try { manifest.bytes[file] = (await fs.stat(path.join(DATA, file))).size; manifest.streets.push({ file, tiers }); } catch { /* aún no generadas */ }
+}
 await fs.writeFile(path.join(DATA, 'manifest.json'), JSON.stringify(manifest, null, 1));
 console.log(manifest);

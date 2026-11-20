@@ -58,7 +58,7 @@ export class Terrain {
       uOv0: { value: overlay.targets[0].texture }, uOv1: { value: overlay.targets[1].texture }, uOv2: { value: overlay.targets[2].texture },
       uOv: { value: overlay.uniformValue },
       uShow: { value: new THREE.Vector4(1, 1, 0, 0) },
-      uShadow: { value: tex.shadow }, uLand: { value: tex.land },
+      uShadow: { value: tex.shadow }, uLand: { value: tex.land }, uStreets: { value: overlay.hasStreets ? 1 : 0 },
     };
     const mk = (cells) => new THREE.ShaderMaterial({
       uniforms: this.uniforms, vertexShader: TERRAIN_VERT, fragmentShader: TERRAIN_FRAG,

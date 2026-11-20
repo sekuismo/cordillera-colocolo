@@ -14,7 +14,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 [hidden] { display: none !important; }
 
 /* ---------- viaje rápido: líneas de velocidad y viñeta en los bordes ---------- */
-#rush { position: fixed; inset: -12%; pointer-events: none; opacity: 0; will-change: opacity;
+#rush { position: fixed; inset: -12%; pointer-events: none; opacity: 0; display: none;
   background: repeating-conic-gradient(from 0deg at 50% 52%, rgba(255, 255, 255, .13) 0deg .5deg, transparent .5deg 5.5deg, rgba(255, 255, 255, .07) 5.5deg 5.9deg, transparent 5.9deg 13deg),
     radial-gradient(ellipse at 50% 52%, transparent 55%, rgba(4, 8, 14, .5) 100%);
   -webkit-mask: radial-gradient(ellipse at 50% 52%, transparent 34%, #000 82%); mask: radial-gradient(ellipse at 50% 52%, transparent 34%, #000 82%);

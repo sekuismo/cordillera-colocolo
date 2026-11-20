@@ -122,6 +122,7 @@ uniform vec2 uWaterFrac;
 uniform vec3 uOv[3];   // xy: cámara − centro de la cascada, z: tamaño
 uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional
 uniform sampler2D uShadow; // sombras arrojadas por el relieve (se recalculan en CPU cuando cambia el sol)
+uniform float uStreets;     // 1 si están cargadas las calles menores de OSM
 uniform sampler2D uLand;   // cobertura de suelo real: una clase por texel (ver tools/build_landcover.mjs)
 #define IS(k) (1.0 - step(0.5, abs(cls - k)))
 // Hash entero por parcela (estable entre GPUs, a diferencia de fract(sin())).
@@ -133,15 +134,17 @@ float parcelHash(vec2 c) {
 }
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
+float ovCover; // cuánto cubren las cascadas vectoriales este punto (1 cerca de la cámara, 0 más allá de ~20 km)
 vec4 overlay(vec2 rel) {
   vec4 o = vec4(0.0);
-  vec2 uv; vec2 e;
-  uv = (uOv[2].xy + rel) / uOv[2].z + 0.5; e = abs(uv - 0.5) * 2.0;
-  o = mix(o, texture2D(uOv2, uv), 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y)));
-  uv = (uOv[1].xy + rel) / uOv[1].z + 0.5; e = abs(uv - 0.5) * 2.0;
-  o = mix(o, texture2D(uOv1, uv), 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y)));
-  uv = (uOv[0].xy + rel) / uOv[0].z + 0.5; e = abs(uv - 0.5) * 2.0;
-  o = mix(o, texture2D(uOv0, uv), 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y)));
+  vec2 uv; vec2 e; float w2, w1, w0;
+  uv = (uOv[2].xy + rel) / uOv[2].z + 0.5; e = abs(uv - 0.5) * 2.0; w2 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
+  o = mix(o, texture2D(uOv2, uv), w2);
+  uv = (uOv[1].xy + rel) / uOv[1].z + 0.5; e = abs(uv - 0.5) * 2.0; w1 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
+  o = mix(o, texture2D(uOv1, uv), w1);
+  uv = (uOv[0].xy + rel) / uOv[0].z + 0.5; e = abs(uv - 0.5) * 2.0; w0 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
+  o = mix(o, texture2D(uOv0, uv), w0);
+  ovCover = max(w2, max(w1, w0));
   return o;
 }
 
@@ -178,6 +181,7 @@ void main() {
   float cvar = t0.w * 0.30 + t1.w * 0.35 + t2.w * 0.30 + t3.w * 0.30;
   float cav = t2.x + t3.x * 0.7 + t4.x * 0.5;
 
+  vec4 ov = overlay(vRel.xz);
   // --- Cobertura de suelo real (ESA WorldCover + OSM). El uv se desordena con ruido para que los bordes
   // entre clases sigan formas naturales y no los escalones del raster.
   float cls = floor(texture2D(uLand, uvC + vec2(t0.w, t1.w) * 0.8 / uCoreTex).r * 255.0 + 0.5) * step(0.999, w);
@@ -189,7 +193,8 @@ void main() {
   float urbanish = IS(5.0) * (1.0 - smoothstep(0.004, 0.02, s2));
   vec2 gcell = xz / vec2(118.0, 124.0), gfw = fwidth(gcell);
   vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
-  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish;
+  // Donde hay calles reales cargadas (cerca), la trama inventada se apaga; más lejos sigue dando textura de ciudad.
+  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish * (1.0 - ovCover * uStreets);
   float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
   alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
   alb = mix(alb, alb * 0.5, street * gfade * 0.75);
@@ -239,8 +244,7 @@ void main() {
   float pebble = smoothstep(0.42, 0.7, t5.x * 0.6 + t4.x * 0.55) * close * (0.35 + 0.65 * max(amp, steep));
   alb = mix(alb, alb * 1.5 + vec3(0.035, 0.033, 0.03), pebble * 0.7);
 
-  vec4 ov = overlay(vRel.xz);
-  float road = ov.r * uShow.x, trail = ov.g * uShow.x, water = ov.b, border = ov.a * uShow.y;
+  float road = min(1.0, ov.r * 1.4) * uShow.x, trail = ov.g * uShow.x, water = ov.b, border = ov.a * uShow.y;
   float flat_ = max(max(road, trail * 0.6), water);
   alb = mix(alb, vec3(0.055, 0.058, 0.062) * (1.0 + cvar * 0.25), road * 0.92);
   alb = mix(alb, (alb * 0.9 + vec3(0.075, 0.062, 0.045)) * (1.0 + cvar * 0.3), trail * 0.85); // huella de tierra: algo más clara que su entorno
