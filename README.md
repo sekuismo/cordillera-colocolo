@@ -11,6 +11,7 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 - 48 fichas explicativas que aparecen al llegar a cada lugar, más los pisos de vegetación por altitud.
 - Estaciones del año: la línea de nieve sube y baja, entran frentes con su isoterma cero (nieva arriba, llueve abajo), el valle reverdece en invierno y el sol pasa más bajo.
 - Sombras arrojadas por los cerros según la hora y la época.
+- Calles reales de Santiago y los pueblos (110 mil vías de OSM, incluidos pasajes); las casas se ordenan paralelas a su calle y los árboles urbanos van en la vereda.
 - Santiago reconocible desde los cerros: skyline por barrio e hitos a escala real (Gran Torre Costanera, Torre Entel, La Moneda, Estadio Nacional, Templo Bahá’í, Virgen del San Cristóbal…).
 - Funciona en escritorio y en móvil (joystick táctil, calidad adaptativa).
 
@@ -29,7 +30,7 @@ En móvil: joystick en el lado izquierdo, arrastrar en el derecho para mirar, pe
 
 ## Cómo está hecho
 
-Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.org) incluido en `vendor/`. Todos los datos van dentro del repo en `data/` (≈16 MB; un jugador baja 12 MB en calidad alta o 5 MB en móvil).
+Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.org) incluido en `vendor/`. Todos los datos van dentro del repo en `data/` (≈19 MB; un jugador baja unos 15 MB en calidad alta o 6 MB en móvil).
 
 | Pieza | Enfoque |
 | --- | --- |
@@ -60,6 +61,10 @@ cd tools && npm install
 node download.mjs          # ~250 MB a /raw (ignorado por git)
 node build_dem.mjs && node build_albedo.mjs && node build_osm.mjs && node build_landcover.mjs && node build_manifest.mjs
 node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
+
+# Calles menores: salen de un extracto PBF, porque Overpass no entrega una ciudad completa.
+# Bajar https://download.geofabrik.de/south-america/chile-latest.osm.pbf a raw/pbf/chile.osm.pbf y luego:
+node extract_streets.mjs && node build_streets.mjs && node build_manifest.mjs
 ```
 
 El área y las resoluciones se definen en `tools/config.mjs`.

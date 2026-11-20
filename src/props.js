@@ -236,8 +236,8 @@ const hash2 = (ix, iz, k) => { let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
 export class Props {
-  constructor({ hf, manifest, env, coreAlb, land, amount, labels, shadowTex }) {
-    this._c = [0, 0];
+  constructor({ hf, manifest, env, coreAlb, land, amount, labels, shadowTex, streets }) {
+    this._c = [0, 0]; this.streets = streets;
     this.hf = hf; this.m = manifest; this.land = land; this.amount = amount;
     this._buildUrban(labels);
     this.group = new THREE.Group();
@@ -314,6 +314,10 @@ export class Props {
         }
       } else if (ti === 3) {  // árboles de copa redonda
         const low = 1 - sm(1600, 2050, alt);
+        if (c === 5 || c === 12) { // en la ciudad los árboles van en la vereda, no en la calzada
+          const st = this.streets && this.streets.nearest(x, z, 20);
+          if (st && st.d < st.hw + 1.6) { x += st.nx * (st.hw + 1.6 - st.d); z += st.nz * (st.hw + 1.6 - st.d); }
+        }
         if (c === 1 && s2 < 0.004 && alt < 1000) { kind = 4; dens = 0.5; scale = 1.6 + v * 1.5; }                              // arboleda en el plano del valle: plantada
         else if (c === 1) { kind = south > 0.1 ? 2 : 1; dens = 0.9 * low; scale = 1.6 + v * 1.9; }                             // bosque esclerófilo
         else if (c === 2) { if (alt < 1150) { dens = 0.2; scale = 1.3 + v * 1.0; } else { kind = 1; dens = (0.1 + (south > 0.12 ? 0.22 : 0)) * low; scale = 1.4 + v * 1.4; } } // espinal abajo; esclerófilo en umbrías
@@ -329,6 +333,14 @@ export class Props {
         dens = urban * 0.8 * (1 - sm(0.02, 0.07, s2)); scale = 0.8 + v * 0.35;
         rot = Math.round(hash2(ix, iz, k * 5 + 4) * 4) * 1.5708 + (urban > 0.6 ? 0.1 : v * 0.8);
         kind = center > 0.86 ? Math.floor(hash2(iz, ix, k + 9) ** 2 * 8) : 0;
+        // Con calles reales cerca, la casa se pone paralela a su calle y retirada de la calzada (antejardín incluido).
+        const st = this.streets && this.streets.nearest(x, z, 45);
+        if (st) {
+          rot = Math.atan2(-st.tz, st.tx);
+          const back = st.hw + 2.7 * scale * (1 + kind * 0.05) + 2.2;
+          if (st.d < back) { x += st.nx * (back - st.d); z += st.nz * (back - st.d); }
+          dens *= 1.15;
+        }
       } else if (ti === 6) {  // árboles altos
         if (c === 13) { kind = alt > 1400 ? 3 : 2; dens = 0.5; scale = 2.6 + v * 1.7; }                                       // plantaciones: eucalipto abajo, pino arriba
         else if (c === 4 || c === 10 || c === 11) { // álamos en hilera (cortavientos) cada ~220 m, con tramos que existen y tramos que no

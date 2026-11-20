@@ -4,7 +4,7 @@
 import * as THREE from 'three';
 
 const SIZES = [512, 4096, 40960];
-const CELL = 2048;   // m: grilla espacial para dibujar solo los tramos cercanos a cada cascada
+export const CELL = 2048;   // m: grilla espacial para dibujar solo los tramos cercanos a cada cascada
 const MAX_SEG = 400; // m: los tramos más largos se parten, así cada uno vive en una sola celda
 const CHANNEL = { pav: 0, ter: 0, res: 0, dirt: 1, path: 1, river: 2, border: 3 };
 

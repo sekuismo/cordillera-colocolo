@@ -58,6 +58,23 @@
   "lines.bin": 894424,
   "labels.json": 104725,
   "land_hi.bin": 1486117,
-  "land_lo.bin": 437300
- }
+  "land_lo.bin": 437300,
+  "streets_ter.bin": 78053,
+  "streets_res.bin": 1076933
+ },
+ "streets": [
+  {
+   "file": "streets_ter.bin",
+   "tiers": [
+    "hi",
+    "lo"
+   ]
+  },
+  {
+   "file": "streets_res.bin",
+   "tiers": [
+    "hi"
+   ]
+  }
+ ]
 }

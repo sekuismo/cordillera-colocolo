@@ -13,6 +13,7 @@ import { Props } from './props.js';
 import { Shadows } from './shadows.js';
 import { City, HITOS } from './city.js';
 import { SpeedFX } from './speedfx.js';
+import { StreetIndex } from './streets.js';
 
 const $ = (s) => document.querySelector(s);
 const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
@@ -54,7 +55,7 @@ async function boot() {
   overlay.setLines(data.lines);
   const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
   const cat = new Cat(env.uniforms);
-  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, land: data.land, amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
+  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, land: data.land, streets: new StreetIndex(overlay), amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
   const city = new City({ hf, manifest, env: env.uniforms });
   const scene = new THREE.Scene();
   const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props);

@@ -5,6 +5,7 @@
   "description": "Pipeline offline: descarga y procesa DEM, imagen satelital y OSM a los binarios de /data",
   "dependencies": {
     "geotiff": "^2.1.3",
+    "osm-pbf-parser-node": "^1.1.4",
     "sharp": "^0.33.5",
     "three": "^0.170.0"
   }
