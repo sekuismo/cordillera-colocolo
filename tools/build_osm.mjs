@@ -61,6 +61,8 @@ for (const e of await load('areas')) {
 
 for (const e of await load('relief')) {
   const t = e.tags || {}, c = e.center || e; if (!t.name || c.lat === undefined) continue;
+  // Fuera: sectores de escalada y cascadas mal etiquetadas como pared, y el Cajón del Maipo (ya va como gran unidad del relieve).
+  if (/boulder|cascada|^Cajón del Maipo$/i.test(t.name)) continue;
   add(t.name, t.natural === 'valley' || t.natural === 'gorge' ? 'valle' : 'cordon', c.lon, c.lat, t.natural === 'cliff' ? 3 : 2);
 }
 
@@ -184,7 +186,7 @@ const out = [];
 for (const l of labels) {
   const inBounds = l.x >= 0 && l.z >= 0 && l.x <= W && l.z <= H;
   if (!inBounds || l.rank > 3) continue;
-  if (out.some((o) => o.name === l.name && o.kind === l.kind && Math.hypot(o.x - l.x, o.z - l.z) < (l.kind === 'rio' || l.kind === 'estero' ? 6000 : 1500))) continue;
+  if (out.some((o) => o.name === l.name && o.kind === l.kind && Math.hypot(o.x - l.x, o.z - l.z) < (l.kind === 'rio' || l.kind === 'estero' || l.kind === 'valle' || l.kind === 'cordon' ? 6000 : 1500))) continue;
   out.push(l);
 }
 await fs.writeFile(path.join(DATA, 'labels.json'), JSON.stringify({
