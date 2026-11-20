@@ -4,7 +4,7 @@ import { Heightfield, makeNoise, noiseTexture } from './heightfield.js';
 import { Environment, FAR } from './env.js';
 import { Overlay } from './overlay.js';
 import { Terrain } from './terrain.js';
-import { Cat } from './cat.js';
+import { Cat, CAT_SCALE } from './cat.js';
 import { Player } from './player.js';
 import { Input } from './input.js';
 import { Labels } from './labels.js';
@@ -47,7 +47,7 @@ async function boot() {
   overlay.setLines(data.lines);
   const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
   const cat = new Cat(env.uniforms);
-  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, mapPixels: data.mapPixels, amount: quality.props });
+  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, mapPixels: data.mapPixels, amount: quality.props, labels: data.labels });
   const scene = new THREE.Scene();
   scene.add(terrain.group, props.group, cat.root, env.sky);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
@@ -59,12 +59,15 @@ async function boot() {
   const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border });
 
   // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
-  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false;
+  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false, sink = 0;
   const resize = () => {
     const w = innerWidth, h = innerHeight;
     renderer.setPixelRatio(Math.min(devicePixelRatio, quality.maxPixelRatio) * scale);
     renderer.setSize(w, h, false);
-    camera.aspect = w / h; camera.updateProjectionMatrix();
+    camera.aspect = w / h;
+    // En pantallas verticales se abre el campo vertical para no perder visión hacia los lados.
+    player.baseFov = Math.min(88, Math.max(60, (2 * Math.atan(Math.tan((34 * Math.PI) / 180) / camera.aspect) * 180) / Math.PI));
+    camera.updateProjectionMatrix();
   };
   addEventListener('resize', resize); addEventListener('orientationchange', resize); resize();
 
@@ -78,7 +81,8 @@ async function boot() {
       player.camYaw += dt * 0.05;
       player.update(dt, 0, idle, { lookX: 0, lookY: 0, zoom: 0, jump: false }, camera);
     }
-    cat.update(dt, t, { x: player.x, y: player.y, z: player.z, heading: player.heading, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy });
+    sink += ((player.swimming ? 0.21 * CAT_SCALE + Math.sin(t * 2.4) * 0.015 : 0) - sink) * (1 - Math.exp(-dt * 6));
+    cat.update(dt, t, { x: player.x, y: player.y - sink, z: player.z, heading: player.heading, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy });
     terrain.uniforms.uCatPos.value.set(player.x - camera.position.x, hf.height(player.x, player.z) - camera.position.y, player.z - camera.position.z);
     env.update(camera, t);
     overlay.update(renderer, camera.position);

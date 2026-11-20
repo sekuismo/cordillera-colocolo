@@ -18,7 +18,7 @@ export class Player {
     this.max = { x: manifest.core.sizeX - EDGE, z: manifest.core.sizeZ - EDGE };
     this.x = 0; this.z = 0; this.y = 0; this.vy = 0; this.vx = 0; this.vz = 0;
     this.heading = 0; this.level = 1; this.grounded = true; this.speed = 0; this.atEdge = false;
-    this.camYaw = 0; this.camPitch = 0.13; this.camDist = 5.5; this.camY = 0; this.fov = 60;
+    this.camYaw = 0; this.camPitch = 0.13; this.camDist = 5.5; this.camY = 0; this.fov = 60; this.baseFov = 60;
     this.normal = new THREE.Vector3(0, 1, 0);
     this._t = new THREE.Vector3();
   }
@@ -34,7 +34,8 @@ export class Player {
     this.camDist = THREE.MathUtils.clamp(this.camDist * Math.exp(io.zoom * 0.18), 2.2, 400);
 
     // --- movimiento relativo a la cámara
-    const level = Math.min(SPEEDS.length - 1, this.level + (input.boost ? 1 : 0)), top = SPEEDS[level].v;
+    this.swimming = this.grounded && hf.slope2(this.x, this.z) < 2.5e-5;
+    const level = Math.min(SPEEDS.length - 1, this.level + (input.boost ? 1 : 0)), top = SPEEDS[level].v * (this.swimming && level < 2 ? 0.45 : 1);
     const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw), m = input.move;
     const tx = (sy * m.y - cy * m.x) * top, tz = (cy * m.y + sy * m.x) * top;
     const k = 1 - Math.exp(-dt * (this.grounded ? 5 : 1.2));
@@ -67,7 +68,7 @@ export class Player {
     this.camY += (this.y - this.camY) * (1 - Math.exp(-dt * 12));
     const sp = Math.min(1, this.speed / 320);
     const dist = this.camDist * (1 + Math.sqrt(sp) * 2.2);
-    this.fov += (60 + 16 * Math.sqrt(sp) - this.fov) * (1 - Math.exp(-dt * 3));
+    this.fov += (Math.min(100, this.baseFov + 16 * Math.sqrt(sp)) - this.fov) * (1 - Math.exp(-dt * 3));
     const tgtY = this.camY + 0.42 * CAT_SCALE + dist * 0.04;
     const cp = Math.cos(this.camPitch), sp2 = Math.sin(this.camPitch);
     const dx = -Math.sin(this.camYaw) * cp, dz = -Math.cos(this.camYaw) * cp;

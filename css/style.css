@@ -97,8 +97,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 #guia-list button { padding: 5px 10px; border-radius: 8px; border: 1px solid var(--line); font-size: 12px; font-weight: 600; }
 #guia-list button:hover { border-color: var(--ochre); color: var(--ochre); }
 
-#map-wrap { position: relative; border-radius: 10px; overflow: hidden; background: #111; line-height: 0; }
-#bigmap { width: 100%; height: auto; display: block; cursor: crosshair; touch-action: none; }
+#map-wrap { position: relative; border-radius: 10px; overflow: hidden; line-height: 0; }
+#bigmap { width: auto; max-width: 100%; height: auto; max-height: calc(100dvh - 190px - var(--sat) - var(--sab)); display: block; margin: 0 auto; cursor: crosshair; touch-action: none; }
 #map-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 10px; min-height: 34px; color: var(--dim); font-size: 12.5px; }
 #map-go, #start { background: var(--ochre); color: #1c1407; font-weight: 700; border-radius: 10px; padding: 8px 14px; white-space: nowrap; }
 
@@ -132,7 +132,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   #toast { top: calc(92px + var(--sat)); }
   #place { max-width: calc(100vw - 232px); padding: 6px 10px; } #place b { font-size: 14px; }
   #menu button { padding: 8px 9px; font-size: 12.5px; } #menu em { display: none; }
-  #mini { left: auto; right: calc(12px + var(--sar)); top: calc(58px + var(--sat)); bottom: auto; width: 84px; height: 84px; border-radius: 10px; }
+  #mini { left: auto; right: calc(14px + var(--sar)); top: auto; bottom: calc(178px + var(--sab)); width: 72px; height: 72px; border-radius: 10px; }
   #card { left: 10px; right: 10px; width: auto; min-width: 0; transform: none; bottom: auto; top: calc(96px + var(--sat)); max-height: 46dvh; overflow-y: auto; padding: 12px 14px 10px; }
   @keyframes rise { from { opacity: 0; transform: translateY(-10px); } }
   #card h2 { font-size: 18px; } #card p { font-size: 13.5px; }
@@ -140,7 +140,7 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   .panel.wide { width: auto; }
 }
 @media (max-height: 480px) and (orientation: landscape) {
-  #mini { width: 72px; height: 72px; }
+  #mini { width: 64px; height: 64px; bottom: auto; top: calc(56px + var(--sat)); }
   #card { top: calc(52px + var(--sat)); left: 22%; right: 22%; max-height: 62dvh; }
   #compass { top: calc(12px + var(--sat)); }
   #jump { bottom: calc(84px + var(--sab)); width: 58px; height: 58px; }

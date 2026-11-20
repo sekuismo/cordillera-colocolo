@@ -164,11 +164,14 @@ export class Heightfield {
     out[0] -= this.detailMax; out[1] += this.detailMax;
   }
   // ¿Se ve el punto b desde a? Marcha por el DEM base; sirve para ocultar etiquetas tras los cerros.
-  visible(ax, ay, az, bx, by, bz, steps = 28) {
-    for (let i = 1; i < steps; i++) {
-      const t = i / steps, tt = t * t * (3 - 2 * t) * 0.5 + t * 0.5; // más muestras cerca de los extremos
-      if (this.base(ax + (bx - ax) * tt, az + (bz - az) * tt) > ay + (by - ay) * tt + 4) return false;
-    }
+  // Las muestras van en progresión geométrica desde la cámara (una loma a 30 m tapa tanto como un macizo a 30 km)
+  // y luego parejas hasta el destino.
+  visible(ax, ay, az, bx, by, bz) {
+    const D = Math.hypot(bx - ax, bz - az);
+    if (D < 20) return true;
+    const test = (t) => this.base(ax + (bx - ax) * t, az + (bz - az) * t) > ay + (by - ay) * t + 3;
+    for (let d = 12; d < D * 0.5; d *= 1.45) if (test(d / D)) return false;
+    for (let i = 10; i < 20; i++) if (test(i / 20)) return false;
     return true;
   }
 }
