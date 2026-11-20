@@ -1,0 +1,5 @@
+# Datos crudos descargados por tools/download.mjs (se regeneran; pesan ~250 MB)
+raw/
+tools/node_modules/
+.claude/
+*.log

@@ -1,0 +1,112 @@
+import * as THREE from 'three';
+import { pickQuality, loadAll, demTexture, normalTexture, albedoTexture } from './data.js';
+import { Heightfield, makeNoise, noiseTexture } from './heightfield.js';
+import { Environment, FAR } from './env.js';
+import { Overlay } from './overlay.js';
+import { Terrain } from './terrain.js';
+import { Cat } from './cat.js';
+import { Player } from './player.js';
+import { Input } from './input.js';
+import { Labels } from './labels.js';
+import { UI } from './ui.js';
+import { Props } from './props.js';
+
+const $ = (s) => document.querySelector(s);
+const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
+
+function fail(e) {
+  console.error(e);
+  $('#status').textContent = 'No se pudo iniciar: ' + (e && e.message ? e.message : e);
+  $('#bar').hidden = true;
+}
+
+async function boot() {
+  const canvas = $('#c');
+  let renderer;
+  try { renderer = new THREE.WebGLRenderer({ canvas, antialias: devicePixelRatio < 2, powerPreference: 'high-performance' }); }
+  catch { throw new Error('tu navegador o dispositivo no soporta WebGL2.'); }
+  renderer.toneMapping = THREE.ACESFilmicToneMapping; renderer.toneMappingExposure = 0.82;
+  const quality = pickQuality(renderer.capabilities.maxTextureSize);
+
+  const manifest = await (await fetch(new URL('../data/manifest.json', import.meta.url))).json();
+  const data = await loadAll(manifest, quality, (p) => { $('#bar i').style.width = (p * 100).toFixed(1) + '%'; $('#status').textContent = `Cargando relieve e imagen satelital… ${(p * 100) | 0}%`; });
+  $('#status').textContent = 'Levantando la cordillera…';
+  await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0))); // deja pintar el estado antes del trabajo pesado
+
+  const noise = makeNoise();
+  const hf = new Heightfield(manifest, data.core, data.ctx, noise);
+  const aniso = Math.min(8, renderer.capabilities.getMaxAnisotropy());
+  const tex = {
+    coreDem: demTexture(data.core), ctxDem: demTexture(data.ctx),
+    coreNrm: normalTexture(data.core), ctxNrm: normalTexture(data.ctx),
+    coreAlb: albedoTexture(data.coreImg, aniso), ctxAlb: albedoTexture(data.ctxImg, aniso),
+    noise: noiseTexture(noise),
+  };
+  const env = new Environment(tex.noise);
+  const overlay = new Overlay(quality);
+  overlay.setLines(data.lines);
+  const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
+  const cat = new Cat(env.uniforms);
+  const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, mapPixels: data.mapPixels, amount: quality.props });
+  const scene = new THREE.Scene();
+  scene.add(terrain.group, props.group, cat.root, env.sky);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
+
+  const input = new Input(canvas, $('#stick'));
+  const player = new Player(hf, manifest);
+  player.teleport((START.lon - manifest.core.west) * manifest.mPerDegLon, (manifest.core.north - START.lat) * manifest.mPerDegLat, START.yaw);
+  const labels = new Labels($('#labels'), data.labels, hf, manifest, quality.maxLabels);
+  const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border });
+
+  // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
+  let scale = 1, frames = 0, acc = 0, fps = 60, labelTick = 0, started = false;
+  const resize = () => {
+    const w = innerWidth, h = innerHeight;
+    renderer.setPixelRatio(Math.min(devicePixelRatio, quality.maxPixelRatio) * scale);
+    renderer.setSize(w, h, false);
+    camera.aspect = w / h; camera.updateProjectionMatrix();
+  };
+  addEventListener('resize', resize); addEventListener('orientationchange', resize); resize();
+
+  const clock = new THREE.Clock();
+  const idle = { move: { x: 0, y: 0 }, boost: false, lastLook: -10, pointers: new Map() };
+  const frame = () => {
+    const dt = Math.min(clock.getDelta(), 0.1), t = clock.elapsedTime;
+    const io = input.poll();
+    if (started) player.update(dt, performance.now() / 1000, input, io, camera);
+    else { // portada: la cámara gira lento alrededor del gato
+      player.camYaw += dt * 0.05;
+      player.update(dt, 0, idle, { lookX: 0, lookY: 0, zoom: 0, jump: false }, camera);
+    }
+    cat.update(dt, t, { x: player.x, y: player.y, z: player.z, heading: player.heading, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy });
+    terrain.uniforms.uCatPos.value.set(player.x - camera.position.x, hf.height(player.x, player.z) - camera.position.y, player.z - camera.position.z);
+    env.update(camera, t);
+    overlay.update(renderer, camera.position);
+    terrain.update(camera);
+    props.update(camera, player.speed);
+    renderer.render(scene, camera);
+
+    if (started) {
+      if ((labelTick -= dt) <= 0) { labelTick = 0.25; labels.refresh(camera); }
+      labels.update(camera, innerWidth, innerHeight);
+      ui.update(dt, camera);
+    }
+    frames++; acc += dt;
+    if (acc >= 1.5) {
+      fps = frames / acc; frames = 0; acc = 0;
+      const next = fps < 34 ? Math.max(0.55, scale * 0.85) : fps > 56 && scale < 1 ? Math.min(1, scale * 1.1) : scale;
+      if (next !== scale) { scale = next; resize(); }
+      $('#stats').textContent = `${fps.toFixed(0)} fps · ${(terrain.stats.tris / 1000).toFixed(0)} mil triángulos · relieve a ${quality.tier === 'hi' ? 34 : 68} m · escala de render ${(scale * 100).toFixed(0)} %`;
+    }
+  };
+  renderer.setAnimationLoop(frame);
+  window.__juego = { props, scene, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
+
+  $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
+  $('#start').hidden = false;
+  $('#start').addEventListener('click', () => {
+    started = true; $('#intro').classList.add('gone'); $('#hud').hidden = false;
+    player.camYaw = START.yaw; ui.intro(); canvas.focus();
+  }, { once: true });
+}
+boot().catch(fail);

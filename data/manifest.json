@@ -1,0 +1,59 @@
+{
+ "mPerDegLat": 110922,
+ "mPerDegLon": 92700,
+ "core": {
+  "west": -70.8,
+  "east": -69.6,
+  "north": -33.05,
+  "south": -34.3,
+  "sizeX": 111240.00000000026,
+  "sizeZ": 138652.5
+ },
+ "ctx": {
+  "west": -72.2,
+  "east": -68.2,
+  "north": -31.8,
+  "south": -35.6,
+  "sizeX": 370800,
+  "sizeZ": 421503.6000000001,
+  "originX": -129780.00000000052,
+  "originZ": -138652.4999999996,
+  "dem": "ctx.dem",
+  "img": "ctx.webp",
+  "demSize": {
+   "w": 1024,
+   "h": 1152
+  },
+  "imgSize": {
+   "w": 2048,
+   "h": 2304
+  }
+ },
+ "tiers": {
+  "hi": {
+   "dem": "core_hi.dem",
+   "img": "core_hi.webp",
+   "w": 3272,
+   "h": 4080
+  },
+  "lo": {
+   "dem": "core_lo.dem",
+   "img": "core_lo.webp",
+   "w": 1636,
+   "h": 2040
+  }
+ },
+ "labels": "labels.json",
+ "lines": "lines.bin",
+ "map": "mapa.webp",
+ "bytes": {
+  "core_hi.dem": 7637552,
+  "core_hi.webp": 2819386,
+  "core_lo.dem": 2460297,
+  "core_lo.webp": 917546,
+  "ctx.dem": 1044460,
+  "ctx.webp": 748538,
+  "lines.bin": 894424,
+  "labels.json": 103426
+ }
+}

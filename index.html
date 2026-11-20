@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#0d1216">
+<meta name="description" content="Recorre en 3D la cordillera de Santiago y el Cajón del Maipo como un gato colocolo. Relieve real, nombres de cerros y datos de cada lugar.">
+<title>Cordillera · Un colocolo en los Andes de Santiago</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1216'/%3E%3Cpath d='M3 25 12 10l5 7 4-5 8 13z' fill='%23e8b25c'/%3E%3Cpath d='m12 10 2.6 3.6-2.6 1.6-2-1.8z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="./css/style.css">
+<script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
+</head>
+<body>
+<canvas id="c"></canvas>
+<div id="labels" aria-hidden="true"></div>
+
+<div id="hud" hidden>
+  <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-meta"></span></div>
+  <div id="compass" aria-hidden="true"><div id="compass-tape"></div><i></i></div>
+  <nav id="menu">
+    <button data-panel="capas">Capas</button>
+    <button data-panel="guia">Guía <em id="guia-count"></em></button>
+    <button data-panel="mapa">Mapa</button>
+    <button data-panel="ayuda" aria-label="Ayuda">?</button>
+  </nav>
+  <canvas id="mini" width="320" height="320" title="Abrir mapa"></canvas>
+  <div id="toast" role="status"></div>
+  <article id="card" hidden>
+    <header><span id="card-tag"></span><button id="card-close" aria-label="Cerrar">×</button></header>
+    <h2 id="card-title"></h2>
+    <p id="card-text"></p>
+    <footer id="card-foot"></footer>
+  </article>
+  <div id="speed">
+    <span id="kmh">0 km/h</span>
+    <div id="speed-levels">
+      <button data-level="0">Paseo</button><button data-level="1">Carrera</button><button data-level="2">Turbo</button><button data-level="3">Híper</button>
+    </div>
+  </div>
+  <button id="jump" aria-label="Saltar">Saltar</button>
+  <div id="stick"><i></i></div>
+</div>
+
+<section class="panel" id="panel-capas" hidden>
+  <header><h2>Capas</h2><button class="close" aria-label="Cerrar">×</button></header>
+  <div class="body">
+    <h3>Nombres en el paisaje</h3>
+    <label><input type="checkbox" data-layer="cumbres" checked><span>Cumbres, volcanes y pasos</span></label>
+    <label><input type="checkbox" data-layer="localidades" checked><span>Ciudades y localidades</span></label>
+    <label><input type="checkbox" data-layer="agua" checked><span>Ríos, lagunas y glaciares</span></label>
+    <label><input type="checkbox" data-layer="lugares" checked><span>Parques, refugios y miradores</span></label>
+    <h3>Sobre el terreno</h3>
+    <label><input type="checkbox" data-layer="caminos" checked><span>Caminos y senderos</span></label>
+    <label><input type="checkbox" data-layer="limite" checked><span>Límite Chile–Argentina</span></label>
+    <h3>Aprender</h3>
+    <label><input type="checkbox" data-layer="info" checked><span>Fichas explicativas al llegar a un lugar</span></label>
+    <h3>Hora del día <output id="hora-out"></output></h3>
+    <input type="range" id="hora" min="5.3" max="18.8" step="0.05" value="9.5">
+    <h3>Calidad gráfica</h3>
+    <div class="seg" id="calidad"><button data-q="lo">Liviana</button><button data-q="hi">Alta</button></div>
+    <p class="note" id="stats"></p>
+  </div>
+</section>
+
+<section class="panel" id="panel-guia" hidden>
+  <header><h2>Guía de la cordillera</h2><button class="close" aria-label="Cerrar">×</button></header>
+  <div class="body"><p class="note">Los lugares se marcan cuando llegas a ellos. Toca uno para leer su ficha o viajar directo.</p><ul id="guia-list"></ul></div>
+</section>
+
+<section class="panel wide" id="panel-mapa" hidden>
+  <header><h2>Mapa</h2><button class="close" aria-label="Cerrar">×</button></header>
+  <div class="body"><div id="map-wrap"><canvas id="bigmap"></canvas></div>
+    <div id="map-bar"><span id="map-hint">Toca cualquier punto del mapa para viajar ahí.</span><button id="map-go" hidden>Viajar aquí</button></div></div>
+</section>
+
+<section class="panel" id="panel-ayuda" hidden>
+  <header><h2>Cómo se juega</h2><button class="close" aria-label="Cerrar">×</button></header>
+  <div class="body">
+    <dl class="keys desktop">
+      <dt>W A S D / flechas</dt><dd>Moverse (la cámara sigue al gato)</dd>
+      <dt>Arrastrar</dt><dd>Mirar alrededor</dd>
+      <dt>Rueda</dt><dd>Acercar o alejar la cámara</dd>
+      <dt>1 2 3 4</dt><dd>Paseo, Carrera, Turbo, Híper</dd>
+      <dt>Shift</dt><dd>Subir una marcha mientras lo aprietas</dd>
+      <dt>Espacio</dt><dd>Saltar</dd>
+      <dt>E</dt><dd>Avance automático</dd>
+      <dt>M · N</dt><dd>Mapa · mostrar/ocultar nombres</dd>
+    </dl>
+    <dl class="keys touch">
+      <dt>Lado izquierdo</dt><dd>Joystick para moverse</dd>
+      <dt>Lado derecho</dt><dd>Arrastra para mirar; pellizca para alejar la cámara</dd>
+      <dt>Botones</dt><dd>Elige la marcha y salta</dd>
+    </dl>
+    <p class="note">El mundo está a escala real: cruzar a pie de Santiago a Argentina toma horas. Para eso están las marchas Turbo e Híper y el viaje rápido del mapa.</p>
+    <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Nombres, caminos y ríos: © colaboradores de OpenStreetMap (ODbL).</p>
+  </div>
+</section>
+
+<div id="intro">
+  <div class="intro-inner">
+    <p class="kicker">Andes centrales · 33° S</p>
+    <h1>Cordillera</h1>
+    <p class="lead">Recorre a escala real la cordillera de Santiago y el Cajón del Maipo, de la ciudad a la frontera, en las patas de un gato colocolo.</p>
+    <div id="bar"><i></i></div>
+    <p id="status">Cargando relieve…</p>
+    <button id="start" hidden>Comenzar a explorar</button>
+  </div>
+</div>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>

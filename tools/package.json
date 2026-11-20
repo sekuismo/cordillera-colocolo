@@ -1,0 +1,11 @@
+{
+  "name": "cordillera-tools",
+  "private": true,
+  "type": "module",
+  "description": "Pipeline offline: descarga y procesa DEM, imagen satelital y OSM a los binarios de /data",
+  "dependencies": {
+    "geotiff": "^2.1.3",
+    "sharp": "^0.33.5",
+    "three": "^0.170.0"
+  }
+}
