@@ -54,6 +54,10 @@ python tools/serve.py 8123
 
 y abrir http://localhost:8123. Parámetro opcional `?q=hi` o `?q=lo` para forzar la calidad.
 
+## Medir rendimiento
+
+`tools/bench.js` se pega en la consola del navegador con el juego cargado: dibuja a 1280×720 fijo en cinco lugares y espera a la GPU en cada cuadro, así que mide el costo real aunque la pestaña esté en segundo plano (donde el navegador frena `requestAnimationFrame` y los fps no dicen nada). Separa terreno y vegetación, y vértices de píxeles. Para comparar dos versiones hay que intercalarlas en la misma sesión: entre corridas el equipo cambia de carga y los números absolutos se mueven fácil un 40 %.
+
 ## Regenerar los datos
 
 ```bash

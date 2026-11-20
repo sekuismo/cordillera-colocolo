@@ -12,12 +12,12 @@ import { COMMON_VERT, ATMOS_GLSL } from './shaders.js';
 
 const TYPES = [
   { key: 'pasto', cell: 6, range: 60, per: 14, max: 9000 },
-  { key: 'roca', cell: 12, range: 170, per: 3, max: 1500 },
-  { key: 'arbusto', cell: 14, range: 300, per: 4, max: 5000 },
-  { key: 'arbol', cell: 26, range: 560, per: 4, max: 5000 },
+  { key: 'roca', cell: 12, range: 170, per: 3, max: 1500, lod: 55 },
+  { key: 'arbusto', cell: 14, range: 300, per: 4, max: 5000, lod: 70 },   // lod: distancia (m) desde la que se usa la malla liviana
+  { key: 'arbol', cell: 26, range: 560, per: 4, max: 5000, lod: 120 },
   { key: 'quisco', cell: 26, range: 420, per: 2, max: 1500 },
   { key: 'casa', cell: 15, range: 560, per: 1, max: 6000 },
-  { key: 'alto', cell: 6, range: 520, per: 1, max: 5000 },  // árboles columnares o cónicos
+  { key: 'alto', cell: 6, range: 520, per: 1, max: 5000, lod: 120 },  // árboles columnares o cónicos
   { key: 'vid', cell: 9, range: 190, per: 3, max: 6000 },    // hileras de parra
 ];
 // Radio (m) y densidad máxima de construcciones alrededor de cada localidad OSM, según su tipo.
@@ -172,21 +172,27 @@ function blob(detail, jitter, seed, squash = 1, smooth = false) {
   }
   return g;
 }
-function merge(parts) { // [{geo, part}] → una geometría; uv.x = parte, uv.y = altura normalizada
-  const pos = [], nrm = [], uv = [];
+function merge(parts) { // [{geo, part}] → una geometría indexada; uv.x = parte, uv.y = altura normalizada
+  const pos = [], nrm = [], uv = [], index = [], seen = new Map();
   let top = 0;
-  for (const { geo } of parts) { const g = geo.index ? geo.toNonIndexed() : geo; const p = g.attributes.position; for (let i = 0; i < p.count; i++) top = Math.max(top, p.getY(i)); }
+  for (const { geo } of parts) { const p = geo.attributes.position; for (let i = 0; i < p.count; i++) top = Math.max(top, p.getY(i)); }
   for (const { geo, part, ang } of parts) {
     const g = geo.index ? geo.toNonIndexed() : geo, p = g.attributes.position, n = g.attributes.normal;
     for (let i = 0; i < p.count; i++) {
-      pos.push(p.getX(i), p.getY(i), p.getZ(i)); nrm.push(n.getX(i), n.getY(i), n.getZ(i));
-      uv.push(ang ? Math.atan2(p.getZ(i) - ang[1], p.getX(i) - ang[0]) / (Math.PI * 2) + 0.5 : part, p.getY(i) / top);
+      const v = [p.getX(i), p.getY(i), p.getZ(i), n.getX(i), n.getY(i), n.getZ(i), ang ? Math.atan2(p.getZ(i) - ang[1], p.getX(i) - ang[0]) / (Math.PI * 2) + 0.5 : part, p.getY(i) / top];
+      // Vértices idénticos (posición, normal y uv) se comparten: una copa de normales suaves baja de 240 a 42 vértices,
+      // y el vertex shader, que es donde se va el tiempo de la vegetación, corre casi 6 veces menos.
+      const key = v.map((x) => Math.round(x * 2000)).join(',');
+      let k = seen.get(key);
+      if (k === undefined) { k = pos.length / 3; seen.set(key, k); pos.push(v[0], v[1], v[2]); nrm.push(v[3], v[4], v[5]); uv.push(v[6], v[7]); }
+      index.push(k);
     }
   }
   const out = new THREE.BufferGeometry();
   out.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   out.setAttribute('normal', new THREE.Float32BufferAttribute(nrm, 3));
   out.setAttribute('uv', new THREE.Float32BufferAttribute(uv, 2));
+  out.setIndex(index);
   return out;
 }
 function geometries() {
@@ -219,6 +225,7 @@ function geometries() {
   const tallTrunk = new THREE.CylinderGeometry(0.06, 0.11, 1.4, 6, 1, true); tallTrunk.translate(0, 0.6, 0);
   const tallCrown = blob(1, 0.28, 5.5, 1, true); tallCrown.scale(0.62, 2.0, 0.62); tallCrown.translate(0, 2.9, 0);
   const vineRow = new THREE.BoxGeometry(0.6, 1.5, 9); vineRow.translate(0, 0.75, 0);
+  const far = (g, x, y, z, sx = 1, sy = 1, sz = 1) => { g.scale(sx, sy, sz); g.translate(x, y, z); return g; };
   const col = (r, h, x, y, z) => { const g = new THREE.CapsuleGeometry(r, h, 3, 9); g.translate(x, y + h / 2 + r * 0.3, z); return g; };
   return {
     pasto: merge([{ geo: pasto, part: 0 }]),
@@ -228,6 +235,11 @@ function geometries() {
     quisco: merge([{ geo: col(0.17, 2.4, 0, -0.2, 0), ang: [0, 0] }, { geo: col(0.13, 1.3, 0.42, 0.5, 0.05), ang: [0.42, 0.05] }, { geo: col(0.12, 0.9, -0.3, 0.9, -0.22), ang: [-0.3, -0.22] }]),
     casa: merge([{ geo: walls, part: 0 }, { geo: roofGeo, part: 1 }]),
     alto: merge([{ geo: tallTrunk, part: 0 }, { geo: tallCrown, part: 1 }]),
+    // Versiones livianas para lejos: icosaedro sin subdividir (20 caras) y tronco de 4 lados. A más de 100 m no se nota.
+    rocaFar: merge([{ geo: far(blob(0, 0.42, 1.7), 0, 0.35, 0), part: 0 }]),
+    arbustoFar: merge([{ geo: far(blob(0, 0.5, 4.2, 0.72, true), 0, 0.5, 0), part: 1 }]),
+    arbolFar: merge([{ geo: far(new THREE.CylinderGeometry(0.07, 0.13, 1.5, 4, 1, true), 0, 0.6, 0), part: 0 }, { geo: far(blob(0, 0.45, 9.1, 0.8, true), 0.2, 1.75, 0.1, 1.3, 1.1, 1.3), part: 1 }]),
+    altoFar: merge([{ geo: far(new THREE.CylinderGeometry(0.06, 0.11, 1.4, 4, 1, true), 0, 0.6, 0), part: 0 }, { geo: far(blob(0, 0.28, 5.5, 1, true), 0, 2.9, 0, 0.62, 2.0, 0.62), part: 1 }]),
     vid: merge([{ geo: vineRow, part: 1 }]),
   };
 }
@@ -245,15 +257,21 @@ export class Props {
     this._n = nrm;
     this.types = TYPES.map((t, i) => {
       const range = t.range * (0.6 + 0.4 * amount), max = Math.ceil(t.max * amount);
-      const g = new THREE.InstancedBufferGeometry();
-      for (const k of ['position', 'normal', 'uv']) g.setAttribute(k, geos[t.key].attributes[k]);
-      const iPR = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4), iSV = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2);
-      iPR.setUsage(THREE.DynamicDrawUsage); iSV.setUsage(THREE.DynamicDrawUsage);
-      g.setAttribute('iPR', iPR); g.setAttribute('iSV', iSV); g.instanceCount = 0;
       const uniforms = { ...env, uCamRel: { value: new THREE.Vector3() }, uAnchor: { value: new THREE.Vector2() }, uCoreSize: { value: new THREE.Vector2(manifest.core.sizeX, manifest.core.sizeZ) }, uRange: { value: range }, uCoreAlb: { value: coreAlb }, uShadow: { value: shadowTex }, uCamY: { value: 0 } };
-      const mesh = new THREE.Mesh(g, new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, defines: { TYPE: i }, side: i === 0 ? THREE.DoubleSide : THREE.FrontSide }));
-      mesh.frustumCulled = false; this.group.add(mesh);
-      return { ...t, range, max, mesh, uniforms, iPR, iSV, cache: new Map(), cx: NaN, cz: NaN, ax: 0, az: 0 };
+      const material = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, defines: { TYPE: i }, side: i === 0 ? THREE.DoubleSide : THREE.FrontSide });
+      const level = (geo) => { // un nivel de detalle = una malla instanciada con sus propios búferes
+        const g = new THREE.InstancedBufferGeometry();
+        for (const k of ['position', 'normal', 'uv']) g.setAttribute(k, geo.attributes[k]);
+        g.setIndex(geo.index);
+        const iPR = new THREE.InstancedBufferAttribute(new Float32Array(max * 4), 4), iSV = new THREE.InstancedBufferAttribute(new Float32Array(max * 2), 2);
+        iPR.setUsage(THREE.DynamicDrawUsage); iSV.setUsage(THREE.DynamicDrawUsage);
+        g.setAttribute('iPR', iPR); g.setAttribute('iSV', iSV); g.instanceCount = 0;
+        const mesh = new THREE.Mesh(g, material); mesh.frustumCulled = false; this.group.add(mesh);
+        return { mesh, iPR, iSV, n: 0 };
+      };
+      const lods = [level(geos[t.key])];
+      if (t.lod && geos[t.key + 'Far']) lods.push(level(geos[t.key + 'Far']));
+      return { ...t, range, max, mesh: lods[0].mesh, lods, uniforms, cache: new Map(), cx: NaN, cz: NaN, ax: 0, az: 0 };
     });
   }
 
@@ -410,24 +428,29 @@ export class Props {
   _rebuild(t, ti, cx, cz) {
     t.cx = cx; t.cz = cz;
     const R = Math.ceil(t.range / t.cell), ax = (cx + 0.5) * t.cell, az = (cz + 0.5) * t.cell;
-    const pr = t.iPR.array, sv = t.iSV.array, keep = new Map();
-    let n = 0;
+    const keep = new Map(), lods = t.lods, far2 = lods.length > 1 ? t.lod * t.lod : Infinity;
+    for (const l of lods) l.n = 0;
     for (let dz = -R; dz <= R; dz++) for (let dx = -R; dx <= R; dx++) {
       if (dx * dx + dz * dz > (R + 0.5) * (R + 0.5)) continue;
       const key = (cx + dx) * 65536 + (cz + dz);
       let c = t.cache.get(key);
       if (!c) c = this._cell(t, ti, cx + dx, cz + dz);
       keep.set(key, c);
-      for (let i = 0; i < c.length && n < t.max; i += 6, n++) {
-        pr[n * 4] = c[i] - ax; pr[n * 4 + 1] = c[i + 1]; pr[n * 4 + 2] = c[i + 2] - az; pr[n * 4 + 3] = c[i + 3];
-        sv[n * 2] = c[i + 4]; sv[n * 2 + 1] = c[i + 5];
+      for (let i = 0; i < c.length; i += 6) {
+        const rx = c[i] - ax, rz = c[i + 2] - az, l = rx * rx + rz * rz > far2 ? lods[1] : lods[0], n = l.n;
+        if (n >= t.max) continue;
+        const pr = l.iPR.array, sv = l.iSV.array;
+        pr[n * 4] = rx; pr[n * 4 + 1] = c[i + 1]; pr[n * 4 + 2] = rz; pr[n * 4 + 3] = c[i + 3];
+        sv[n * 2] = c[i + 4]; sv[n * 2 + 1] = c[i + 5]; l.n++;
       }
     }
     t.cache = keep; t.ax = ax; t.az = az;
-    t.mesh.geometry.instanceCount = n; t.mesh.visible = n > 0;
-    t.iPR.clearUpdateRanges(); t.iPR.addUpdateRange(0, n * 4); t.iPR.needsUpdate = true;
-    t.iSV.clearUpdateRanges(); t.iSV.addUpdateRange(0, n * 2); t.iSV.needsUpdate = true;
-    t.mesh.position.set(ax, 0, az); t.mesh.updateMatrixWorld();
+    for (const l of lods) {
+      l.mesh.geometry.instanceCount = l.n; l.mesh.visible = l.n > 0;
+      l.iPR.clearUpdateRanges(); l.iPR.addUpdateRange(0, l.n * 4); l.iPR.needsUpdate = true;
+      l.iSV.clearUpdateRanges(); l.iSV.addUpdateRange(0, l.n * 2); l.iSV.needsUpdate = true;
+      l.mesh.position.set(ax, 0, az); l.mesh.updateMatrixWorld();
+    }
     t.uniforms.uAnchor.value.set(ax, az);
   }
 }

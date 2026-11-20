@@ -8,6 +8,27 @@
 <title>Cordillera · Un colocolo en los Andes de Santiago</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1216'/%3E%3Cpath d='M3 25 12 10l5 7 4-5 8 13z' fill='%23e8b25c'/%3E%3Cpath d='m12 10 2.6 3.6-2.6 1.6-2-1.8z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="./css/style.css">
+<!-- Sin esto los módulos se piden en cadena, de a uno por nivel de import: varios segundos de espera sin hacer nada. -->
+<link rel="modulepreload" href="./vendor/three.module.min.js">
+<link rel="modulepreload" href="./src/main.js">
+<link rel="modulepreload" href="./src/data.js">
+<link rel="modulepreload" href="./src/heightfield.js">
+<link rel="modulepreload" href="./src/shaders.js">
+<link rel="modulepreload" href="./src/env.js">
+<link rel="modulepreload" href="./src/overlay.js">
+<link rel="modulepreload" href="./src/terrain.js">
+<link rel="modulepreload" href="./src/cat.js">
+<link rel="modulepreload" href="./src/player.js">
+<link rel="modulepreload" href="./src/input.js">
+<link rel="modulepreload" href="./src/labels.js">
+<link rel="modulepreload" href="./src/ui.js">
+<link rel="modulepreload" href="./src/lugares.js">
+<link rel="modulepreload" href="./src/props.js">
+<link rel="modulepreload" href="./src/shadows.js">
+<link rel="modulepreload" href="./src/city.js">
+<link rel="modulepreload" href="./src/speedfx.js">
+<link rel="modulepreload" href="./src/streets.js">
+<link rel="preload" href="./data/manifest.json" as="fetch" crossorigin>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
 <body>

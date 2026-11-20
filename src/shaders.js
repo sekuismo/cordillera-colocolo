@@ -108,8 +108,19 @@ void main() {
 }
 `;
 
-const oct = (i, target) => /* glsl */ `vec4 t${i} = texture2D(uNoise, uCamFrac[${i}] + vRel.xz / ${f(OCTAVES[i].tile)});
-  ${target} += t${i}.yz * ${f(OCTAVES[i].amp / OCTAVES[i].tile)};`;
+// Cada octava se muestrea solo hasta la distancia en que su detalle todavía cabe en un píxel; más lejos el
+// mipmap ya la promedió a cero y la lectura es trabajo perdido. Dentro de un `if` hay que usar textureGrad con
+// las derivadas calculadas afuera: con derivadas implícitas, el compilador de Direct3D (ANGLE) aplana la rama
+// y ejecuta igual las dos mitades.
+const oct = (i, target, far) => {
+  const T = f(OCTAVES[i].tile), k = f(OCTAVES[i].amp / OCTAVES[i].tile);
+  const tap = `textureGrad(uNoise, uCamFrac[${i}] + vRel.xz / ${T}, dRx / ${T}, dRy / ${T})`;
+  return far
+    ? `vec4 t${i} = vec4(0.0);
+  if (dist < ${f(far)}) { t${i} = ${tap} * (1.0 - smoothstep(${f(far * 0.6)}, ${f(far)}, dist)); ${target} += t${i}.yz * ${k}; }`
+    : `vec4 t${i} = ${tap};
+  ${target} += t${i}.yz * ${k};`;
+};
 
 export const TERRAIN_FRAG = /* glsl */ `
 ${ATMOS_GLSL}
@@ -135,16 +146,18 @@ float parcelHash(vec2 c) {
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
 float ovCover; // cuánto cubren las cascadas vectoriales este punto (1 cerca de la cámara, 0 más allá de ~20 km)
-vec4 overlay(vec2 rel) {
-  vec4 o = vec4(0.0);
-  vec2 uv; vec2 e; float w2, w1, w0;
-  uv = (uOv[2].xy + rel) / uOv[2].z + 0.5; e = abs(uv - 0.5) * 2.0; w2 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
-  o = mix(o, texture2D(uOv2, uv), w2);
-  uv = (uOv[1].xy + rel) / uOv[1].z + 0.5; e = abs(uv - 0.5) * 2.0; w1 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
-  o = mix(o, texture2D(uOv1, uv), w1);
-  uv = (uOv[0].xy + rel) / uOv[0].z + 0.5; e = abs(uv - 0.5) * 2.0; w0 = 1.0 - smoothstep(0.8, 0.96, max(e.x, e.y));
-  o = mix(o, texture2D(uOv0, uv), w0);
+vec4 overlay(vec2 rel, vec2 dx, vec2 dy) {
+  vec2 uv0 = (uOv[0].xy + rel) / uOv[0].z + 0.5, uv1 = (uOv[1].xy + rel) / uOv[1].z + 0.5, uv2 = (uOv[2].xy + rel) / uOv[2].z + 0.5;
+  vec2 e0 = abs(uv0 - 0.5) * 2.0, e1 = abs(uv1 - 0.5) * 2.0, e2 = abs(uv2 - 0.5) * 2.0;
+  float w0 = 1.0 - smoothstep(0.8, 0.96, max(e0.x, e0.y)), w1 = 1.0 - smoothstep(0.8, 0.96, max(e1.x, e1.y)), w2 = 1.0 - smoothstep(0.8, 0.96, max(e2.x, e2.y));
   ovCover = max(w2, max(w1, w0));
+  // Una cascada más gruesa solo se lee si la más fina no cubre del todo el punto: casi siempre es 1 lectura (o ninguna, lejos).
+  vec4 o = vec4(0.0);
+  if (w0 < 1.0) {
+    if (w1 < 1.0 && w2 > 0.0) o = textureGrad(uOv2, uv2, dx / uOv[2].z, dy / uOv[2].z) * w2;
+    if (w1 > 0.0) o = mix(o, textureGrad(uOv1, uv1, dx / uOv[1].z, dy / uOv[1].z), w1);
+  }
+  if (w0 > 0.0) o = mix(o, textureGrad(uOv0, uv0, dx / uOv[0].z, dy / uOv[0].z), w0);
   return o;
 }
 
@@ -155,8 +168,17 @@ void main() {
   float y = uCamPos.y + vRel.y;
   float w = coreWeight(xz);
   vec2 uvC = xz / uCoreSize, uvX = (xz - uCtxRect.xy) / uCtxRect.zw;
-  vec3 alb = mix(texture2D(uCtxAlb, uvX).rgb, texture2D(uCoreAlb, uvC).rgb, w);
-  vec2 nxz = unpackSlope(mix(texture2D(uCtxNrm, uvX).rg, texture2D(uCoreNrm, uvC).rg, w));
+  // Derivadas de pantalla, una sola vez: de aquí salen todos los gradientes de textura y los anchos de línea.
+  vec2 dRx = dFdx(vRel.xz), dRy = dFdy(vRel.xz);
+  float dyx = dFdx(vRel.y), dyy = dFdy(vRel.y);
+  vec3 alb; vec2 nrg;
+  if (w >= 1.0) { // dentro del área jugable (casi todo lo que se ve): no hace falta leer las texturas de contexto
+    alb = textureGrad(uCoreAlb, uvC, dRx / uCoreSize, dRy / uCoreSize).rgb; nrg = textureGrad(uCoreNrm, uvC, dRx / uCoreSize, dRy / uCoreSize).rg;
+  } else {
+    alb = textureGrad(uCtxAlb, uvX, dRx / uCtxRect.zw, dRy / uCtxRect.zw).rgb; nrg = textureGrad(uCtxNrm, uvX, dRx / uCtxRect.zw, dRy / uCtxRect.zw).rg;
+    if (w > 0.0) { alb = mix(alb, textureGrad(uCoreAlb, uvC, dRx / uCoreSize, dRy / uCoreSize).rgb, w); nrg = mix(nrg, textureGrad(uCoreNrm, uvC, dRx / uCoreSize, dRy / uCoreSize).rg, w); }
+  }
+  vec2 nxz = unpackSlope(nrg);
   float s2 = dot(nxz, nxz);
   float ny = sqrt(max(1.0 - s2, 0.02));
   vec3 N0 = vec3(nxz.x, ny, nxz.y);
@@ -174,32 +196,35 @@ void main() {
   vec2 gradD = vec2(0.0), gradM = vec2(0.0); // relieve desplazado en geometría / microrrelieve solo de sombreado
   ${oct(0, 'gradD')}
   ${oct(1, 'gradD')}
-  ${oct(2, 'gradD')}
-  ${oct(3, 'gradM')}
-  ${oct(4, 'gradM')}
-  ${oct(5, 'gradM')}
+  ${oct(2, 'gradD', 2500)}
+  ${oct(3, 'gradM', 600)}
+  ${oct(4, 'gradM', 160)}
+  ${oct(5, 'gradM', 45)}
   float cvar = t0.w * 0.30 + t1.w * 0.35 + t2.w * 0.30 + t3.w * 0.30;
   float cav = t2.x + t3.x * 0.7 + t4.x * 0.5;
 
-  vec4 ov = overlay(vRel.xz);
+  vec4 ov = overlay(vRel.xz, dRx, dRy);
   // --- Cobertura de suelo real (ESA WorldCover + OSM). El uv se desordena con ruido para que los bordes
   // entre clases sigan formas naturales y no los escalones del raster.
-  float cls = floor(texture2D(uLand, uvC + vec2(t0.w, t1.w) * 0.8 / uCoreTex).r * 255.0 + 0.5) * step(0.999, w);
+  float cls = w > 0.999 ? floor(textureLod(uLand, uvC + vec2(t0.w, t1.w) * 0.8 / uCoreTex, 0.0).r * 255.0 + 0.5) : 0.0;
   // Viñas, frutales, parques, plantaciones y glaciares vienen de sus polígonos OSM; el resto, de WorldCover.
   // Lo único sorteado es qué se siembra en cada parcela de campo abierto (WorldCover dice "cultivo", no cuál).
   float ph = parcelHash(floor(xz / vec2(150.0, 205.0)));
   vec3 foliage = mix(mix(vec3(0.15, 0.12, 0.085), vec3(0.07, 0.15, 0.035), uLeaf.x), vec3(0.30, 0.19, 0.04), uLeaf.y * 0.85);
   // Ciudad: desde un cerro debe leerse como trama de calles y manzanas, no como mancha gris.
   float urbanish = IS(5.0) * (1.0 - smoothstep(0.004, 0.02, s2));
-  vec2 gcell = xz / vec2(118.0, 124.0), gfw = fwidth(gcell);
+  if (urbanish > 0.0) { // casi ningún píxel es ciudad o cultivo: cada bloque de cobertura corre solo para su clase
+  vec2 gcell = xz / vec2(118.0, 124.0), gfw = (abs(dRx) + abs(dRy)) / vec2(118.0, 124.0);
   vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
   // Donde hay calles reales cargadas (cerca), la trama inventada se apaga; más lejos sigue dando textura de ciudad.
   float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish * (1.0 - ovCover * uStreets);
   float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
   alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
   alb = mix(alb, alb * 0.5, street * gfade * 0.75);
+  }
   // Campos: parcelas de bordes algo chuecos, cada una con su cultivo, y surcos que se ven de cerca.
-  float xfw = fwidth(xz.x) + fwidth(xz.y);
+  if ((cls > 3.5 && cls < 4.5) || (cls > 9.5 && cls < 11.5)) {
+  float xfw = abs(dRx.x) + abs(dRy.x) + abs(dRx.y) + abs(dRy.y);
   vec2 pedge = 0.5 - abs(fract(xz / vec2(150.0, 205.0)) - 0.5);
   float lane = (1.0 - smoothstep(0.012, 0.02, min(pedge.x, pedge.y))) * (1.0 - smoothstep(1.0, 6.0, xfw)); // camino de tierra entre parcelas
   vec3 cropCol = ph < 0.3 ? vec3(0.085, 0.15, 0.045) : ph < 0.55 ? vec3(0.15, 0.18, 0.06) : ph < 0.78 ? vec3(0.21, 0.175, 0.10) : vec3(0.11, 0.18, 0.06);
@@ -213,6 +238,7 @@ void main() {
   float odot = mix(0.5, 1.0 - smoothstep(0.22, 0.4, length(fract(xz / 7.0) - 0.5)), 1.0 - smoothstep(0.8, 3.0, xfw));
   alb = mix(alb, mix(vec3(0.19, 0.16, 0.105), foliage * 0.9, odot) * (0.85 + cvar * 0.3), IS(11.0) * 0.8);
   alb = mix(alb, vec3(0.20, 0.17, 0.12) * (0.9 + cvar * 0.3), lane * farm * 0.8);
+  }
   // Parques (pasto regado), vegas y humedales (el verde intenso de la alta cordillera).
   alb = mix(alb, vec3(0.085, 0.16, 0.045) * (0.85 + cvar * 0.4), IS(12.0) * 0.6 + IS(9.0) * 0.72);
   // Bosque y plantaciones: más allá del alcance de los árboles instanciados, el dosel sigue leyéndose como bosque.
@@ -220,10 +246,12 @@ void main() {
   alb = mix(alb, vec3(0.04, 0.068, 0.028) * (0.65 + 0.7 * smoothstep(-0.35, 0.4, t2.w + t3.w * 0.7)), canopy * 0.55);
   // Glaciares: hielo azulado con grietas y franjas de detritos; se distingue de la nieve de temporada.
   float glacier = clamp(IS(14.0) + IS(7.0) * 0.6, 0.0, 1.0), ice = glacier; // la clase "nieve y hielo" permanente de WorldCover es, en la práctica, glaciar
+  if (ice > 0.0) {
   float crev = (1.0 - smoothstep(0.015, 0.06, abs(t1.x + t2.x * 0.5))) * glacier * (1.0 - smoothstep(600.0, 4000.0, dist));
   vec3 iceCol = mix(vec3(0.42, 0.56, 0.66), vec3(0.74, 0.81, 0.86), smoothstep(-0.4, 0.5, t0.w + t2.w * 0.6));
   iceCol = mix(iceCol, alb * 0.75 + 0.03, smoothstep(0.25, 0.7, t1.w) * 0.4) * (1.0 - 0.55 * crev);
   alb = mix(alb, iceCol, ice * 0.8);
+  }
   // Estaciones: la imagen satelital es de verano (cerros secos). Con las lluvias de invierno la vegetación
   // silvestre del valle y la precordillera reverdece, y vuelve a amarillear hacia el verano.
   float lowland = 1.0 - smoothstep(1500.0, 2700.0, y);
@@ -237,7 +265,8 @@ void main() {
   vec3 soil = alb * vec3(0.76, 0.70, 0.64), dry = alb * vec3(1.10, 1.06, 0.95) + 0.008;
   alb = mix(alb, mix(soil, dry, patchy), near * 0.8 * (1.0 - steep * 0.6));
   // Estratos en las laderas empinadas (las capas sedimentarias plegadas son la firma del Cajón del Maipo).
-  float strata = texture2D(uNoise, vec2(y / 11.0 + cvar * 0.4, y / 190.0 + xz.x / 5000.0)).w;
+  float strata = 0.0;
+  if (steep > 0.02) { strata = textureGrad(uNoise, vec2(y / 11.0 + cvar * 0.4, y / 190.0 + xz.x / 5000.0), vec2(dyx / 11.0, dyx / 190.0), vec2(dyy / 11.0, dyy / 190.0)).w; }
   float detail = 1.0 + (cvar * 0.42 + cav * 0.2 * max(amp, 0.4) + strata * 0.3 * steep) * mix(0.3, 1.0, near);
   detail += (t4.w * 0.30 + t5.w * 0.34) * close;
   alb *= max(detail, 0.3);
@@ -262,7 +291,7 @@ void main() {
   // Sombra de contacto del gato.
   vec2 dc = vRel.xz - uCatPos.xz + uSunDir.xz * 0.18;
   float blob = exp(-dot(dc, dc) / 0.16) * step(abs(vRel.y - uCatPos.y), 1.5);
-  float shade = mix(1.0, texture2D(uShadow, uvC).r, w);
+  float shade = w > 0.0 ? mix(1.0, textureLod(uShadow, uvC, 0.0).r, w) : 1.0;
   float gloss = pow(max(dot(reflect(V, N), uSunDir), 0.0), 40.0) * (ice * 0.35 + snow * 0.12) * shade; // el hielo brilla
   vec3 light = uSunColor * (ndl + gloss) * shade * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
   vec3 col = alb * light;
@@ -270,13 +299,14 @@ void main() {
   if (water > 0.004) {
     vec2 wuv = uWaterFrac + vRel.xz / 7.0;
     vec2 flow = uTime * vec2(0.031, 0.019);
-    vec2 wg = texture2D(uNoise, wuv + flow).yz + texture2D(uNoise, wuv * 2.7 - flow * 1.6).yz * 0.6;
+    vec2 wdx = dRx / 7.0, wdy = dRy / 7.0;
+    vec2 wg = textureGrad(uNoise, wuv + flow, wdx, wdy).yz + textureGrad(uNoise, wuv * 2.7 - flow * 1.6, wdx * 2.7, wdy * 2.7).yz * 0.6;
     vec3 Nw = normalize(vec3(nxz.x * 0.4 - wg.x * 0.010, 1.0, nxz.y * 0.4 - wg.y * 0.010));
     float fres = 0.03 + 0.97 * pow(1.0 - max(dot(-V, Nw), 0.0), 5.0);
     vec3 R = reflect(V, Nw); R.y = abs(R.y);
     vec3 body = mix(vec3(0.02, 0.07, 0.085), alb * 0.7, 0.45) * (uSunColor * max(uSunDir.y, 0.0) * 0.5 + uAmbient);
     // Rápidos: espuma donde el río corre con pendiente.
-    float foam = smoothstep(0.004, 0.05, s2) * smoothstep(-0.2, 0.6, texture2D(uNoise, wuv * 1.9 + flow * 3.0).w);
+    float foam = smoothstep(0.004, 0.05, s2) * smoothstep(-0.2, 0.6, textureGrad(uNoise, wuv * 1.9 + flow * 3.0, wdx * 1.9, wdy * 1.9).w);
     body = mix(body, vec3(0.75, 0.78, 0.78) * (uSunColor * 0.3 + uAmbient), foam * 0.7);
     vec3 wc = mix(body, skyColor(R), fres * (1.0 - foam * 0.6));
     wc += uSunColor * pow(max(dot(R, uSunDir), 0.0), 420.0) * 5.0;
