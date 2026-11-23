@@ -137,6 +137,8 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 #bar { height: 3px; border-radius: 2px; background: rgba(255, 255, 255, .14); overflow: hidden; max-width: 320px; margin: 0 auto; }
 #bar i { display: block; height: 100%; width: 0; background: var(--ochre); transition: width .2s; }
 #status { color: var(--dim); font-size: 12.5px; min-height: 1.5em; }
+#ver { color: var(--dim); font-size: 11px; opacity: .7; margin-top: 10px; }
+#ver.old { color: #ffb347; opacity: 1; }
 #start { font-size: 16px; padding: 13px 26px; border-radius: 12px; margin-top: 6px; box-shadow: 0 8px 30px rgba(232, 178, 92, .25); }
 #start:hover { filter: brightness(1.08); }
 
