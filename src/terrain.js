@@ -30,7 +30,7 @@ function gridGeometry(cells) {
 }
 
 export class Terrain {
-  constructor({ manifest, hf, tex, env, quality, overlay }) {
+  constructor({ manifest, hf, tex, env, quality, overlay, zones }) {
     this.hf = hf; this.quality = quality;
     const m = manifest, tier = m.tiers[quality.tier];
     this.ctxRect = [m.ctx.originX, m.ctx.originZ, m.ctx.originX + m.ctx.sizeX, m.ctx.originZ + m.ctx.sizeZ];
@@ -59,6 +59,8 @@ export class Terrain {
       uOv: { value: overlay.uniformValue },
       uShow: { value: new THREE.Vector4(1, 1, 0, 0) },
       uCarve: { value: tex.carve }, uCarveRect: { value: new THREE.Vector4(-1e7, -1e7, 1, 2) }, // sin ventana hasta que llega la primera
+      uZoneImg: { value: zones ? zones.tex : tex.noise }, uZoneSlot: { value: zones ? zones.slot : Array.from({ length: 16 }, () => new THREE.Vector2(-1e4, -1e4)) },
+      uZoneSize: { value: zones ? zones.size : 0 },
       uShadow: { value: tex.shadow }, uLand: { value: tex.land }, uStreets: { value: overlay.hasStreets ? 1 : 0 },
     };
     const mk = (cells) => new THREE.ShaderMaterial({

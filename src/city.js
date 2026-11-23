@@ -1,24 +1,9 @@
-// Santiago visto desde los cerros: el skyline (torres genéricas por barrio, según dónde hay edificación en
-// altura de verdad) y los hitos reconocibles, modelados a su tamaño real. Todo va en una sola malla estática
+// Santiago visto desde los cerros: el skyline (los edificios reales de 5 pisos o más, data/skyline.json, sobre su huella
+// real; ver tools/build_zones.mjs) y los hitos reconocibles, modelados a su tamaño real. Todo va en una sola malla estática
 // que se dibuja a cualquier distancia: desde el cerro de Ramón, la Costanera son unos 30 píxeles de alto.
 import * as THREE from 'three';
 import { COMMON_VERT, ATMOS_GLSL } from './shaders.js';
 
-// [lat, lon, radio m, cantidad, alto mín, alto máx, proporción de torres de vidrio]
-const ZONES = [
-  [-33.4400, -70.6520, 1500, 420, 25, 95, 0.2],   // centro
-  [-33.4260, -70.6130, 1400, 330, 30, 90, 0.4],   // Providencia
-  [-33.4150, -70.6010, 800, 150, 60, 150, 0.8],   // El Golf / "Sanhattan"
-  [-33.4090, -70.5720, 1700, 330, 35, 95, 0.5],   // Las Condes
-  [-33.3980, -70.5950, 1000, 110, 30, 70, 0.5],   // Vitacura
-  [-33.4540, -70.5980, 1600, 300, 30, 80, 0.2],   // Ñuñoa
-  [-33.4520, -70.6850, 1100, 190, 55, 95, 0.1],   // Estación Central
-  [-33.4900, -70.6510, 1300, 200, 35, 80, 0.2],   // San Miguel
-  [-33.4180, -70.6570, 1000, 110, 30, 70, 0.1],   // Independencia / Recoleta
-  [-33.4850, -70.6100, 1000, 90, 30, 65, 0.2],    // Macul / San Joaquín
-  [-33.5210, -70.5990, 900, 90, 30, 70, 0.3],     // La Florida
-  [-33.6100, -70.5760, 600, 30, 20, 45, 0.1],     // Puente Alto
-];
 export const HITOS = [
   { id: 'costanera', n: 'Gran Torre Costanera', nota: '300 m', lat: -33.4170, lon: -70.6065 },
   { id: 'titanium', n: 'Torre Titanium', nota: '194 m', lat: -33.4135, lon: -70.6040 },
@@ -106,26 +91,21 @@ class Builder {
 }
 
 export class City {
-  constructor({ hf, manifest, env }) {
+  constructor({ hf, manifest, env, skyline }) {
     const m = manifest, X = (lon) => (lon - m.core.west) * m.mPerDegLon, Z = (lat) => (m.core.north - lat) * m.mPerDegLat;
     const ax = (this.ax = X(-70.63)), az = (this.az = Z(-33.45)); // ancla: los vértices van relativos al centro de Santiago
     const B = new Builder(), ground = (x, z) => hf.base(x, z) - 1.5;
     let seed = 20261120; const rnd = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
     const CONCRETE = [[0.36, 0.34, 0.31], [0.30, 0.29, 0.28], [0.40, 0.37, 0.32], [0.27, 0.25, 0.23]], GLASS = [[0.10, 0.15, 0.19], [0.13, 0.17, 0.18], [0.09, 0.12, 0.16]], ROOF = [0.16, 0.16, 0.17];
 
-    // --- skyline genérico: torres en una grilla de manzanas, más altas hacia el centro de cada barrio
-    const used = new Set(); this.towers = [];
-    for (const [lat, lon, R, count, h0, h1, glass] of ZONES) {
-      const cx = X(lon), cz = Z(lat);
-      for (let i = 0; i < count; i++) {
-        const a = rnd() * Math.PI * 2, r = R * Math.pow(rnd(), 0.7);
-        const gx = Math.round((cx + Math.sin(a) * r) / 38) * 38, gz = Math.round((cz + Math.cos(a) * r) / 38) * 38, key = gx + ',' + gz;
-        const u = rnd(), w = 15 + rnd() * 9, d = 15 + rnd() * 11, isGlass = rnd() < glass;
-        if (used.has(key)) continue; used.add(key);
-        const h = (h0 + (h1 - h0) * u * u * u) * (1 - 0.35 * (r / R));
-        B.box(gx - ax, ground(gx, gz), gz - az, w, d, h, 0.09, (isGlass ? GLASS : CONCRETE)[Math.floor(rnd() * (isGlass ? 3 : 4))], isGlass ? 1 : 0, ROOF);
-        this.towers.push(gx, gz, Math.max(w, d) * 0.6);
-      }
+    // --- skyline: cada edificio alto sobre su huella real, con sus pisos (OSM) o un estimado en los barrios de torres
+    this.towers = [];
+    for (const [x, z, L, W, a, floors] of skyline || []) {
+      if (HITOS.some((k) => Math.hypot(X(k.lon) - x, Z(k.lat) - z) < 45)) continue; // los hitos tienen su propio modelo
+      const r = ((Math.imul(x, 73856093) ^ Math.imul(z, 19349663)) >>> 0) / 4294967296, isGlass = floors > 12 && r < 0.45;
+      // box() usa (w, d) como semiejes del cuadrado unitario girado: la huella va con su rumbo real.
+      B.box(x - ax, ground(x, z), z - az, L, W, floors * 3.1 + 1.5, -a / 1000, (isGlass ? GLASS : CONCRETE)[Math.floor(r * 97) % (isGlass ? 3 : 4)], isGlass ? 1 : 0, ROOF);
+      this.towers.push(x, z, Math.max(L, W) * 0.6);
     }
 
     // --- hitos, a escala real

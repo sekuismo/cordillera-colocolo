@@ -81,7 +81,9 @@ export async function loadAll(manifest, quality, onProgress) {
   const land = { data: new Uint8Array(await new Response(lres.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()), w: tier.w, h: tier.h };
   // Puentes, alta tensión, tuberías y andariveles (opcional: existe si se corrió extract_infra + build_infra).
   const infra = manifest.infra ? await fetch(new URL(manifest.infra, base)).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
-  return { core, ctx, lines, coreImg, ctxImg, labels, land, infra };
+  // Edificios de 5 pisos o más sobre su huella real (opcional: lo genera build_zones.mjs).
+  const skyline = manifest.skyline ? await fetch(new URL(manifest.skyline, base)).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+  return { core, ctx, lines, coreImg, ctxImg, labels, land, infra, skyline };
 }
 
 // Altura de 16 bits en una textura RG8 (byte bajo en R, alto en G); el shader hace el bilineal a mano

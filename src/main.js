@@ -16,6 +16,7 @@ import { SpeedFX } from './speedfx.js';
 import { StreetIndex } from './streets.js';
 import { Infra } from './infra.js';
 import { Carve, makeBase, CLASSES as CARVE_CLASSES } from './carve.js';
+import { Zones } from './zones.js';
 
 const $ = (s) => document.querySelector(s);
 const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
@@ -66,10 +67,16 @@ async function boot() {
   shadows.start(env.uniforms.uSunDir.value);
   const overlay = new Overlay(quality);
   overlay.setLines(data.lines);
-  const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay });
+  const zones = manifest.zones ? new Zones(manifest, quality) : null;
+  if (zones) renderer.initTexture(zones.tex);
+  const terrain = new Terrain({ manifest, hf, tex, env: env.uniforms, quality, overlay, zones });
   const cat = new Cat(env.uniforms);
   const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, land: data.land, streets: new StreetIndex(overlay), amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
-  const city = new City({ hf, manifest, env: env.uniforms });
+  if (zones && zones.hasBin.size) {
+    props.useZones(); props.zoneSize = zones.size;
+    zones.onBin = (key, d) => props.addZone(key, d); zones.onDrop = (key, d) => props.dropZone(key, d);
+  }
+  const city = new City({ hf, manifest, env: env.uniforms, skyline: data.skyline });
   const infra = data.infra ? new Infra({ hf, manifest, env: env.uniforms, data: data.infra, shadowTex: shadows.tex }) : null;
   const scene = new THREE.Scene();
   const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props);
@@ -148,6 +155,7 @@ async function boot() {
     if (infra) infra.update(camera);
     speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
     requestCarve(player);
+    if (zones) zones.update(renderer, player.x, player.z);
     overlay.update(renderer, camera.position);
     terrain.update(camera);
     props.update(camera, player.speed);
@@ -171,7 +179,7 @@ async function boot() {
     }
   };
   renderer.setAnimationLoop(frame);
-  window.__juego = { carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
+  window.__juego = { zones, carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
 
   $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
   $('#start').hidden = false;

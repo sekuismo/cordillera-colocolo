@@ -158,6 +158,9 @@ uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional
 uniform sampler2D uShadow; // sombras arrojadas por el relieve (se recalculan en CPU cuando cambia el sol)
 uniform float uStreets;     // 1 si están cargadas las calles menores de OSM
 uniform sampler2D uLand;   // cobertura de suelo real: una clase por texel (ver tools/build_landcover.mjs)
+uniform sampler2D uZoneImg; // imagen a 8 m/px de las 4×4 zonas que rodean al jugador, en anillo (ver zones.js)
+uniform vec2 uZoneSlot[16]; // qué zona (i, j) tiene cada casilla del anillo
+uniform float uZoneSize;    // m por zona (0 = sin zonas)
 #define IS(k) (1.0 - step(0.5, abs(cls - k)))
 // Hash entero por parcela (estable entre GPUs, a diferencia de fract(sin())).
 float parcelHash(vec2 c) {
@@ -203,6 +206,15 @@ void main() {
   } else {
     alb = textureGrad(uCtxAlb, uvX, dRx / uCtxRect.zw, dRy / uCtxRect.zw).rgb; nrg = textureGrad(uCtxNrm, uvX, dRx / uCtxRect.zw, dRy / uCtxRect.zw).rg;
     if (w > 0.0) { alb = mix(alb, textureGrad(uCoreAlb, uvC, dRx / uCoreSize, dRy / uCoreSize).rgb, w); nrg = mix(nrg, textureGrad(uCoreNrm, uvC, dRx / uCoreSize, dRy / uCoreSize).rg, w); }
+  }
+  // Imagen de detalle de las zonas cercanas: reemplaza a la del core (34 m/px) hasta ~5 km, donde el anillo se acaba.
+  if (uZoneSize > 0.0 && w >= 1.0) {
+    float zf = 1.0 - smoothstep(4000.0, 5600.0, length(vRel.xz));
+    vec2 zc = floor(xz / uZoneSize), sl = mod(zc, 4.0);
+    if (zf > 0.0 && all(equal(uZoneSlot[int(sl.y * 4.0 + sl.x)], zc))) {
+      float R = uZoneSize * 4.0;
+      alb = mix(alb, textureGrad(uZoneImg, xz / R, dRx / R, dRy / R).rgb, zf);
+    }
   }
   vec2 nxz = unpackSlope(nrg);
   float s2 = dot(nxz, nxz);

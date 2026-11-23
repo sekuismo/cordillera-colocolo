@@ -2,7 +2,7 @@
 import fs from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
-import { RAW, CORE, CTX, SAT_Z, CTX_SAT_Z, CTX_DEM_Z, tileRange } from './config.mjs';
+import { RAW, CORE, CTX, SAT_Z, SAT_ZONE_Z, CTX_SAT_Z, CTX_DEM_Z, tileRange } from './config.mjs';
 
 const UA = 'cordillera-game-builder/1.0';
 
@@ -136,6 +136,9 @@ async function sat(bounds, z, dir) {
     jobs.push({ url: `https://tiles.maps.eox.at/wmts/1.0.0/s2cloudless_3857/default/g/${z}/${y}/${x}.jpg`, file: path.join(RAW, dir, `${z}_${x}_${y}.jpg`) });
   await pool(jobs, 6);
 }
+
+// Imagen de detalle (~8 m/px) para las zonas que se cargan alrededor del jugador (build_zones.mjs).
+tasks.sat14 = async () => { await fs.mkdir(path.join(RAW, 'sat14'), { recursive: true }); await sat(CORE, SAT_ZONE_Z, 'sat14'); };
 
 const which = process.argv.slice(2);
 for (const name of which.length ? which : Object.keys(tasks)) {

@@ -22,6 +22,16 @@ manifest.streets = [];
 for (const [file, tiers] of [['streets_ter.bin', ['hi', 'lo']], ['streets_res.bin', ['hi']]]) {
   try { manifest.bytes[file] = (await fs.stat(path.join(DATA, file))).size; manifest.streets.push({ file, tiers }); } catch { /* aún no generadas */ }
 }
+try { manifest.bytes['skyline.json'] = (await fs.stat(path.join(DATA, 'skyline.json'))).size; manifest.skyline = 'skyline.json'; } catch { /* aún no generado */ }
 try { manifest.bytes['infra.json'] = (await fs.stat(path.join(DATA, 'infra.json'))).size; manifest.infra = 'infra.json'; } catch { /* aún no generada */ }
+// Zonas que se cargan alrededor del jugador (build_zones.mjs): qué archivos existen y cuánto pesan en total.
+try {
+  const { ZONE, ZPX, NZX, NZZ } = await import('./build_zones.mjs?info');
+  const list = async (dir, ext) => (await fs.readdir(path.join(DATA, 'zones', dir)).catch(() => [])).filter((f) => f.endsWith(ext));
+  const img = await list('img', '.webp'), bin = await list('bin', '.bin');
+  let bytes = 0;
+  for (const [d, fs_] of [['img', img], ['bin', bin]]) for (const f of fs_) bytes += (await fs.stat(path.join(DATA, 'zones', d, f))).size;
+  manifest.zones = { size: ZONE, px: ZPX, nx: NZX, nz: NZZ, bytes, img: img.map((f) => f.slice(0, -5)), bin: bin.map((f) => f.slice(0, -4)) };
+} catch (e) { console.warn('sin zonas:', e.message); }
 await fs.writeFile(path.join(DATA, 'manifest.json'), JSON.stringify(manifest, null, 1));
-console.log(manifest);
+console.log({ ...manifest, zones: manifest.zones && { ...manifest.zones, img: manifest.zones.img.length, bin: manifest.zones.bin.length } });

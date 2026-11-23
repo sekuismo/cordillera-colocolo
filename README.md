@@ -40,6 +40,7 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Detalle bajo 34 m | Ruido fBm periódico compartido entre CPU y GPU: desplaza la malla cerca de la cámara y la física del gato usa exactamente la misma función. |
 | Ríos, caminos, frontera | Vectores OSM rasterizados en GPU a 4 texturas en cascada centradas en la cámara (0,25 m/px cerca, 8 m/px a media distancia, 32 m/px lejos). Las rutas pavimentadas llevan berma, eje amarillo y líneas de borde. |
 | Plataforma de caminos y cauce de ríos | El DEM de 34 m no tiene ni la calzada ni el cauce: a lo largo de cada camino y río de OSM se talla una plataforma plana (cota del DEM suavizada a lo largo del trazado) con taludes de corte y relleno, y un cauce de agua plana que solo baja aguas abajo. Es una función pura (`src/carve.js`) que evalúan igual la física del gato y un worker que arma la ventana de 1 km que lee el vertex shader. |
+| Detalle real por zonas | El core se parte en zonas de 4 km (`data/zones/`) y solo se bajan las que rodean al jugador: imagen Sentinel-2 a 8 m/px (un anillo de 4×4 zonas en una textura con repetición, sin mover nada al avanzar), cada árbol detectado en la altura de dosel de Meta con su altura real y cada huella de edificio de Overture como rectángulo orientado con sus pisos (OSM) o un estimado. |
 | Puentes, alta tensión, tuberías, andariveles | Trazados reales de OSM (`data/infra.json`); la geometría 3D se arma en el navegador por celdas de 4 km cerca de la cámara (`src/infra.js`). Los puentes se pueden cruzar caminando. |
 | Nombres | Etiquetas HTML priorizadas por aislamiento topográfico de la cumbre y distancia, con oclusión por el relieve. |
 | Sombras del relieve | Barrido O(N) sobre el DEM en CPU (altura de sombra por línea paralela al sol), repartido en varios cuadros y subido como textura de 1 canal. |
@@ -72,6 +73,8 @@ node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
 # Bajar https://download.geofabrik.de/south-america/chile-latest.osm.pbf a raw/pbf/chile.osm.pbf y luego:
 node extract_streets.mjs && node build_streets.mjs
 node extract_infra.mjs && node build_infra.mjs   # puentes, torres, tuberías, andariveles y etiquetas de rutas
+node download.mjs sat14 && python extract_buildings.py && python build_buildings.py && python build_trees.py
+node build_zones.mjs                                # imagen, árboles y edificios por zona → data/zones/
 node build_manifest.mjs
 ```
 
@@ -83,6 +86,8 @@ El área y las resoluciones se definen en `tools/config.mjs`.
 - **Imagen:** [Sentinel-2 cloudless 2016](https://s2maps.eu) por EOX IT Services GmbH (contiene datos Copernicus Sentinel modificados 2016), CC BY 4.0.
 - **Cobertura de suelo:** © ESA WorldCover project 2021 / contiene datos Copernicus Sentinel modificados (2021) procesados por el consorcio ESA WorldCover, CC BY 4.0.
 - **Nombres, caminos, ríos y límite:** © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright), ODbL.
+- **Árboles:** [High Resolution Canopy Height Maps](https://sustainability.atmeta.com/blog/2024/04/22/using-artificial-intelligence-to-map-the-earths-forests/) © World Resources Institute y Meta, CC BY 4.0 (cada árbol es una copa detectada en la altura de dosel de ~1 m).
+- **Edificios:** [Overture Maps Foundation](https://overturemaps.org), ODbL; fusiona OpenStreetMap, Microsoft ML Buildings y Google Open Buildings.
 - **Código:** MIT (ver `LICENSE`).
 
 Los textos de las fichas son divulgativos; el límite internacional dibujado es referencial. Viñas, frutales, parques, plantaciones y glaciares salen de sus polígonos OSM; en el campo abierto restante, WorldCover indica que hay cultivo pero no cuál, así que el color de cada parcela es sorteado.

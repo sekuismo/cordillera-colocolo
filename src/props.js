@@ -57,8 +57,16 @@ void main() {
     p.xz *= mix(1.0, 0.6, crown * step(3.5, kind) * (1.0 - uLeaf.x)); // sin hojas queda solo el ramaje
     p *= iSV.x * fade * shape;
   #elif TYPE == 5
-    float tall = floor(iSV.y); // pisos extra: edificios en el centro de las ciudades
-    p *= iSV.x * fade * vec3(1.0 + tall * 0.05, 1.0 + tall * 0.9, 1.0 + tall * 0.05);
+    if (iSV.x < 0.0) { // edificio real (zones.js): el rectángulo de su huella, con sus pisos (o un estimado)
+      float q = -iSV.x, L = floor(q / 1000.0) * 0.1, Wd = (q - floor(q / 1000.0) * 1000.0) * 0.1;
+      float floors = max(1.0, floor(iSV.y)), H = floors * 2.9 + 0.3;
+      float roofK = floors < 2.5 && Wd < 13.0 ? min(1.2, Wd / 5.4) : 0.04; // casas con techo a dos aguas; lo grande, plano
+      p.y = uv.x > 0.5 ? H + (p.y - 2.7) * roofK : p.y / 2.7 * H;
+      p *= fade * vec3(L / 7.0, 1.0, Wd / 5.4);
+    } else {
+      float tall = floor(iSV.y); // pisos extra: edificios en el centro de las ciudades
+      p *= iSV.x * fade * vec3(1.0 + tall * 0.05, 1.0 + tall * 0.9, 1.0 + tall * 0.05);
+    }
   #elif TYPE == 6
     // 0 álamo (columna) · 1 ciprés de la cordillera (cono) · 2 eucalipto · 3 pino (cono ancho)
     float cone = step(0.5, kind) * step(kind, 1.5) + step(2.5, kind);
@@ -299,7 +307,85 @@ export class Props {
   }
   _urbanAt(x, z, big) { return ((big ? this.urbanBig : this.urban)[Math.floor(z / 100) * this.uw + Math.floor(x / 100)] || 0) / 255; }
 
+  // ---------- Árboles y edificios reales (zones.js) ----------
+  // Donde hay datos por zonas, los árboles (tipos 3 y 6) y las casas (5) dejan de inventarse: cada árbol detectado en
+  // la altura de dosel y cada huella de edificio se pone en su lugar. Qué especie es cada árbol sigue saliendo de la
+  // cobertura de suelo, la altitud y la exposición, pero ahora con su altura real.
+  useZones() { this.real = { 3: new Map(), 5: new Map(), 6: new Map() }; this.zoneCells = new Map(); this.jobs = []; }
+  // Una zona trae decenas de miles de árboles y edificios: se clasifican de a poco (≈3 ms por cuadro) para no dar tirones.
+  addZone(key, data) { this.jobs.push({ key, data, t: 0, b: 0, put: [] }); }
+  _work(budget) {
+    const t0 = performance.now();
+    while (this.jobs.length && performance.now() - t0 < budget) {
+      const job = this.jobs[0];
+      if (this._step(job, 2000)) { this.jobs.shift(); this.zoneCells.set(job.key, job.put); this._invalidate(job.data.x0, job.data.z0); }
+    }
+  }
+  _step(job, n) { // procesa hasta n elementos; true cuando terminó la zona
+    const { data, put } = job, hf = this.hf, A = this.amount;
+    const push = (ti, x, z, rot, sc, vk) => {
+      const C = this.types[ti].cell, ck = Math.floor(x / C) * 65536 + Math.floor(z / C), m = this.real[ti];
+      let l = m.get(ck); if (!l) { m.set(ck, (l = [])); put.push(ti, ck); }
+      l.push(x, z, rot, sc, vk);
+    };
+    const T = data.trees, tEnd = Math.min(T.length, job.t + n * 4);
+    for (let n = job.t; n < tEnd; n += 4) {
+      const x = T[n], z = T[n + 1], h = T[n + 2], r = hash2(Math.round(x * 4), Math.round(z * 4), 11), v = hash2(Math.round(z * 4), Math.round(x * 4), 12);
+      if (h < 8 && r > A) continue; // calidad liviana: la mitad de los árboles bajos
+      const c = this._cls(x, z), alt = hf.base(x, z), south = (hf.slope2(x, z), hf._s[1]);
+      let ti = 3, kind = 1;
+      if (c === 13) { ti = 6; kind = alt > 1400 ? 3 : 2; }                                                         // plantación: eucalipto o pino
+      else if (c === 4 || c === 10 || c === 11) { if (h >= 9) { ti = 6; kind = 0; } else kind = 4; }                // álamos en el campo
+      else if (c === 5 || c === 12) { if (h >= 13) { ti = 6; kind = r < 0.5 ? 2 : 0; } else kind = c === 12 && r < 0.4 ? 1 : 4; } // ciudad
+      else if (c === 8 || c === 9) { if (h >= 8) { ti = 6; kind = 0; } else kind = 4; }                             // sauces y álamos junto al agua
+      else if (alt > 1050 && alt < 2300 && south > 0.12 && h >= 6 && r < 0.5) { ti = 6; kind = 1; }                // ciprés de la cordillera
+      else if (h >= 15 && alt < 1200) { ti = 6; kind = 2; }                                                        // eucaliptos sueltos
+      else kind = alt < 1100 && h < 6 && south <= 0.1 ? 0 : south > 0.1 ? 2 : 1;                                   // espino, peumo, quillay
+      const vk = v * 0.999 + kind, f = (vk * 5.7) % 1;
+      const sc = ti === 6 ? h / (4.9 * (0.9 + f * 0.25)) : h / (2.65 * (kind === 0 ? 0.76 : 0.9 + f * 0.35));
+      push(ti, x, z, r * 6.283, Math.max(0.4, sc), vk);
+    }
+    job.t = tEnd; if (tEnd < T.length) return false;
+    const B = data.bld, bEnd = Math.min(B.length, job.b + n * 6);
+    for (let n = job.b; n < bEnd; n += 6) {
+      if (B[n + 5] >= 5) continue; // los edificios altos están en el skyline (city.js), que se dibuja a cualquier distancia
+      const x = B[n], z = B[n + 1], L = B[n + 2], W = B[n + 3], area = L * W, r = hash2(Math.round(x * 4), Math.round(z * 4), 13);
+      // Sin dato de pisos (casi todo lo que no es OSM): casas de 1–2 pisos según la huella; lo muy grande es galpón.
+      const floors = B[n + 5] || (area < 110 ? 1 : area < 350 ? (r < 0.6 ? 1 : 2) : area < 2500 ? 2 : 3);
+      push(5, x, z, -B[n + 4], -(Math.min(3200, Math.round(L * 10)) * 1000 + Math.min(999, Math.round(W * 10))), Math.min(99, floors) + r * 0.999);
+    }
+    job.b = bEnd; return bEnd >= B.length;
+  }
+  dropZone(key) {
+    for (const j of this.jobs) if (j.key === key) for (let k = 0; k < j.put.length; k += 2) this.real[j.put[k]].delete(j.put[k + 1]);
+    this.jobs = this.jobs.filter((j) => j.key !== key);
+    const put = this.zoneCells.get(key); if (!put) return;
+    for (let k = 0; k < put.length; k += 2) this.real[put[k]].delete(put[k + 1]);
+    this.zoneCells.delete(key);
+  }
+  _invalidate(x0, z0) { // las celdas ya armadas sobre la zona se rehacen con los datos reales
+    const S = this.zoneSize;
+    for (const ti of [3, 5, 6]) {
+      const t = this.types[ti], C = t.cell;
+      for (const k of [...t.cache.keys()]) { const cx = Math.floor(k / 65536) * C, cz = (k % 65536) * C; if (cx + C > x0 && cx < x0 + S && cz + C > z0 && cz < z0 + S) t.cache.delete(k); }
+      t.cx = NaN;
+    }
+  }
+  _realCell(ti, ix, iz) {
+    const l = this.real[ti].get(ix * 65536 + iz); if (!l) return new Float32Array(0);
+    const hf = this.hf, out = [];
+    for (let k = 0; k < l.length; k += 5) {
+      const x = l[k], z = l[k + 1];
+      let y = hf.height(x, z, true);
+      if (ti !== 5 && hf.lastW > 0.95) continue; // sobre la calzada o dentro del cauce
+      y -= ti === 5 ? 0.5 : 0.15;
+      out.push(x, y, z, l[k + 2], l[k + 3], l[k + 4]);
+    }
+    return new Float32Array(out);
+  }
+
   _cell(t, ti, ix, iz) {
+    if (this.real && (ti === 3 || ti === 5 || ti === 6)) return this._realCell(ti, ix, iz);
     const hf = this.hf, out = [], C = t.cell;
     for (let k = 0; k < t.per; k++) {
       const h0 = hash2(ix, iz, k * 5 + ti * 101), h1 = hash2(ix, iz, k * 5 + 1 + ti * 101);
@@ -399,7 +485,8 @@ export class Props {
         for (let i = 0; i < c.length; i += 6) {
           const ox = nx - c[i], oz = nz - c[i + 2], sc = c[i + 4];
           if (ti === 5) {
-            const k = 1 + Math.floor(c[i + 5]) * 0.05, hx = 3.5 * sc * k + 0.35, hz = 2.7 * sc * k + 0.35;
+            const k = 1 + Math.floor(c[i + 5]) * 0.05, q = -sc, L = Math.floor(q / 1000) * 0.1;
+            const hx = sc < 0 ? L / 2 + 0.35 : 3.5 * sc * k + 0.35, hz = sc < 0 ? (q - Math.floor(q / 1000) * 1000) * 0.05 + 0.35 : 2.7 * sc * k + 0.35;
             const co = Math.cos(c[i + 3]), si = Math.sin(c[i + 3]);
             let lx = co * ox - si * oz, lz = si * ox + co * oz;
             if (Math.abs(lx) >= hx || Math.abs(lz) >= hz) continue;
@@ -418,6 +505,7 @@ export class Props {
 
   update(camera, speed) {
     const cam = camera.position;
+    if (this.jobs && this.jobs.length) this._work(3);
     this.types.forEach((t, ti) => {
       const cx = Math.floor(cam.x / t.cell), cz = Math.floor(cam.z / t.cell);
       if (cx !== t.cx || cz !== t.cz) {

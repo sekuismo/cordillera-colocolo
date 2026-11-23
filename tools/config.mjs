@@ -21,6 +21,7 @@ export const CTX_DEM = { w: 1024, h: 1152 }; // ~362 m por texel
 export const CTX_IMG = { w: 2048, h: 2304 };
 
 export const SAT_Z = 13;     // ~16 m/px en esta latitud
+export const SAT_ZONE_Z = 14; // ~8 m/px: imagen de detalle por zonas
 export const CTX_SAT_Z = 10; // ~127 m/px
 export const CTX_DEM_Z = 9;  // ~255 m/px
 
