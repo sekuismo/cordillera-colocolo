@@ -127,10 +127,10 @@ ${ATMOS_GLSL}
 ${HEIGHT_GLSL}
 varying vec3 vRel;
 uniform vec3 uCamPos, uCapSun, uCatPos;
-uniform sampler2D uCoreAlb, uCtxAlb, uOv0, uOv1, uOv2;
+uniform sampler2D uCoreAlb, uCtxAlb, uOv0, uOv1, uOv2, uOv3;
 uniform vec2 uCamFrac[${OCTAVES.length}];
 uniform vec2 uWaterFrac;
-uniform vec3 uOv[3];   // xy: cámara − centro de la cascada, z: tamaño
+uniform vec3 uOv[4];   // xy: cámara − centro de la cascada, z: tamaño
 uniform vec4 uShow;    // x: caminos y senderos, y: límite internacional
 uniform sampler2D uShadow; // sombras arrojadas por el relieve (se recalculan en CPU cuando cambia el sol)
 uniform float uStreets;     // 1 si están cargadas las calles menores de OSM
@@ -145,16 +145,19 @@ float parcelHash(vec2 c) {
 }
 float hash21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
 
-float ovCover; // cuánto cubren las cascadas vectoriales este punto (1 cerca de la cámara, 0 más allá de ~20 km)
+float ovCover, ovNear; // cuánto cubren las cascadas vectoriales este punto (1 cerca de la cámara, 0 más allá de ~26 km) y cuánto la más fina
 vec4 overlay(vec2 rel, vec2 dx, vec2 dy) {
-  vec2 uv0 = (uOv[0].xy + rel) / uOv[0].z + 0.5, uv1 = (uOv[1].xy + rel) / uOv[1].z + 0.5, uv2 = (uOv[2].xy + rel) / uOv[2].z + 0.5;
-  vec2 e0 = abs(uv0 - 0.5) * 2.0, e1 = abs(uv1 - 0.5) * 2.0, e2 = abs(uv2 - 0.5) * 2.0;
-  float w0 = 1.0 - smoothstep(0.8, 0.96, max(e0.x, e0.y)), w1 = 1.0 - smoothstep(0.8, 0.96, max(e1.x, e1.y)), w2 = 1.0 - smoothstep(0.8, 0.96, max(e2.x, e2.y));
-  ovCover = max(w2, max(w1, w0));
+  vec2 uv0 = (uOv[0].xy + rel) / uOv[0].z + 0.5, uv1 = (uOv[1].xy + rel) / uOv[1].z + 0.5, uv2 = (uOv[2].xy + rel) / uOv[2].z + 0.5, uv3 = (uOv[3].xy + rel) / uOv[3].z + 0.5;
+  vec2 e0 = abs(uv0 - 0.5) * 2.0, e1 = abs(uv1 - 0.5) * 2.0, e2 = abs(uv2 - 0.5) * 2.0, e3 = abs(uv3 - 0.5) * 2.0;
+  float w0 = 1.0 - smoothstep(0.8, 0.96, max(e0.x, e0.y)), w1 = 1.0 - smoothstep(0.8, 0.96, max(e1.x, e1.y)), w2 = 1.0 - smoothstep(0.8, 0.96, max(e2.x, e2.y)), w3 = 1.0 - smoothstep(0.8, 0.96, max(e3.x, e3.y));
+  ovCover = max(max(w3, w2), max(w1, w0)); ovNear = w0;
   // Una cascada más gruesa solo se lee si la más fina no cubre del todo el punto: casi siempre es 1 lectura (o ninguna, lejos).
   vec4 o = vec4(0.0);
   if (w0 < 1.0) {
-    if (w1 < 1.0 && w2 > 0.0) o = textureGrad(uOv2, uv2, dx / uOv[2].z, dy / uOv[2].z) * w2;
+    if (w1 < 1.0) {
+      if (w2 < 1.0 && w3 > 0.0) o = textureGrad(uOv3, uv3, dx / uOv[3].z, dy / uOv[3].z) * w3;
+      if (w2 > 0.0) o = mix(o, textureGrad(uOv2, uv2, dx / uOv[2].z, dy / uOv[2].z), w2);
+    }
     if (w1 > 0.0) o = mix(o, textureGrad(uOv1, uv1, dx / uOv[1].z, dy / uOv[1].z), w1);
   }
   if (w0 > 0.0) o = mix(o, textureGrad(uOv0, uv0, dx / uOv[0].z, dy / uOv[0].z), w0);
@@ -273,10 +276,17 @@ void main() {
   float pebble = smoothstep(0.42, 0.7, t5.x * 0.6 + t4.x * 0.55) * close * (0.35 + 0.65 * max(amp, steep));
   alb = mix(alb, alb * 1.5 + vec3(0.035, 0.033, 0.03), pebble * 0.7);
 
-  float road = min(1.0, ov.r * 1.4) * uShow.x, trail = ov.g * uShow.x, water = ov.b, border = ov.a * uShow.y;
+  // Caminos (ver overlay.js): en rojo, la calzada (hasta 0,8) y su eje pintado (sobre 0,8); en verde, huellas de tierra y bermas (hasta 0,6) y la línea de borde.
+  float road = min(1.0, ov.r * 1.75) * uShow.x, trail = min(1.0, ov.g * 1.7) * uShow.x, water = ov.b, border = ov.a * uShow.y;
   float flat_ = max(max(road, trail * 0.6), water);
-  alb = mix(alb, vec3(0.055, 0.058, 0.062) * (1.0 + cvar * 0.25), road * 0.92);
-  alb = mix(alb, (alb * 0.9 + vec3(0.075, 0.062, 0.045)) * (1.0 + cvar * 0.3), trail * 0.85); // huella de tierra: algo más clara que su entorno
+  alb = mix(alb, (alb * 0.9 + vec3(0.075, 0.062, 0.045)) * (1.0 + cvar * 0.3), trail * 0.85); // huella de tierra o berma: algo más clara que su entorno
+  vec3 asphalt = vec3(0.066, 0.068, 0.073) * (1.0 + cvar * 0.25);
+  // Demarcación: solo de cerca, y solo mientras cada píxel abarca menos que el ancho de una línea (si no, centellea).
+  float fpx = length(dRx), fpy = length(dRy);
+  float mark = ovNear * uShow.x * (1.0 - smoothstep(0.2, 0.45, max(min(fpx, fpy), max(fpx, fpy) * 0.25)));
+  asphalt = mix(asphalt, vec3(0.62, 0.44, 0.05), smoothstep(0.87, 0.95, ov.r) * mark * 0.9); // eje amarillo continuo
+  alb = mix(alb, asphalt, road * 0.92);
+  alb = mix(alb, vec3(0.50, 0.50, 0.47), smoothstep(0.64, 0.9, ov.g) * mark * 0.85); // línea de borde
 
   // Nieve estacional: sobre la línea de nieve, con borde irregular, sin pegarse en los paredones y bajando
   // unos 300 m más en las laderas que miran al sur (en el hemisferio sur son las de umbría).

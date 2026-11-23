@@ -79,7 +79,9 @@ export async function loadAll(manifest, quality, onProgress) {
   const lres = await fetch(new URL(tier.land, base));
   if (!lres.ok) throw new Error(`${tier.land}: HTTP ${lres.status}`);
   const land = { data: new Uint8Array(await new Response(lres.body.pipeThrough(new DecompressionStream('gzip'))).arrayBuffer()), w: tier.w, h: tier.h };
-  return { core, ctx, lines, coreImg, ctxImg, labels, land };
+  // Puentes, alta tensión, tuberías y andariveles (opcional: existe si se corrió extract_infra + build_infra).
+  const infra = manifest.infra ? await fetch(new URL(manifest.infra, base)).then((r) => (r.ok ? r.json() : null)).catch(() => null) : null;
+  return { core, ctx, lines, coreImg, ctxImg, labels, land, infra };
 }
 
 // Altura de 16 bits en una textura RG8 (byte bajo en R, alto en G); el shader hace el bilineal a mano

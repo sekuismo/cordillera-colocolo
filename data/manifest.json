@@ -60,7 +60,8 @@
   "land_hi.bin": 1486117,
   "land_lo.bin": 437300,
   "streets_ter.bin": 78053,
-  "streets_res.bin": 1076933
+  "streets_res.bin": 1076933,
+  "infra.json": 216382
  },
  "streets": [
   {
@@ -76,5 +77,6 @@
     "hi"
    ]
   }
- ]
+ ],
+ "infra": "infra.json"
 }

@@ -8,6 +8,7 @@ const GROUP_OF = {
   lago: 'agua', rio: 'agua', estero: 'agua', glaciar: 'agua', cascada: 'agua', termas: 'agua',
   refugio: 'lugares', mirador: 'lugares', atractivo: 'lugares', parque: 'lugares', ski: 'lugares',
   valle: 'relieve', cordon: 'relieve', region: 'relieve',
+  ruta: 'vias', puente: 'vias',
 };
 // Grandes unidades del relieve: [nombre, lat, lon]. Son el "mapa mental" de la zona.
 const REGIONS = [
@@ -32,7 +33,7 @@ const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'
 export class Labels {
   constructor(container, data, hf, manifest, max) {
     this.hf = hf; this.max = max; this.container = container;
-    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true, relieve: true };
+    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true, relieve: true, vias: true };
     this.items = data.items.map(([name, k, x, z, rank, ele]) => ({ name, kind: data.kinds[k], group: GROUP_OF[data.kinds[k]], x, z, rank, ele }));
     for (const [name, kind, lat, lon, ele] of FAR)
       this.items.push({ name, kind, group: GROUP_OF[kind], x: (lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - lat) * manifest.mPerDegLat, rank: 0, ele, far: true });
@@ -118,7 +119,7 @@ export class Labels {
   nearest(x, z) {
     let best = null, bs = Infinity;
     for (const it of this.items) {
-      if (it.far || it.kind === 'mirador' || it.kind === 'atractivo' || it.kind === 'estero') continue;
+      if (it.far || it.group === 'vias' || it.kind === 'mirador' || it.kind === 'atractivo' || it.kind === 'estero') continue;
       const d = Math.hypot(it.x - x, it.z - z);
       if (d > 7000) continue;
       const s = d * (it.group === 'localidades' ? 1 : 1.5) * (1 + it.rank * 0.25);

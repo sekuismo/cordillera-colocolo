@@ -378,6 +378,8 @@ export class Props {
         x = (ix + (k + 0.5) / 3) * C; z = (iz + 0.5) * C; rot = 0; dens = 1.1 / Math.max(this.amount, 0.5);
       }
       if (r > dens * this.amount) continue;
+      // Nada crece en la calzada ni en las huellas de vehículos (las casas ya se retiran solas de su calle).
+      if (ti !== 5 && this.streets) { const st = this.streets.nearest(x, z, 12); if (st && st.d < st.hw + (ti === 0 ? 0.4 : ti >= 3 ? 1.6 : 0.9)) continue; }
       let y = hf.height(x, z);
       if (ti === 1) y -= scale * 0.12; else if (ti === 5) y -= 0.5; else if (ti === 7) y -= 0.1; else if (ti >= 3) y -= 0.15;
       out.push(x, y, z, rot, scale, v * 0.999 + kind);

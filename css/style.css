@@ -32,6 +32,9 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
 .g-relieve { color: #e9d9c4; font-style: italic; }
 .lbl.k-region { font-size: 15px; font-style: normal; font-weight: 500; letter-spacing: .22em; text-transform: uppercase; color: rgba(255, 244, 226, .92); }
 .lbl.k-region::after { display: none; }
+.g-vias { color: #d9dde0; }
+.lbl.k-ruta { font-size: 11px; font-weight: 700; letter-spacing: .04em; }
+.lbl.k-ruta i { font-weight: 500; letter-spacing: 0; }
 .g-cumbres { color: #fff; } .g-localidades { color: #ffe2a6; } .g-agua { color: var(--ice); } .g-lugares { color: var(--moss); }
 
 /* ---------- HUD ---------- */

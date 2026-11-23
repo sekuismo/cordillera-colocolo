@@ -28,6 +28,7 @@
 <link rel="modulepreload" href="./src/city.js">
 <link rel="modulepreload" href="./src/speedfx.js">
 <link rel="modulepreload" href="./src/streets.js">
+<link rel="modulepreload" href="./src/infra.js">
 <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -72,6 +73,7 @@
     <label><input type="checkbox" data-layer="agua" checked><span>Ríos, lagunas y glaciares</span></label>
     <label><input type="checkbox" data-layer="relieve" checked><span>Valles, cajones y cordones</span></label>
     <label><input type="checkbox" data-layer="lugares" checked><span>Parques, refugios y miradores</span></label>
+    <label><input type="checkbox" data-layer="vias" checked><span>Rutas y puentes</span></label>
     <h3>Sobre el terreno</h3>
     <label><input type="checkbox" data-layer="caminos" checked><span>Caminos y senderos</span></label>
     <label><input type="checkbox" data-layer="limite" checked><span>Límite Chile–Argentina</span></label>
@@ -107,7 +109,7 @@
   <div class="body">
     <dl class="keys desktop">
       <dt>W A S D / flechas</dt><dd>Moverse (la cámara sigue al gato)</dd>
-      <dt>Clic</dt><dd>Capturar el mouse y mirar como en un FPS (Esc lo suelta)</dd>
+      <dt>Arrastrar</dt><dd>Mirar alrededor, también hacia arriba</dd>
       <dt>Rueda · V</dt><dd>Alejar o acercar la cámara · primera persona</dd>
       <dt>1 2 3 4 5</dt><dd>Paseo, Trote, Carrera, Turbo, Híper</dd>
       <dt>Shift</dt><dd>Subir una marcha mientras lo aprietas</dd>
@@ -121,7 +123,7 @@
       <dt>Botones</dt><dd>Elige la marcha y salta</dd>
     </dl>
     <p class="note">El mundo está a escala real: cruzar a pie de Santiago a Argentina toma horas. Para eso están las marchas Turbo e Híper y el viaje rápido del mapa.</p>
-    <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Cobertura de suelo: © ESA WorldCover 2021 (CC BY 4.0). Nombres, caminos y ríos: © colaboradores de OpenStreetMap (ODbL).</p>
+    <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Cobertura de suelo: © ESA WorldCover 2021 (CC BY 4.0). Nombres, caminos, puentes, líneas eléctricas y ríos: © colaboradores de OpenStreetMap (ODbL).</p>
   </div>
 </section>
 

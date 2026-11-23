@@ -22,5 +22,6 @@ manifest.streets = [];
 for (const [file, tiers] of [['streets_ter.bin', ['hi', 'lo']], ['streets_res.bin', ['hi']]]) {
   try { manifest.bytes[file] = (await fs.stat(path.join(DATA, file))).size; manifest.streets.push({ file, tiers }); } catch { /* aún no generadas */ }
 }
+try { manifest.bytes['infra.json'] = (await fs.stat(path.join(DATA, 'infra.json'))).size; manifest.infra = 'infra.json'; } catch { /* aún no generada */ }
 await fs.writeFile(path.join(DATA, 'manifest.json'), JSON.stringify(manifest, null, 1));
 console.log(manifest);

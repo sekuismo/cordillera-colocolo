@@ -24,6 +24,7 @@ export class Player {
     this.heading = 0; this.level = 1; this.grounded = true; this.speed = 0; this.atEdge = false; this.odo = 0;
     this.camYaw = 0; this.camPitch = 0.13; this.camDist = 5.5; this.camY = 0; this.fov = 60; this.baseFov = 60;
     this.firstPerson = false; this.swimming = false; this.collide = null;
+    this.deck = null; this.onDeck = false; // deck(x, z): cota de la calzada si ahí hay un puente (ver infra.js)
     this.rush = 0; this.roll = 0; this.lag = 1; this._prevHeading = 0; this._turn = 0;
     this.normal = new THREE.Vector3(0, 1, 0);
     this._t = new THREE.Vector3();
@@ -35,13 +36,13 @@ export class Player {
   }
   update(dt, now, input, io, camera) {
     const hf = this.hf;
-    // --- mirada: yaw/pitch libres, como en un FPS (pitch < 0 mira hacia arriba)
+    // --- mirada: yaw/pitch libres, arrastrando (pitch < 0 mira hacia arriba)
     this.camYaw -= io.lookX * 0.0042; this.camPitch = THREE.MathUtils.clamp(this.camPitch + io.lookY * 0.0036, -1.25, 1.45);
     this.camDist = THREE.MathUtils.clamp(this.camDist * Math.exp(io.zoom * 0.18), 1.0, 400);
     const fp = this.firstPerson || this.camDist < 1.6;
 
     // --- movimiento relativo a la cámara, con aceleración limitada (sin tirones al cambiar de marcha)
-    this.swimming = this.grounded && hf.slope2(this.x, this.z) < 2.5e-5;
+    this.swimming = this.grounded && !this.onDeck && hf.slope2(this.x, this.z) < 2.5e-5;
     const level = Math.min(SPEEDS.length - 1, this.level + (input.boost ? 1 : 0)), gear = SPEEDS[level];
     const top = gear.v * (this.swimming && level < 3 ? 0.45 : 1);
     const sy = Math.sin(this.camYaw), cy = Math.cos(this.camYaw), m = input.move;
@@ -54,19 +55,30 @@ export class Player {
     }
     this.speed = Math.hypot(this.vx, this.vz);
     if (this.speed > 0.25) this.heading = lerpAngle(this.heading, Math.atan2(this.vx, this.vz), 1 - Math.exp(-dt * 10));
-    // Sin mouse capturado (joystick o solo teclado), la cámara se acomoda detrás del gato para poder manejar con A/D.
-    if (!input.locked && !fp && this.speed > 0.5 && m.y > -0.2 && now - input.lastLook > 1.2 && input.pointers.size === 0)
+    // Si no estás arrastrando para mirar, la cámara se acomoda detrás del gato: así se puede manejar solo con A/D o el joystick.
+    if (!fp && this.speed > 0.5 && m.y > -0.2 && now - input.lastLook > 1.2 && input.pointers.size === 0)
       this.camYaw = lerpAngle(this.camYaw, this.heading, 1 - Math.exp(-dt * (0.9 + Math.abs(m.x) * 1.3)));
 
     let nx = this.x + this.vx * dt, nz = this.z + this.vz * dt;
     if (this.collide && level < 3) { const c = this.collide(nx, nz, this.y); nx = c[0]; nz = c[1]; } // Turbo e Híper son marchas de viaje: sin choques
+    // Sobre un puente, la barrera ataja al gato: caminando no se sale por el costado (saltando, sí) y resbala a lo largo de ella.
+    if (this.onDeck && this.grounded) {
+      const off = (x, z) => this.deck(x, z) < this.y - 1.2 && hf.height(x, z) < this.y - 1.2;
+      if (off(nx, nz)) { if (!off(nx, this.z)) nz = this.z; else if (!off(this.x, nz)) nx = this.x; else { nx = this.x; nz = this.z; } }
+    }
     this.x = THREE.MathUtils.clamp(nx, EDGE, this.max.x); this.z = THREE.MathUtils.clamp(nz, EDGE, this.max.z);
     this.atEdge = this.x !== nx || this.z !== nz;
     this.odo += this.speed * dt;
 
     // --- vertical. Caminando, el gato pisa el terreno exacto. A alta velocidad sigue un perfil suavizado
     // (el promedio de lo que viene y lo que pasó), así planea sobre las irregularidades en vez de rebotar.
-    const ground = hf.height(this.x, this.z);
+    let ground = hf.height(this.x, this.z);
+    // Puentes: si el gato viene a la altura del tablero (o cae sobre él), ese es su suelo; si pasa por abajo, no.
+    const deck = this.deck ? this.deck(this.x, this.z) : -Infinity;
+    const wasOnDeck = this.onDeck;
+    this.onDeck = deck > ground && this.y > deck - 1.3;
+    if (this.onDeck) ground = deck;
+    else if (wasOnDeck && this.grounded && this.y > ground + 1.5) { this.grounded = false; this.vy = 0; } // se acabó el tablero: cae
     const fast = smooth(10, 34, this.speed);
     let target = ground;
     if (fast > 0) {
@@ -84,7 +96,7 @@ export class Player {
       this.vy -= GRAVITY * (input.jumpHeld && this.vy > 0 ? 0.5 : 1) * dt; this.y += this.vy * dt;
       if (this.y <= target) { this.y = target; this.vy = 0; this.grounded = true; }
     }
-    hf.normal(this.x, this.z, this.normal, 0.45);
+    if (this.onDeck) this.normal.set(0, 1, 0); else hf.normal(this.x, this.z, this.normal, 0.45);
 
     // --- cámara
     this.camY += (this.y - this.camY) * (1 - Math.exp(-dt * 14));

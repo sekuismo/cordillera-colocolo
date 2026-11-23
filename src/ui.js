@@ -23,7 +23,7 @@ export class UI {
     addEventListener('keydown', (e) => { if (e.code === 'Escape') { this.toggle(null); this.closeCard(); } });
     input.on('KeyM', () => this.toggle('mapa'));
     input.on('KeyH', () => this.toggle('ayuda'));
-    input.on('KeyN', () => { const on = !Object.values(labels.enabled).some(Boolean); for (const g of ['cumbres', 'localidades', 'agua', 'lugares', 'relieve']) this.setLayer(g, on); this.toast(on ? 'Nombres visibles' : 'Nombres ocultos'); });
+    input.on('KeyN', () => { const on = !Object.values(labels.enabled).some(Boolean); for (const g of ['cumbres', 'localidades', 'agua', 'lugares', 'relieve', 'vias']) this.setLayer(g, on); this.toast(on ? 'Nombres visibles' : 'Nombres ocultos'); });
 
     // --- capas
     document.querySelectorAll('[data-layer]').forEach((c) => {
@@ -77,7 +77,6 @@ export class UI {
     jb.addEventListener('pointerdown', (e) => { e.preventDefault(); input.jump = true; input.touchJump = true; });
     for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) jb.addEventListener(ev, () => { input.touchJump = false; });
     input.on('KeyV', () => { player.firstPerson = !player.firstPerson; this.toast(player.firstPerson ? 'Primera persona' : 'Tercera persona'); });
-    input.onLock = (on) => this.toast(on ? 'Mouse capturado · Esc para soltarlo' : 'Mouse libre · clic en el paisaje para volver a mirar', 2600);
 
     // --- ficha
     $('#card-close').addEventListener('click', () => this.closeCard());
@@ -139,7 +138,6 @@ export class UI {
   }
   toggle(name) {
     for (const p of document.querySelectorAll('.panel')) p.hidden = name === null || p.id !== 'panel-' + name || !p.hidden;
-    if (name && document.pointerLockElement) document.exitPointerLock();
     const open = document.querySelector('.panel:not([hidden])');
     document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('on', !!open && open.id === 'panel-' + b.dataset.panel));
     if (open && open.id === 'panel-mapa') { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = 'Toca cualquier punto del mapa para viajar ahí.'; this.drawBig(); }

@@ -1,9 +1,10 @@
 // Capas vectoriales (ríos, lagos, caminos, senderos, frontera) pintadas sobre el terreno.
 // Un DEM/imagen de 34 m no resuelve un sendero de 1,4 m, así que las líneas se rasterizan en GPU
-// a 3 texturas en cascada centradas en la cámara (512 m, 4 km y 41 km de lado) que el shader del terreno muestrea.
+// a 4 texturas en cascada centradas en la cámara (512 m, 4 km, 16 km y 66 km de lado) que el shader del terreno muestrea.
+// La de 16 km existe por los caminos: a 2–8 km (mirando valle abajo) una ruta de 8 m necesita ~8 m por texel para leerse como línea.
 import * as THREE from 'three';
 
-const SIZES = [512, 4096, 40960];
+const SIZES = [512, 4096, 16384, 65536];
 export const CELL = 2048;   // m: grilla espacial para dibujar solo los tramos cercanos a cada cascada
 const MAX_SEG = 400; // m: los tramos más largos se parten, así cada uno vive en una sola celda
 const CHANNEL = { pav: 0, ter: 0, res: 0, dirt: 1, path: 1, river: 2, border: 3 };
@@ -13,28 +14,38 @@ attribute vec4 iSeg;  // x0, z0, x1, z1
 attribute vec2 iWC;   // semiancho (m), canal
 uniform vec3 uRect;   // centro x, centro z, semilado
 uniform float uTexel;
-varying float vAcross, vHalf, vAlpha;
+varying float vAcross, vHalf, vAlpha, vPav, vMid;
 varying vec4 vChan;
 void main() {
   vec2 a = iSeg.xy, b = iSeg.zw;
   vec2 t = normalize(b - a + vec2(1e-5, 0.0)), n = vec2(-t.y, t.x);
   float isBorder = step(2.5, iWC.y);
-  // Ancho mínimo de ~1,5 texeles para que la línea no parpadee de lejos; se compensa con transparencia.
-  float vis = max(iWC.x, uTexel * mix(0.75, 1.5, isBorder));
-  float ext = vis + uTexel;
+  // Ancho mínimo de medio texel (uno para la frontera) para que la línea no parpadee de lejos; se compensa con transparencia.
+  float vis = max(iWC.x, uTexel * mix(0.5, 1.0, isBorder));
+  // Las rutas pavimentadas (7 m o más) llevan berma de ripio; las de una calzada, además, eje pintado.
+  vPav = (1.0 - step(0.5, iWC.y)) * step(3.4, iWC.x); vMid = vPav * step(iWC.x, 5.0);
+  float ext = vis + uTexel + vPav * 1.6;
   vec2 p = mix(a, b, position.x) + t * (position.x * 2.0 - 1.0) * vis + n * position.y * ext;
   vAcross = position.y * ext; vHalf = vis;
-  vAlpha = mix(pow(iWC.x / vis, 0.7), 1.0, isBorder);
+  vAlpha = mix(pow(iWC.x / vis, 0.6), 1.0, isBorder);
   vChan = vec4(equal(vec4(iWC.y), vec4(0.0, 1.0, 2.0, 3.0)));
   gl_Position = vec4((p - uRect.xy) / uRect.z, 0.0, 1.0);
 }`;
 const LINE_FRAG = /* glsl */ `
 uniform float uTexel;
-varying float vAcross, vHalf, vAlpha;
+varying float vAcross, vHalf, vAlpha, vPav, vMid;
 varying vec4 vChan;
 void main() {
-  float a = clamp((vHalf - abs(vAcross)) / uTexel + 0.5, 0.0, 1.0) * vAlpha;
+  float d = abs(vAcross);
+  float a = clamp((vHalf - d) / uTexel + 0.5, 0.0, 1.0) * vAlpha;
   gl_FragColor = vChan * a;
+  // Canal rojo: 0–0,8 es cuánto cubre la calzada; de 0,8 a 1, el eje pintado. Canal verde: 0–0,6 es huella de tierra
+  // o berma (1,5 m más ancha que la calzada); de 0,6 a 1, la línea de borde. Las líneas son franjas angostas guardadas
+  // con su cobertura real: se suavizan solas y desaparecen en las cascadas gruesas, sin umbrales que serruchen el borde.
+  float mid = clamp((0.2 - d) / uTexel + 0.5, 0.0, 1.0) * min(1.0, 0.4 / uTexel) * vMid;
+  float edge = clamp((0.15 - abs(d - (vHalf - 0.35))) / uTexel + 0.5, 0.0, 1.0) * step(uTexel, 0.3) * vPav; // con texeles de 0,5 m (calidad liviana) la línea se vería como una fila de cuentas
+  gl_FragColor.r *= 0.8 + 0.2 * mid;
+  gl_FragColor.g = max(gl_FragColor.g * 0.6, clamp((vHalf + 1.5 - d) / uTexel + 0.5, 0.0, 1.0) * vAlpha * vPav * (0.6 + 0.4 * edge));
 }`;
 const FILL_VERT = /* glsl */ `
 uniform vec3 uRect;

@@ -14,6 +14,7 @@ import { Shadows } from './shadows.js';
 import { City, HITOS } from './city.js';
 import { SpeedFX } from './speedfx.js';
 import { StreetIndex } from './streets.js';
+import { Infra } from './infra.js';
 
 const $ = (s) => document.querySelector(s);
 const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
@@ -58,9 +59,11 @@ async function boot() {
   const cat = new Cat(env.uniforms);
   const props = new Props({ hf, manifest, env: env.uniforms, coreAlb: tex.coreAlb, land: data.land, streets: new StreetIndex(overlay), amount: quality.props, labels: data.labels, shadowTex: shadows.tex });
   const city = new City({ hf, manifest, env: env.uniforms });
+  const infra = data.infra ? new Infra({ hf, manifest, env: env.uniforms, data: data.infra, shadowTex: shadows.tex }) : null;
   const scene = new THREE.Scene();
   const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props);
   scene.add(terrain.group, props.group, city.mesh, cat.root, env.sky, env.precip, speedfx.mesh);
+  if (infra) scene.add(infra.group);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
 
   const input = new Input(canvas, $('#stick'));
@@ -69,6 +72,7 @@ async function boot() {
   const labels = new Labels($('#labels'), data.labels, hf, manifest, quality.maxLabels);
   labels.add(HITOS.map((h) => ({ name: h.n, x: h.x, z: h.z, y: h.top + 8, note: h.nota })));
   player.collide = (x, z) => props.collide(x, z);
+  if (infra) { labels.add(infra.labels); player.deck = (x, z) => infra.deckAt(x, z); }
   const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border });
 
   // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
@@ -112,6 +116,7 @@ async function boot() {
     if (shadowDirty && t - shadowAt > 0.3) { shadows.start(env.uniforms.uSunDir.value); shadowDirty = false; shadowAt = t; }
     cat.shade.value += (shadows.at(player.x, player.z) - cat.shade.value) * (1 - Math.exp(-dt * 8));
     city.update(camera, env.elevation);
+    if (infra) infra.update(camera);
     speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
     overlay.update(renderer, camera.position);
     terrain.update(camera);
@@ -136,7 +141,7 @@ async function boot() {
     }
   };
   renderer.setAnimationLoop(frame);
-  window.__juego = { props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
+  window.__juego = { infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
 
   $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
   $('#start').hidden = false;

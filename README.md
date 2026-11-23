@@ -20,7 +20,7 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 | Escritorio | Acción |
 | --- | --- |
 | `W A S D` / flechas | Moverse |
-| Clic (Esc para soltar) | Capturar el mouse y mirar como en un FPS |
+| Arrastrar | Mirar alrededor |
 | Rueda, `V` | Acercar o alejar la cámara, primera persona |
 | `1`–`5`, `Shift` | Marchas: Paseo, Trote, Carrera, Turbo, Híper |
 | `Espacio`, `E` | Saltar (mantener = más alto), avance automático |
@@ -38,7 +38,8 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Compresión del DEM | 16 bits cuantizados a 0,5 m → predictor planar → zigzag → gzip. 13,3 M de muestras en 7,6 MB (4,6 bits/muestra). Se decodifica en un Web Worker con `DecompressionStream`. |
 | Precisión | Render relativo a la cámara y profundidad logarítmica por vértice: un gato de 1 m y un horizonte a 300 km en la misma escena, sin z-fighting. |
 | Detalle bajo 34 m | Ruido fBm periódico compartido entre CPU y GPU: desplaza la malla cerca de la cámara y la física del gato usa exactamente la misma función. |
-| Ríos, caminos, frontera | Vectores OSM rasterizados en GPU a 3 texturas en cascada centradas en la cámara (0,25 m/px cerca, 16 m/px lejos). |
+| Ríos, caminos, frontera | Vectores OSM rasterizados en GPU a 4 texturas en cascada centradas en la cámara (0,25 m/px cerca, 8 m/px a media distancia, 32 m/px lejos). Las rutas pavimentadas llevan berma, eje amarillo y líneas de borde. |
+| Puentes, alta tensión, tuberías, andariveles | Trazados reales de OSM (`data/infra.json`); la geometría 3D se arma en el navegador por celdas de 4 km cerca de la cámara (`src/infra.js`). Los puentes se pueden cruzar caminando. |
 | Nombres | Etiquetas HTML priorizadas por aislamiento topográfico de la cumbre y distancia, con oclusión por el relieve. |
 | Sombras del relieve | Barrido O(N) sobre el DEM en CPU (altura de sombra por línea paralela al sol), repartido en varios cuadros y subido como textura de 1 canal. |
 | Vegetación | Raster de clases de 1 byte por texel (1,5 MB) compartido por CPU y GPU: la CPU decide qué especie instanciar en cada punto y el shader pinta cultivos, dosel y hielo. |
@@ -68,7 +69,9 @@ node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
 
 # Calles menores: salen de un extracto PBF, porque Overpass no entrega una ciudad completa.
 # Bajar https://download.geofabrik.de/south-america/chile-latest.osm.pbf a raw/pbf/chile.osm.pbf y luego:
-node extract_streets.mjs && node build_streets.mjs && node build_manifest.mjs
+node extract_streets.mjs && node build_streets.mjs
+node extract_infra.mjs && node build_infra.mjs   # puentes, torres, tuberías, andariveles y etiquetas de rutas
+node build_manifest.mjs
 ```
 
 El área y las resoluciones se definen en `tools/config.mjs`.
