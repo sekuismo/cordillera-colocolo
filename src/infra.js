@@ -182,10 +182,10 @@ export class Infra {
       const a = st[i - 1], c = st[i + 1], l = Math.hypot(c.x - a.x, c.z - a.z) || 1; st[i].bx = (c.x - a.x) / l; st[i].bz = (c.z - a.z) / l;
     }
     for (const q of st) { if (q.bx !== undefined) { q.tx = q.bx; q.tz = q.bz; } }
-    const L = s, h0 = hf.height(st[0].x, st[0].z), h1 = hf.height(st[st.length - 1].x, st[st.length - 1].z);
+    const L = s, h0 = hf.height(st[0].x, st[0].z, true), h1 = hf.height(st[st.length - 1].x, st[st.length - 1].z, true);
     const rise = b.foot ? Math.min(0.5, L * 0.008) : Math.min(1.6, Math.max(0.15, L * 0.016));
     for (const q of st) {
-      const nx = -q.tz, nz = q.tx, gc = hf.height(q.x, q.z), ga = hf.height(q.x + nx * b.hw, q.z + nz * b.hw), gb = hf.height(q.x - nx * b.hw, q.z - nz * b.hw);
+      const nx = -q.tz, nz = q.tx, gc = hf.height(q.x, q.z, true), ga = hf.height(q.x + nx * b.hw, q.z + nz * b.hw, true), gb = hf.height(q.x - nx * b.hw, q.z - nz * b.hw, true);
       // En los extremos manda la cota del eje (ahí empalma el camino); hacia adentro, el borde más alto de la sección.
       const t = q.s / L, inner = Math.min(1, q.s / 8, (L - q.s) / 8);
       q.y = Math.max(h0 + (h1 - h0) * t + rise * Math.sin(Math.PI * t), gc + (Math.max(gc, ga, gb) - gc + 0.35) * inner) + 0.14;
@@ -258,7 +258,7 @@ export class Infra {
 
   // Torre de celosía de doble circuito: cuatro montantes que se cierran hacia arriba, diagonales y tres crucetas.
   _tower(M, t) {
-    const hf = this.hf; if (t.y === null) t.y = hf.height(t.x, t.z);
+    const hf = this.hf; if (t.y === null) t.y = hf.height(t.x, t.z, true);
     const { x, z, H, dx, dz } = t, y = t.y, nx = -dz, nz = dx, b = H * 0.1, tp = 0.5;
     const corner = (k, f) => { const w = b + (tp - b) * Math.min(1, f / 0.7), ln = (k & 1 ? 1 : -1) * w, ld = (k & 2 ? 1 : -1) * w; return [x + nx * ln + dx * ld, y + H * f - (f === 0 ? 1 : 0), z + nz * ln + dz * ld]; };
     for (let k = 0; k < 4; k++) {
@@ -276,7 +276,7 @@ export class Infra {
     M.ribbon([x, y + H, z], [x, y + H + 2, z], 0.2, [dx, 0, dz], STEEL);
     // Cables hasta la torre siguiente: seis conductores (colgando de sus aisladores) y el cable de guardia arriba.
     const u = t.next; if (!u) return;
-    if (u.y === null) u.y = hf.height(u.x, u.z);
+    if (u.y === null) u.y = hf.height(u.x, u.z, true);
     const span = Math.hypot(u.x - x, u.z - z), sag = Math.min(16, span * 0.032), flip = dx * u.dx + dz * u.dz < 0 ? -1 : 1;
     for (const [f, len] of ARMS) for (const side of [1, -1])
       M.wire([x + nx * side * H * len, y + H * f - 1.6, z + nz * side * H * len], [u.x - u.dz * side * flip * u.H * len, u.y + u.H * f - 1.6, u.z + u.dx * side * flip * u.H * len], sag, 3200);
@@ -288,7 +288,7 @@ export class Infra {
     const hf = this.hf, R = 0.85, pts = [];
     for (let i = 0; i < p.length - 2; i += 2) {
       const dx = p[i + 2] - p[i], dz = p[i + 3] - p[i + 1], d = Math.hypot(dx, dz), k = Math.max(1, Math.ceil(d / 9));
-      for (let j = i === 0 ? 0 : 1; j <= k; j++) { const x = p[i] + (dx * j) / k, z = p[i + 1] + (dz * j) / k; pts.push([x, hf.height(x, z) + R + 0.35, z]); }
+      for (let j = i === 0 ? 0 : 1; j <= k; j++) { const x = p[i] + (dx * j) / k, z = p[i + 1] + (dz * j) / k; pts.push([x, hf.height(x, z, true) + R + 0.35, z]); }
     }
     for (let i = 1; i < pts.length - 1; i++) pts[i][1] = Math.max(pts[i][1], (pts[i - 1][1] + pts[i + 1][1]) / 2); // sin quiebres hacia abajo: es un tubo rígido
     M.tube(pts, R, PIPE, 3);
@@ -303,7 +303,7 @@ export class Infra {
     const hf = this.hf, HM = 9, masts = [];
     for (let i = 0; i < p.length - 2; i += 2) {
       const dx = p[i + 2] - p[i], dz = p[i + 3] - p[i + 1], d = Math.hypot(dx, dz), k = Math.max(1, Math.round(d / 75));
-      for (let j = i === 0 ? 0 : 1; j <= k; j++) { const x = p[i] + (dx * j) / k, z = p[i + 1] + (dz * j) / k; masts.push({ x, z, y: hf.height(x, z), tx: dx / d, tz: dz / d }); }
+      for (let j = i === 0 ? 0 : 1; j <= k; j++) { const x = p[i] + (dx * j) / k, z = p[i + 1] + (dz * j) / k; masts.push({ x, z, y: hf.height(x, z, true), tx: dx / d, tz: dz / d }); }
     }
     masts.forEach((m, i) => {
       const end = i === 0 || i === masts.length - 1;

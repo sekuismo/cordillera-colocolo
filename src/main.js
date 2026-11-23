@@ -15,6 +15,7 @@ import { City, HITOS } from './city.js';
 import { SpeedFX } from './speedfx.js';
 import { StreetIndex } from './streets.js';
 import { Infra } from './infra.js';
+import { Carve, makeBase, CLASSES as CARVE_CLASSES } from './carve.js';
 
 const $ = (s) => document.querySelector(s);
 const START = { lat: -33.4546, lon: -70.5176, yaw: 1.75 }; // Parque Mahuida, al pie de la Sierra de Ramón, mirando al oriente
@@ -48,6 +49,16 @@ async function boot() {
     coreAlb: albedoTexture(data.coreImg, aniso), ctxAlb: albedoTexture(data.ctxImg, aniso),
     noise: noiseTexture(noise), land: landTexture(data.land),
   };
+  // Tallado de caminos y cauces: la CPU lo evalúa directo; la GPU lee una ventana alrededor de la cámara que arma un worker.
+  const cN = quality.tier === 'hi' ? 1024 : 512, cS = quality.tier === 'hi' ? 1 : 2, cSnap = 256;
+  tex.carve = new THREE.DataTexture(new Uint16Array(cN * cN * 4), cN, cN, THREE.RGBAFormat, THREE.HalfFloatType);
+  tex.carve.minFilter = tex.carve.magFilter = THREE.LinearFilter; tex.carve.generateMipmaps = false; tex.carve.needsUpdate = true;
+  const carveWorker = new Worker(new URL('./carve-worker.js', import.meta.url), { type: 'module' });
+  const strip = (d) => ({ q: d.q, w: d.w, h: d.h, step: d.step });
+  const carveLines = {}; for (const k of CARVE_CLASSES) if (data.lines[k]) carveLines[k] = data.lines[k];
+  carveWorker.postMessage({ type: 'init', lines: carveLines, bridges: data.infra && data.infra.bridges, manifest: { core: manifest.core, ctx: manifest.ctx }, core: strip(data.core), ctx: strip(data.ctx) });
+  const carveReady = new Promise((resolve) => { carveWorker.onmessage = ({ data: r }) => resolve(r); });
+  const carveState = { busy: false, want: '', have: '', seq: 0, ms: 0, build: 0 };
   const shadows = new Shadows(hf.core); tex.shadow = shadows.tex;
   const env = new Environment(tex.noise, quality.props);
   let shadowDirty = false, shadowAt = 0;
@@ -65,6 +76,24 @@ async function boot() {
   scene.add(terrain.group, props.group, city.mesh, cat.root, env.sky, env.precip, speedfx.mesh);
   if (infra) scene.add(infra.group);
   const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
+  // Pide una ventana nueva cuando la cámara se alejó un cuarto de ella; mientras el worker trabaja, solo una a la vez.
+  const requestCarve = (p) => {
+    const cx = Math.round(p.x / cSnap) * cSnap, cz = Math.round(p.z / cSnap) * cSnap, key = cx + ',' + cz;
+    carveState.want = key;
+    if (carveState.busy || key === carveState.have) return;
+    carveState.busy = true; carveState.have = key;
+    carveWorker.postMessage({ type: 'window', ox: cx - (cN / 2) * cS, oz: cz - (cN / 2) * cS, N: cN, s: cS, seq: ++carveState.seq });
+  };
+  // Antes de que corra el primer cuadro (la vegetación y los puentes ya se colocan sobre el relieve tallado).
+  const ci = await carveReady;
+  const carve = (hf.carve = new Carve(ci.init, makeBase(manifest, data.core, data.ctx))); carveState.build = ci.ms;
+  carveWorker.onmessage = ({ data: r }) => {
+    // Textura y ventana de la CPU cambian en el mismo cuadro: la física nunca ve un terreno distinto del dibujado.
+    tex.carve.image.data = r.buf; tex.carve.needsUpdate = true;
+    terrain.uniforms.uCarveRect.value.set(r.ox, r.oz, r.s, r.N);
+    hf.cwin = { ox: r.ox, oz: r.oz, s: r.s, N: r.N };
+    carveState.busy = false; carveState.ms = r.ms;
+  };
 
   const input = new Input(canvas, $('#stick'));
   const player = new Player(hf, manifest);
@@ -118,6 +147,7 @@ async function boot() {
     city.update(camera, env.elevation);
     if (infra) infra.update(camera);
     speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
+    requestCarve(player);
     overlay.update(renderer, camera.position);
     terrain.update(camera);
     props.update(camera, player.speed);
@@ -141,7 +171,7 @@ async function boot() {
     }
   };
   renderer.setAnimationLoop(frame);
-  window.__juego = { infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
+  window.__juego = { carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, cat, quality, input, start: () => $('#start').click() };
 
   $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
   $('#start').hidden = false;

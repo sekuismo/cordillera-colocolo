@@ -58,6 +58,7 @@ export class Terrain {
       uOv0: { value: overlay.targets[0].texture }, uOv1: { value: overlay.targets[1].texture }, uOv2: { value: overlay.targets[2].texture }, uOv3: { value: overlay.targets[3].texture },
       uOv: { value: overlay.uniformValue },
       uShow: { value: new THREE.Vector4(1, 1, 0, 0) },
+      uCarve: { value: tex.carve }, uCarveRect: { value: new THREE.Vector4(-1e7, -1e7, 1, 2) }, // sin ventana hasta que llega la primera
       uShadow: { value: tex.shadow }, uLand: { value: tex.land }, uStreets: { value: overlay.hasStreets ? 1 : 0 },
     };
     const mk = (cells) => new THREE.ShaderMaterial({

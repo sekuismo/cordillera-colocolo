@@ -380,7 +380,8 @@ export class Props {
       if (r > dens * this.amount) continue;
       // Nada crece en la calzada ni en las huellas de vehículos (las casas ya se retiran solas de su calle).
       if (ti !== 5 && this.streets) { const st = this.streets.nearest(x, z, 12); if (st && st.d < st.hw + (ti === 0 ? 0.4 : ti >= 3 ? 1.6 : 0.9)) continue; }
-      let y = hf.height(x, z);
+      let y = hf.height(x, z, true);
+      if (hf.lastW > 0.3 && ti !== 1 && ti !== 5) continue;        // taludes y cauces tallados: tierra desnuda (las piedras sí)
       if (ti === 1) y -= scale * 0.12; else if (ti === 5) y -= 0.5; else if (ti === 7) y -= 0.1; else if (ti >= 3) y -= 0.15;
       out.push(x, y, z, rot, scale, v * 0.999 + kind);
     }

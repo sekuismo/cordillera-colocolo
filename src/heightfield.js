@@ -116,7 +116,11 @@ export class Heightfield {
     this.ctx = new Layer(ctx, manifest.ctx.originX, manifest.ctx.originZ, manifest.ctx.sizeX, manifest.ctx.sizeZ);
     this.noise = noise;
     this._s = [0, 0]; this._s2 = [0, 0];
-    this.detailMax = (OCTAVES[0].amp + OCTAVES[1].amp + OCTAVES[2].amp) * 1.5; // el fBm se pasa un poco de ±1
+    // El fBm se pasa un poco de ±1; los cortes y cauces tallados (carve.js) bajan o suben hasta ~10 m el DEM.
+    this.detailMax = (OCTAVES[0].amp + OCTAVES[1].amp + OCTAVES[2].amp) * 1.5 + 10;
+    this.carve = null;  // Carve: plataformas de caminos y cauces de ríos
+    this.cwin = null;   // ventana de tallado que tiene cargada la GPU ({ ox, oz, s, N })
+    this.lastW = 0;     // cuánto mandó el tallado en la última llamada a height()
   }
   coreWeight(x, z) {
     const d = Math.min(x, this.core.sx - x, z, this.core.sz - z);
@@ -144,11 +148,17 @@ export class Heightfield {
     }
     return s[0] * s[0] + s[1] * s[1];
   }
-  // Altura completa (DEM + detalle procedural a máximo nivel), o sea, lo que se ve cerca de la cámara.
-  height(x, z) {
+  // Altura completa (DEM + detalle procedural a máximo nivel + tallado), o sea, lo que se ve cerca de la cámara.
+  // Por defecto el tallado es el de la ventana que tiene la GPU (calza exacto con lo dibujado); con `final`, el
+  // definitivo aunque esa zona todavía no esté cargada: para lo que se coloca una vez y queda (vegetación, puentes).
+  height(x, z, final = false) {
     let d = 0;
     for (let i = 0; i < 3; i++) { const o = OCTAVES[i]; d += o.amp * this.noiseAt(x / o.tile + o.off[0], z / o.tile + o.off[1], 0); }
-    return this.base(x, z) + d * roughAmp(this.slope2(x, z));
+    const h = this.base(x, z), nat = d * roughAmp(this.slope2(x, z));
+    if (!this.carve) return h + nat;
+    const c = final ? this.carve.query(x, z) : this.carve.sample(x, z, this.cwin);
+    this.lastW = c.w;
+    return h + nat * (1 - c.w) + c.w * c.D;
   }
   normal(x, z, out, e = 0.6) {
     const hx = this.height(x + e, z) - this.height(x - e, z), hz = this.height(x, z + e) - this.height(x, z - e);

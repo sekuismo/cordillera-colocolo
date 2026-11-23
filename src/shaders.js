@@ -1,5 +1,6 @@
 // Trozos GLSL compartidos. HEIGHT_GLSL es el gemelo en GPU de heightfield.js: si cambias uno, cambia el otro.
 import { OCTAVES, CORE_BLEND } from './heightfield.js';
+import { CARVE_FADE } from './carve.js';
 
 const f = (n) => (Number.isInteger(n) ? n.toFixed(1) : String(n));
 
@@ -74,6 +75,27 @@ float detailHeight(vec2 xz, float dist) {
   d += ${f(OCTAVES[2].amp)} * textureLod(uNoise, xz / ${f(OCTAVES[2].tile)} + vec2(${OCTAVES[2].off.map(f)}), 0.0).r * (1.0 - smoothstep(50.0, 100.0, dist));
   return d;
 }
+// Tallado de caminos y cauces (carve.js) en una ventana alrededor de la cámara: r = desnivel D, g = peso w,
+// ba = cambio de pendiente. En el vertex shader el bilineal va a mano para calzar con la CPU.
+uniform sampler2D uCarve;
+uniform vec4 uCarveRect; // origen (x, z) del vértice 0, paso en m, vértices por lado
+vec2 carveAt(vec2 xz) {
+  vec2 fp = (xz - uCarveRect.xy) / uCarveRect.z;
+  float n = uCarveRect.w - 1.0, e = min(min(fp.x, fp.y), min(n - fp.x, n - fp.y));
+  if (e <= 0.0) return vec2(0.0);
+  vec2 i = min(floor(fp), vec2(n - 1.0)), f = fp - i; ivec2 p = ivec2(i);
+  vec2 a = texelFetch(uCarve, p, 0).rg, b = texelFetch(uCarve, p + ivec2(1, 0), 0).rg;
+  vec2 c = texelFetch(uCarve, p + ivec2(0, 1), 0).rg, d = texelFetch(uCarve, p + ivec2(1, 1), 0).rg;
+  vec2 r = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  return vec2(r.x, r.y * smoothstep(0.0, ${f(CARVE_FADE)}, e));
+}
+vec4 carveShade(vec2 xz) { // filtrado por hardware: para sombrear basta
+  vec2 fp = (xz - uCarveRect.xy) / uCarveRect.z;
+  float n = uCarveRect.w - 1.0, e = min(min(fp.x, fp.y), min(n - fp.x, n - fp.y));
+  if (e <= 0.0) return vec4(0.0);
+  vec4 c = textureLod(uCarve, (fp + 0.5) / uCarveRect.w, 0.0);
+  return vec4(c.x, c.yzw * smoothstep(0.0, ${f(CARVE_FADE)}, e));
+}
 `;
 
 export const TERRAIN_VERT = /* glsl */ `
@@ -102,7 +124,8 @@ void main() {
   float h = baseHeight(absXZ, w);
   vec2 s = macroSlope(absXZ, w);
   float d1 = length(vec3(relXZ.x, h - uCamPos.y, relXZ.y));
-  h += detailHeight(absXZ, d1) * roughAmp(dot(s, s));
+  vec2 cv = carveAt(absXZ);
+  h += detailHeight(absXZ, d1) * roughAmp(dot(s, s)) * (1.0 - cv.y) + cv.y * cv.x;
   vRel = vec3(relXZ.x, h - uCamPos.y, relXZ.y);
   gl_Position = logDepth(projectionMatrix * modelViewMatrix * vec4(vRel, 1.0));
 }
@@ -185,6 +208,10 @@ void main() {
   float s2 = dot(nxz, nxz);
   float ny = sqrt(max(1.0 - s2, 0.02));
   vec3 N0 = vec3(nxz.x, ny, nxz.y);
+  // Relieve tallado: pendiente corregida (plataforma plana, taludes) y, con ella, la inclinación que usa el resto.
+  vec4 cv = carveShade(xz);
+  vec2 gm = -nxz / ny + cv.zw;
+  if (cv.y > 0.0) { float gg = dot(gm, gm); s2 = gg / (1.0 + gg); }
 
   // La imagen satelital trae el sombreado de las ~10:30 solar; se atenúa con la normal del DEM
   // para poder reiluminar con otra hora del día.
@@ -276,6 +303,9 @@ void main() {
   float pebble = smoothstep(0.42, 0.7, t5.x * 0.6 + t4.x * 0.55) * close * (0.35 + 0.65 * max(amp, steep));
   alb = mix(alb, alb * 1.5 + vec3(0.035, 0.033, 0.03), pebble * 0.7);
 
+  // Taludes de corte y relleno: tierra y roca desnudas (en el Cajón se ve el estrato cortado).
+  float cut = smoothstep(0.03, 0.3, cv.y) * (1.0 - smoothstep(0.85, 1.0, cv.y)) * smoothstep(0.05, 0.3, s2);
+  alb = mix(alb, vec3(0.20, 0.175, 0.14) * (0.8 + cvar * 0.45 + strata * 0.35), cut * 0.7);
   // Caminos (ver overlay.js): en rojo, la calzada (hasta 0,8) y su eje pintado (sobre 0,8); en verde, huellas de tierra y bermas (hasta 0,6) y la línea de borde.
   float road = min(1.0, ov.r * 1.75) * uShow.x, trail = min(1.0, ov.g * 1.7) * uShow.x, water = ov.b, border = ov.a * uShow.y;
   float flat_ = max(max(road, trail * 0.6), water);
@@ -294,7 +324,7 @@ void main() {
   float snow = smoothstep(sline - 140.0, sline + 240.0, y + (t0.w * 0.55 + t1.w * 0.45) * 170.0);
   snow *= (1.0 - smoothstep(0.42, 0.78, s2)) * (1.0 - water) * (1.0 - road * 0.6);
   alb = mix(alb, vec3(0.64, 0.68, 0.74) * (1.0 + cvar * 0.10 + t1.x * 0.05), snow); // no más claro: con el sol encima se quemaría y se perdería el relieve
-  vec2 g = -nxz / ny + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_) * (1.0 - 0.45 * snow);
+  vec2 g = gm + (gradD * amp * 0.85 + gradM * max(amp, 0.55) * 1.15) * (1.0 - 0.8 * flat_) * (1.0 - 0.45 * snow) * (1.0 - 0.85 * cv.y);
   vec3 N = normalize(vec3(-g.x, 1.0, -g.y));
 
   float ndl = max(dot(N, uSunDir), 0.0);
