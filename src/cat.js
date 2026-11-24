@@ -1,10 +1,10 @@
-// Gato colocolo (Leopardus colocola) procedural: geometría por primitivas, pelaje por shader y
-// animación de marcha/trote/galope calculada a partir de la distancia recorrida. Sin assets externos.
-// El puma (Puma concolor) sale del mismo esqueleto: más largo, de cola larga y pelaje leonado liso, sin bandas ni anillos.
+// Gato colocolo (Leopardus colocola) procedural: tronco articulado, patas de tres tramos movidas por cinemática
+// inversa y pelaje por shader. Sin assets externos. El puma (Puma concolor) sale del mismo esqueleto: más largo,
+// de cola larga y pelaje leonado liso, sin bandas ni anillos.
 import * as THREE from 'three';
 import { COMMON_VERT } from './shaders.js';
 
-export const CAT_SCALE = 1.5; // un colocolo real mide ~65 cm de cuerpo; se agranda un poco para que se lea en pantalla
+export const CAT_SCALE = 1.0; // tamaño real: el modelo a escala 1 mide ~60 cm de cuerpo y ~35 cm a la cruz, como un colocolo
 
 const VERT = /* glsl */ `
 ${COMMON_VERT}
@@ -81,69 +81,97 @@ void main() {
   #include <colorspace_fragment>
 }`;
 
+// Anatomía. El tronco son dos tubos de sección elíptica (grupa y pecho) articulados en la cintura: así el lomo se
+// arquea y se estira al galope. Las patas tienen tres tramos como las de un felino de verdad (digitígrado: camina
+// sobre los dedos, con el talón en alto): muslo/brazo, pierna/antebrazo y metatarso. No se animan girando
+// articulaciones con senos: cada pata persigue con cinemática inversa el punto donde debe ir su mano o su pie, y ese
+// punto recorre el ciclo real del paso (apoyo: queda clavado en el suelo mientras el cuerpo avanza; vuelo: se
+// levanta y se adelanta). Por eso las patas no patinan y el paso, el trote y el galope salen del mismo código.
+const WALK = [0.25, 0.75, 0, 0.5], TROT = [0, 0.5, 0.5, 0], GALLOP = [0.5, 0.62, 0, 0.12]; // desfase de cada pata: del. izq., del. der., tras. izq., tras. der.
+
 export class Cat {
   constructor(env, { puma = false, scale = CAT_SCALE } = {}) {
     this.root = new THREE.Group();
     this.scale = scale; this.root.scale.setScalar(scale);
-    const P = puma ? 1 : 0, bodyY = (this.bodyY = 0.3 + 0.028 * P);
+    const P = puma ? 1 : 0, ZL = 1 + 0.14 * P, LL = 1 + 0.1 * P; // el puma: tronco más largo y patas más largas para su cuerpo
+    this.bodyY = 0.3 + 0.03 * P;
     this.shade = { value: 1 }; // baja a 0 cuando el gato está a la sombra de un cerro
     const mat = (part, seg = 0) => new THREE.ShaderMaterial({
       uniforms: { uSunDir: env.uSunDir, uSunColor: env.uSunColor, uAmbient: env.uAmbient, uLogF: env.uLogF, uShade: this.shade, uPuma: { value: P }, uPart: { value: part }, uSeg: { value: seg } },
       vertexShader: VERT, fragmentShader: FRAG,
     });
+    const M = [0, 1, 3, 4, 5, 6, 7].reduce((o, p) => ((o[p] = mat(p)), o), {}); // un material por parte (la cola usa uno por anillo)
     const mesh = (geo, m, parent, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.frustumCulled = false; parent.add(o); return o; };
     const grp = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
+    // Tubo de sección elíptica a lo largo de Z. Estaciones: [z, semiancho, lomo (y), vientre (y)].
+    const tube = (st, zs = 1) => {
+      const N = 14, pos = [], idx = [];
+      for (const [z, w, top, bot] of st) for (let j = 0; j < N; j++) {
+        const a = (j / N) * Math.PI * 2, s = Math.sin(a);
+        pos.push(w * Math.cos(a), (top + bot) / 2 + ((top - bot) / 2) * Math.sign(s) * Math.pow(Math.abs(s), 0.8), z * zs);
+      }
+      for (let i = 0; i < st.length - 1; i++) for (let j = 0; j < N; j++) {
+        const a = i * N + j, b = i * N + ((j + 1) % N);
+        idx.push(a, b, a + N, b, b + N, a + N);
+      }
+      const n = st.length, c0 = pos.length / 3, c1 = c0 + 1, e = st[n - 1];
+      pos.push(0, (st[0][2] + st[0][3]) / 2, st[0][0] * zs, 0, (e[2] + e[3]) / 2, e[0] * zs); // tapas
+      for (let j = 0; j < N; j++) { idx.push(c0, (j + 1) % N, j, c1, (n - 1) * N + j, (n - 1) * N + ((j + 1) % N)); }
+      const g = new THREE.BufferGeometry();
+      g.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3)); g.setIndex(idx); g.computeVertexNormals();
+      return g;
+    };
+    const cyl = (r0, r1, len, sx = 1) => { const g = new THREE.CylinderGeometry(r0, r1, len, 8, 1); g.translate(0, -len / 2, 0); g.scale(sx, 1, 1); return g; };
+    const ball = (r, sx = 1, sy = 1, sz = 1) => { const g = new THREE.SphereGeometry(r, 10, 8); g.scale(sx, sy, sz); return g; };
 
-    const body = (this.body = grp(this.root, 0, bodyY, 0));
-    // Tronco: perfil torneado (grupa → cintura → pecho) acostado sobre el eje Z.
-    const profile = [[0, -0.235], [0.045, -0.228], [0.074, -0.19], [0.086, -0.12], [0.082, -0.02], [0.088, 0.08], [0.09, 0.15], [0.076, 0.2], [0.05, 0.228], [0, 0.236]];
-    const torsoGeo = new THREE.LatheGeometry(profile.map(([r, t]) => new THREE.Vector2(r, t)), 20);
-    torsoGeo.rotateX(Math.PI / 2); torsoGeo.scale(0.9, 1.04 - 0.04 * P, 1 + 0.14 * P); torsoGeo.computeVertexNormals();
-    this.torso = mesh(torsoGeo, mat(0), body);
+    const body = (this.body = grp(this.root, 0, this.bodyY, 0));
+    const rear = (this.rear = grp(body)), front = (this.front = grp(body)); // las dos mitades giran en la cintura
+    // Grupa alta y redonda, cintura recogida, pecho hondo: la silueta de un felino, no un cilindro.
+    mesh(tube([[-0.25, 0.018, 0.05, 0.012], [-0.222, 0.058, 0.079, -0.044], [-0.15, 0.076, 0.091, -0.072], [-0.07, 0.07, 0.089, -0.065], [0, 0.068, 0.088, -0.063], [0.04, 0.066, 0.087, -0.063]], ZL), M[0], rear);
+    mesh(tube([[-0.04, 0.066, 0.087, -0.063], [0, 0.068, 0.088, -0.065], [0.07, 0.076, 0.09, -0.081], [0.15, 0.08, 0.093, -0.09], [0.215, 0.066, 0.09, -0.072], [0.262, 0.042, 0.086, -0.03]], ZL), M[0], front);
 
-    // Cuello y cabeza.
-    const neck = (this.neck = grp(body, 0, 0.035, 0.19 + 0.025 * P));
-    const neckGeo = new THREE.CapsuleGeometry(0.052, 0.07, 6, 12); neckGeo.rotateX(Math.PI / 2 - 0.75); neckGeo.translate(0, 0.03, 0.035);
-    mesh(neckGeo, mat(0), neck);
-    const head = (this.head = grp(neck, 0, 0.075, 0.085));
+    // Cuello (un tubo que sube hacia adelante) y cabeza.
+    const neck = (this.neck = grp(front, 0, 0.03, 0.225 * ZL));
+    const neckGeo = tube([[-0.04, 0.052, 0.056, -0.06], [0.03, 0.047, 0.05, -0.052], [0.09, 0.041, 0.044, -0.044], [0.125, 0.036, 0.04, -0.038]]);
+    neckGeo.rotateX(-0.62); mesh(neckGeo, M[0], neck);
+    const head = (this.head = grp(neck, 0, 0.078, 0.098));
     if (puma) head.scale.setScalar(0.9); // cabeza chica para su cuerpo, de orejas redondas
-    const headGeo = new THREE.SphereGeometry(0.064, 20, 14); headGeo.scale(1.08, 0.92, 1.0);
-    mesh(headGeo, mat(3), head);
-    if (!puma) for (const s of [-1, 1]) { // mejillas con pelo largo: la cara ancha del colocolo
-      const cg = new THREE.SphereGeometry(0.036, 12, 10); cg.scale(1, 0.85, 0.9);
-      mesh(cg, mat(3), head, s * 0.045, -0.022, 0.012);
-    }
-    const muzzleGeo = new THREE.SphereGeometry(0.032, 14, 10); muzzleGeo.scale(1.15, 0.8, 1);
-    mesh(muzzleGeo, mat(4), head, 0, -0.022, 0.05);
-    mesh(new THREE.SphereGeometry(0.009, 8, 6), mat(7), head, 0, -0.01, 0.08);
+    mesh(ball(0.064, 1.08, 0.92, 1.0), M[3], head);
+    mesh(ball(0.05, 0.9, 0.6, 0.9), M[3], head, 0, 0.022, 0.022); // frente
+    if (!puma) for (const s of [-1, 1]) mesh(ball(0.036, 1, 0.85, 0.9), M[3], head, s * 0.045, -0.022, 0.012); // mejillas con pelo largo: la cara ancha del colocolo
+    mesh(ball(0.032, 1.15, 0.8, 1), M[4], head, 0, -0.022, 0.05);  // hocico
+    mesh(ball(0.02, 1.1, 0.7, 1), M[4], head, 0, -0.042, 0.036);   // mentón
+    mesh(ball(0.009), M[7], head, 0, -0.01, 0.08);
     this.ears = [];
     for (const s of [-1, 1]) {
-      const eg = new THREE.ConeGeometry(0.03 - 0.004 * P, 0.055 - 0.014 * P, 4 + 4 * P, 1); eg.rotateY(Math.PI / 4); eg.scale(1, 1, 0.5); eg.translate(0, 0.0275, 0);
-      const ear = mesh(eg, mat(5), head, s * 0.042, 0.042, -0.006); ear.rotation.set(-0.12, 0, -s * 0.42);
+      const eg = new THREE.ConeGeometry(0.031 - 0.005 * P, 0.06 - 0.018 * P, 4 + 4 * P, 1); eg.rotateY(Math.PI / 4); eg.scale(1, 1, 0.5); eg.translate(0, 0.03, 0);
+      const ear = mesh(eg, M[5], head, s * 0.042, 0.042, -0.006); ear.rotation.set(-0.12, 0, -s * 0.42);
       this.ears.push(ear);
-      const eye = mesh(new THREE.SphereGeometry(0.0115, 10, 8), mat(6), head, s * 0.027, 0.012, 0.054);
-      eye.rotation.y = s * 0.35;
+      const eye = mesh(ball(0.0115), M[6], head, s * 0.027, 0.012, 0.054); eye.rotation.y = s * 0.35;
     }
 
-    // Patas: cadera/hombro → rodilla → pata.
-    const leg = (x, z, l, front) => {
-      const hip = grp(body, x, -0.045, z);
-      const ug = new THREE.CapsuleGeometry(front ? 0.027 : 0.033, l - 0.03, 5, 10); ug.translate(0, -l / 2, 0);
-      mesh(ug, mat(1), hip);
-      const knee = grp(hip, 0, -l, 0);
-      const lg = new THREE.CapsuleGeometry(0.02, l - 0.03, 5, 10); lg.translate(0, -l / 2, 0);
-      mesh(lg, mat(1), knee);
-      const pg = new THREE.SphereGeometry(0.026, 10, 8); pg.scale(1, 0.7, 1.35);
-      mesh(pg, mat(1), knee, 0, -l + 0.004, 0.012);
-      return { hip, knee, front, rest: front ? [-0.12, 0.24] : [0.45, -0.9] };
+    // Patas: cadera u hombro → rodilla o codo → talón o muñeca → dedos.
+    const leg = (half, side, fr) => {
+      const L1 = (fr ? 0.105 : 0.13) * LL, L2 = (fr ? 0.125 : 0.135) * LL, L3 = (fr ? 0.04 : 0.085) * LL, a3 = fr ? 0.1 : 0.45;
+      const hy = fr ? -0.035 : -0.02, hz = (fr ? 0.165 : -0.155) * ZL;
+      const hip = grp(half, side * (fr ? 0.05 : 0.056), hy, hz);
+      mesh(ball(fr ? 0.042 : 0.052, 0.8, 1.15, 1.25), M[0], hip, 0, -0.012, 0); // paleta o anca: funde la pata con el tronco
+      mesh(cyl(fr ? 0.036 : 0.047, fr ? 0.024 : 0.027, L1, 0.8), M[1], hip);
+      const knee = grp(hip, 0, -L1, 0);
+      mesh(ball(fr ? 0.025 : 0.028), M[1], knee);
+      mesh(cyl(fr ? 0.023 : 0.025, fr ? 0.016 : 0.015, L2), M[1], knee);
+      const foot = grp(knee, 0, -L2, 0);
+      mesh(ball(0.017), M[1], foot);
+      mesh(cyl(0.016, 0.014, L3), M[1], foot);
+      const paw = mesh(ball(0.024, 1, 0.62, 1.4), M[1], foot, 0, -L3 + 0.006, 0.012); paw.rotation.x = a3; // la garra queda plana aunque el metatarso vaya inclinado
+      return { hip, knee, foot, L1, L2, L3, a3, fr, hy, hz, rest: hz + (fr ? 0.012 : -0.03) };
     };
     // Orden: delantera izq., delantera der., trasera izq., trasera der.
-    const zf = 0.155 + 0.02 * P, zb = -0.15 - 0.02 * P, lf = 0.125 + 0.014 * P, lb = 0.14 + 0.014 * P;
-    this.legs = [leg(0.052, zf, lf, true), leg(-0.052, zf, lf, true), leg(0.058, zb, lb, false), leg(-0.058, zb, lb, false)];
+    this.legs = [leg(front, 1, true), leg(front, -1, true), leg(rear, 1, false), leg(rear, -1, false)];
 
     // Cola: cadena de segmentos para que ondule.
     this.tail = [];
-    let parent = grp(body, 0, 0.03, -0.215 - 0.03 * P);
+    let parent = grp(rear, 0, 0.036, -0.238 * ZL);
     const nTail = puma ? 9 : 7; // la del puma es larga y pareja, con la punta oscura; la del colocolo, corta, gruesa y anillada
     for (let i = 0; i < nTail; i++) {
       const r = puma ? 0.023 - i * 0.0005 : 0.031 - i * 0.0012, len = puma ? 0.066 : 0.05;
@@ -153,61 +181,85 @@ export class Cat {
       parent = grp(parent, 0, 0, -len);
     }
 
-    this.phase = 0; this.gait = 0; this.speedSmooth = 0; this.air = 0;
-    this._up = new THREE.Vector3(0, 1, 0); this._q = new THREE.Quaternion(); this._m = new THREE.Matrix4();
+    this.cycle = 0; this.gait = 0; this.speedSmooth = 0; this.air = 0; this.tuck = 0; this.lean = 0;
+    this._up = new THREE.Vector3(0, 1, 0); this._m = new THREE.Matrix4();
     this._f = new THREE.Vector3(); this._r = new THREE.Vector3(); this._n = new THREE.Vector3();
   }
 
-  // speed: m/s en el mundo; normal: normal del terreno; airborne: en salto; vy: velocidad vertical.
-  update(dt, t, { x, y, z, heading, speed, normal, airborne, vy }) {
+  // Cinemática inversa de una pata en su plano (y arriba, z adelante). (py, pz): dónde van los dedos respecto de la
+  // cadera. El talón queda detrás y arriba de los dedos; cadera, rodilla y talón se resuelven con la ley de cosenos.
+  // La rodilla trasera dobla hacia adelante y el codo hacia atrás. Si el punto queda fuera de alcance, la pata se estira.
+  _ik(L, py, pz) {
+    const ay = py + L.L3 * Math.cos(L.a3), az = pz - L.L3 * Math.sin(L.a3);
+    const d = Math.max(1e-4, Math.hypot(ay, az)), dc = Math.min(L.L1 + L.L2 - 0.003, Math.max(Math.abs(L.L1 - L.L2) + 0.01, d));
+    const th = Math.atan2(az, -ay), A = Math.acos((L.L1 * L.L1 + dc * dc - L.L2 * L.L2) / (2 * L.L1 * dc));
+    const t1 = th + (L.fr ? -A : A), ky = -L.L1 * Math.cos(t1), kz = L.L1 * Math.sin(t1), s = dc / d;
+    const t2 = Math.atan2(az * s - kz, -(ay * s - ky));
+    L.hip.rotation.x = -t1; L.knee.rotation.x = t1 - t2; L.foot.rotation.x = t2 - L.a3;
+  }
+
+  // speed: m/s en el mundo; normal: normal del terreno; airborne: en salto; vy: velocidad vertical;
+  // spin: giro del cuerpo (rad) al rodar o hacer un mortal; turn: rad/s de viraje; tuck: 0..1, encogido en una pirueta.
+  update(dt, t, { x, y, z, heading, speed, normal, airborne, vy, spin = 0, turn = 0, tuck = 0 }) {
+    const k = (r) => 1 - Math.exp(-dt * r);
     this.root.position.set(x, y, z);
     // Alinear con la pendiente (suavizado), manteniendo el rumbo.
-    this._up.lerp(airborne ? this._n.set(0, 1, 0) : normal, 1 - Math.exp(-dt * 9)).normalize();
+    this._up.lerp(airborne ? this._n.set(0, 1, 0) : normal, k(9)).normalize();
     this._f.set(Math.sin(heading), 0, Math.cos(heading));
     this._r.crossVectors(this._up, this._f).normalize();
     this._f.crossVectors(this._r, this._up).normalize();
     this._m.makeBasis(this._r, this._up, this._f);
     this.root.quaternion.setFromRotationMatrix(this._m);
 
-    this.speedSmooth += (speed - this.speedSmooth) * (1 - Math.exp(-dt * 8));
+    this.speedSmooth += (speed - this.speedSmooth) * k(8);
     const v = this.speedSmooth / this.scale; // velocidad en "tamaños de gato"
-    // 0 = paso, 1 = trote, 2 = galope
-    const gaitTarget = v < 0.15 ? 0 : v < 2.2 ? 0 : v < 5 ? 1 : 2;
-    this.gait += (gaitTarget - this.gait) * (1 - Math.exp(-dt * 6));
-    const g = this.gait, moving = Math.min(1, v / 0.6);
-    const stride = (0.34 + 0.3 * Math.min(g, 1) + 0.75 * Math.max(0, g - 1)) * (1 + Math.min(0.5, v / 30));
-    const cadence = Math.min(4.2, v / stride); // ciclos/s; a velocidad turbo las patas ya no pueden ir más rápido
-    this.phase = (this.phase + cadence * dt * Math.PI * 2) % (Math.PI * 2);
-    const ph = this.phase;
-    this.air += ((airborne ? 1 : 0) - this.air) * (1 - Math.exp(-dt * 12));
+    this.gait += ((v < 2.2 ? 0 : v < 5 ? 1 : 2) - this.gait) * k(6); // 0 = paso, 1 = trote, 2 = galope
+    const g = this.gait, g1 = Math.min(g, 1), gal = Math.max(0, g - 1), moving = Math.min(1, v / 0.5);
+    this.air += ((airborne ? 1 : 0) - this.air) * k(12); this.tuck += (tuck - this.tuck) * k(10);
+    const air = this.air, tk = this.tuck;
+    // Zancada (m por ciclo) y cadencia. A velocidad de viaje las patas ya no pueden ir más rápido: se alarga la zancada.
+    const lambda = (0.42 + 0.2 * g1 + 0.63 * gal) * (1 + gal * Math.min(0.6, v / 25)), f = Math.min(4.4, v / lambda);
+    this.cycle = (this.cycle + f * dt) % 1;
+    const beta = 0.62 - 0.12 * g1 - 0.16 * gal;                         // fracción del ciclo con la pata apoyada
+    const S = Math.min(0.4, (f > 0.05 ? v / f : lambda) * beta), lift = 0.035 + 0.015 * g1 + 0.035 * gal;
+    const cyc = this.cycle * Math.PI * 2, breathe = Math.sin(t * 2.2) * 0.004 * (1 - moving);
 
-    // Desfase de cada pata según el aire: paso lateral → trote diagonal → galope.
-    const walk = [Math.PI * 0.5, Math.PI * 1.5, 0, Math.PI], trot = [0, Math.PI, Math.PI, 0], gallop = [Math.PI, Math.PI * 1.22, 0, Math.PI * 0.22];
-    const amp = (0.34 + 0.2 * Math.min(g, 1) + 0.38 * Math.max(0, g - 1)) * moving;
-    this.legs.forEach((L, i) => {
-      const a = g < 1 ? walk[i] + (trot[i] - walk[i]) * g : trot[i] + (gallop[i] - trot[i]) * (g - 1);
-      const s = Math.sin(ph + a), c = Math.cos(ph + a);
-      let hip = L.rest[0] + s * amp * (L.front ? 1 : 0.9);
-      let knee = L.rest[1] + Math.max(0, c) * (L.front ? 0.9 : -0.8) * amp * 1.5; // recoge la pata al avanzar
-      if (this.air > 0.01) { // en el aire: delanteras adelante, traseras estiradas atrás
-        hip += ((L.front ? -0.95 : 0.9) - hip) * this.air; knee += ((L.front ? 0.5 : -0.35) - knee) * this.air;
+    // Tronco: baja al correr, se mece al andar, y al galope el lomo se arquea y se estira una vez por ciclo.
+    const bodyH = this.bodyY - 0.008 * g1 - 0.024 * gal + breathe + Math.sin(cyc * 2) * 0.005 * moving * (1 - gal) + Math.sin(cyc + 0.9) * 0.018 * gal * moving;
+    const flex = 0.2 * Math.sin(cyc + 2.2) * gal * moving * (1 - air) + 0.1 * air * (1 - tk) - 0.42 * tk;
+    this.lean += (THREE.MathUtils.clamp(-turn * 0.1 * Math.min(1, v / 2), -0.4, 0.4) - this.lean) * k(7);
+    this.body.position.y = bodyH - (spin ? 0.1 * Math.abs(Math.sin(spin * 0.5)) : 0);
+    this.body.rotation.x = Math.sin(cyc + 0.6) * 0.06 * gal * moving * (1 - air) - air * THREE.MathUtils.clamp(vy * 0.045, -0.5, 0.5) * (1 - tk) + spin;
+    this.body.rotation.z = Math.sin(cyc) * 0.03 * moving * (1 - gal) + this.lean;
+    this.rear.rotation.x = flex; this.front.rotation.x = -flex;
+
+    for (let i = 0; i < 4; i++) {
+      const L = this.legs[i];
+      const off = g < 1 ? WALK[i] + (TROT[i] - WALK[i]) * g : TROT[i] + (GALLOP[i] - TROT[i]) * (g - 1);
+      const ph = (this.cycle + off + 1) % 1;
+      let fz, fy = 0;
+      if (ph < beta) fz = S * (0.5 - ph / beta);                         // apoyo: el pie se queda atrás mientras el cuerpo pasa
+      else { const u = (ph - beta) / (1 - beta); fz = S * (u * u * (3 - 2 * u) - 0.5); fy = lift * Math.sin(Math.PI * u); } // vuelo
+      let pz = L.rest + fz * moving, py = -bodyH + fy * moving;
+      if (air > 0.01) { // en el aire: manos adelante, patas estiradas atrás
+        pz += (L.rest + (L.fr ? 0.11 : -0.13) - pz) * air; py += (-this.bodyY * (L.fr ? 0.7 : 0.8) - py) * air;
       }
-      L.hip.rotation.x = hip; L.knee.rotation.x = knee;
-    });
+      if (tk > 0.01) { pz += (L.hz + (L.fr ? -0.05 : 0.06) - pz) * tk; py += (-0.15 - py) * tk; } // encogido
+      // Del espacio del cuerpo al de su mitad del tronco (que está girada en la cintura) y de ahí a la cadera.
+      const r = L.fr ? -flex : flex, c = Math.cos(r), s = Math.sin(r);
+      this._ik(L, py * c + pz * s - L.hy, -py * s + pz * c - L.hz);
+    }
 
-    const gal = Math.max(0, g - 1), breathe = Math.sin(t * 2.2) * 0.004 * (1 - moving);
-    this.body.position.y = this.bodyY + breathe + Math.abs(Math.sin(ph)) * 0.012 * moving * (1 + gal * 2.2);
-    this.body.rotation.x = Math.sin(ph + 0.6) * 0.1 * gal * moving - this.air * THREE.MathUtils.clamp(vy * 0.045, -0.5, 0.5);
-    this.body.rotation.z = Math.sin(ph) * 0.03 * moving * (1 - gal);
-    this.torso.scale.set(1, 1 + breathe * 6, 1 + gal * 0.06 * Math.sin(ph * 1 + 1.2) * moving);
-    this.neck.rotation.x = -this.body.rotation.x * 0.7 + 0.1 * moving + Math.sin(t * 0.7) * 0.03 * (1 - moving);
-    this.head.rotation.x = 0.12 - 0.1 * moving;
-    this.head.rotation.y = Math.sin(t * 0.43) * 0.5 * (1 - moving) * (Math.sin(t * 0.17) > 0.2 ? 1 : 0.15);
+    // Cabeza: se mantiene nivelada aunque el lomo trabaje, mira hacia donde dobla y, quieto, otea.
+    this.neck.rotation.x = flex * 0.8 + 0.08 * moving + 0.2 * gal * moving + Math.sin(t * 0.7) * 0.03 * (1 - moving) + 0.5 * tk;
+    this.head.rotation.x = 0.12 - 0.1 * moving - 0.12 * gal;
+    this.head.rotation.y = Math.sin(t * 0.43) * 0.5 * (1 - moving) * (Math.sin(t * 0.17) > 0.2 ? 1 : 0.15) + THREE.MathUtils.clamp(turn * 0.22, -0.55, 0.55) * moving;
     this.ears[0].rotation.x = this.ears[1].rotation.x = -0.12 - 0.35 * Math.min(1, v / 8) + Math.max(0, Math.sin(t * 3.1) - 0.97) * 6;
-    const lift = 0.5 - 0.75 * moving + 0.35 * gal; // en reposo cae; corriendo va estirada
+    // Cola: caída en reposo, estirada como balancín al correr, y se queda atrás en los virajes.
+    const tl = 0.5 - 0.75 * moving + 0.35 * gal, sw = THREE.MathUtils.clamp(-turn * 0.07, -0.28, 0.28) * moving;
     this.tail.forEach((seg, i) => {
-      seg.rotation.x = (i === 0 ? -0.5 : 0) + lift * (i === 0 ? 0.6 : 0.16) - Math.sin(ph + i * 0.5) * 0.05 * gal;
-      seg.rotation.y = Math.sin(t * (1.6 + moving * 4) - i * 0.55) * (0.1 + 0.05 * i) * (1 - gal * 0.6);
+      seg.rotation.x = (i === 0 ? -0.5 : 0) + tl * (i === 0 ? 0.6 : 0.16) - Math.sin(cyc + i * 0.5) * 0.05 * gal + 0.25 * tk;
+      seg.rotation.y = Math.sin(t * (1.6 + moving * 4) - i * 0.55) * (0.1 + 0.05 * i) * (1 - gal * 0.6) + sw;
     });
   }
 }

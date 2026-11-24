@@ -145,11 +145,33 @@ const oct = (i, target, far) => {
   ${target} += t${i}.yz * ${k};`;
 };
 
+// Un nivel de la imagen por streaming. La foto no se usa tal cual (viene con otra exposición y otra fecha que la
+// Sentinel calibrada del repo, y pegada encima se ve lavada): se le saca el DETALLE, que es la foto dividida por
+// su propio promedio de ~32 m, y ese detalle se aplica sobre el color de la imagen propia. Así los tonos, las
+// estaciones y la iluminación siguen siendo los del juego, y lo que cambia es la nitidez.
+const satLevel = (i) => `  if (uSatB[${i}].z > 0.5 && sat < 0.985) {
+    vec2 dt = vRel.xz * uSatA[${i}].zw, q = abs(dt + uSatB[${i}].xy);
+    float f = 1.0 - smoothstep(3.0, 3.8, max(q.x, q.y));
+    if (f > 0.0) {
+      vec3 uvw = vec3((uSatA[${i}].xy + dt) / 8.0, ${i}.0);
+      vec4 s = textureGrad(uSat, uvw, dRx * uSatA[${i}].zw / 8.0, dRy * uSatA[${i}].zw / 8.0);
+      float a = f * smoothstep(0.5, 0.97, s.a) * (1.0 - sat);
+      if (a > 0.004) {
+        vec4 l = textureLod(uSat, uvw, uSatB[${i}].z);
+        vec3 hi = s.rgb / max(s.a, 0.05), lo = l.rgb / max(l.a, 0.05);
+        // El detalle se toma en luminosidad (así un techo rojo cercano no tiñe la calle); el color de la foto entra en parte.
+        float dl = clamp(dot(hi, vec3(0.3, 0.55, 0.15)) / max(dot(lo, vec3(0.3, 0.55, 0.15)), 0.02), 0.3, 2.6);
+        satC += a * mix(hi * 0.6, alb * dl, 0.68); sat += a;
+      }
+    }
+  }`;
+
 export const TERRAIN_FRAG = /* glsl */ `
 ${ATMOS_GLSL}
 ${HEIGHT_GLSL}
 varying vec3 vRel;
 uniform vec3 uCamPos, uCapSun, uCatPos;
+uniform float uCatR;      // tamaño del animal: escala su sombra de contacto
 uniform sampler2D uCoreAlb, uCtxAlb, uOv0, uOv1, uOv2, uOv3;
 uniform vec2 uCamFrac[${OCTAVES.length}];
 uniform vec2 uWaterFrac;
@@ -161,6 +183,9 @@ uniform sampler2D uLand;   // cobertura de suelo real: una clase por texel (ver 
 uniform sampler2D uZoneImg; // imagen a 8 m/px de las 4×4 zonas que rodean al jugador, en anillo (ver zones.js)
 uniform vec2 uZoneSlot[16]; // qué zona (i, j) tiene cada casilla del anillo
 uniform float uZoneSize;    // m por zona (0 = sin zonas)
+uniform highp sampler2DArray uSat; // imagen de alta resolución por streaming: una capa por nivel, de la más fina a la más gruesa (ver sat.js)
+uniform vec4 uSatA[3];      // xy: cámara en teselas (mod 8); zw: teselas por metro
+uniform vec3 uSatB[3];      // xy: cámara − centro del anillo (teselas); z: 0 si está apagado; si no, el mipmap que promedia ~32 m
 #define IS(k) (1.0 - step(0.5, abs(cls - k)))
 // Hash entero por parcela (estable entre GPUs, a diferencia de fract(sin())).
 float parcelHash(vec2 c) {
@@ -216,6 +241,15 @@ void main() {
       alb = mix(alb, textureGrad(uZoneImg, xz / R, dRx / R, dRy / R).rgb, zf);
     }
   }
+  // Imagen de alta resolución: primero el nivel grueso (~8 km) y encima el fino (~2 km). Cada uno se mezcla según
+  // el alfa de su textura (0 donde la tesela todavía no llega) y se desvanece hacia el borde de su anillo.
+  // Se recorre del nivel más fino al más grueso y se deja de leer en cuanto uno ya cubre el píxel: casi siempre
+  // son dos lecturas de textura, no seis.
+  float sat = 0.0;
+  vec3 satC = vec3(0.0);
+  ${[0, 1, 2].map(satLevel).join('\n')}
+  if (sat > 0.0) alb = mix(alb, satC / sat, sat);
+  float inv = 1.0 - sat; // donde hay foto real, lo inventado (cultivos sorteados, parches de suelo) se retira
   vec2 nxz = unpackSlope(nrg);
   float s2 = dot(nxz, nxz);
   float ny = sqrt(max(1.0 - s2, 0.02));
@@ -259,7 +293,7 @@ void main() {
   vec2 gcell = xz / vec2(118.0, 124.0), gfw = (abs(dRx) + abs(dRy)) / vec2(118.0, 124.0);
   vec2 gedge = 0.5 - abs(fract(gcell) - 0.5);
   // Donde hay calles reales cargadas (cerca), la trama inventada se apaga; más lejos sigue dando textura de ciudad.
-  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish * (1.0 - ovCover * uStreets);
+  float gfade = (1.0 - smoothstep(0.15, 0.55, max(gfw.x, gfw.y))) * urbanish * (1.0 - ovCover * uStreets) * inv;
   float street = max(1.0 - smoothstep(0.045, 0.045 + gfw.x * 1.5, gedge.x), 1.0 - smoothstep(0.045, 0.045 + gfw.y * 1.5, gedge.y));
   alb *= 1.0 + (hash21(floor(gcell)) - 0.5) * 0.42 * gfade;
   alb = mix(alb, alb * 0.5, street * gfade * 0.75);
@@ -272,18 +306,18 @@ void main() {
   vec3 cropCol = ph < 0.3 ? vec3(0.085, 0.15, 0.045) : ph < 0.55 ? vec3(0.15, 0.18, 0.06) : ph < 0.78 ? vec3(0.21, 0.175, 0.10) : vec3(0.11, 0.18, 0.06);
   cropCol = mix(cropCol, vec3(0.19, 0.155, 0.10), (1.0 - uLeaf.x) * 0.45 * step(0.3, ph));  // en invierno, más barbecho
   float furrow = 1.0 + 0.16 * sin((ph > 0.5 ? xz.x : xz.y) * 1.05) * (1.0 - smoothstep(0.5, 2.5, xfw));
-  alb = mix(alb, cropCol * furrow * (0.85 + cvar * 0.35), IS(4.0) * 0.72);
-  float farm = IS(4.0) + IS(10.0) + IS(11.0);
+  alb = mix(alb, cropCol * furrow * (0.85 + cvar * 0.35), IS(4.0) * 0.72 * inv);
+  float farm = (IS(4.0) + IS(10.0) + IS(11.0)) * inv;
   // Viñas: hileras cada 3 m (calzan con las parras instanciadas). Frutales: marco de 7 m.
   float vrow = mix(0.55, smoothstep(-0.25, 0.5, cos((xz.x - 1.5) * 2.0944)), 1.0 - smoothstep(0.4, 1.6, xfw));
-  alb = mix(alb, mix(vec3(0.20, 0.165, 0.11), foliage, vrow) * (0.85 + cvar * 0.3), IS(10.0) * 0.85);
+  alb = mix(alb, mix(vec3(0.20, 0.165, 0.11), foliage, vrow) * (0.85 + cvar * 0.3), IS(10.0) * 0.85 * inv);
   float odot = mix(0.5, 1.0 - smoothstep(0.22, 0.4, length(fract(xz / 7.0) - 0.5)), 1.0 - smoothstep(0.8, 3.0, xfw));
-  alb = mix(alb, mix(vec3(0.19, 0.16, 0.105), foliage * 0.9, odot) * (0.85 + cvar * 0.3), IS(11.0) * 0.8);
+  alb = mix(alb, mix(vec3(0.19, 0.16, 0.105), foliage * 0.9, odot) * (0.85 + cvar * 0.3), IS(11.0) * 0.8 * inv);
   alb = mix(alb, vec3(0.20, 0.17, 0.12) * (0.9 + cvar * 0.3), lane * farm * 0.8);
   }
   // Parques (pasto regado), vegas y humedales (el verde intenso de la alta cordillera).
   // El pasto regado solo existe en lo plano: un parque en ladera (San Cristóbal, Mahuida) es cerro seco con árboles.
-  alb = mix(alb, vec3(0.075, 0.125, 0.045) * (0.85 + cvar * 0.4), IS(12.0) * 0.5 * (1.0 - smoothstep(0.003, 0.02, s2)) + IS(9.0) * 0.72);
+  alb = mix(alb, vec3(0.075, 0.125, 0.045) * (0.85 + cvar * 0.4), (IS(12.0) * 0.5 * (1.0 - smoothstep(0.003, 0.02, s2)) + IS(9.0) * 0.72) * (1.0 - 0.85 * sat));
   // Bosque y plantaciones: más allá del alcance de los árboles instanciados, el dosel sigue leyéndose como bosque.
   float canopy = (IS(1.0) + IS(13.0)) * smoothstep(150.0, 520.0, dist) * (1.0 - smoothstep(1900.0, 2300.0, y));
   alb = mix(alb, vec3(0.04, 0.068, 0.028) * (0.65 + 0.7 * smoothstep(-0.35, 0.4, t2.w + t3.w * 0.7)), canopy * 0.55);
@@ -306,7 +340,7 @@ void main() {
   float steep = smoothstep(0.10, 0.42, s2);
   float patchy = smoothstep(-0.3, 0.3, t1.w + t2.w * 0.6 + t3.x * 0.3);
   vec3 soil = alb * vec3(0.76, 0.70, 0.64), dry = alb * vec3(1.10, 1.06, 0.95) + 0.008;
-  alb = mix(alb, mix(soil, dry, patchy), near * 0.8 * (1.0 - steep * 0.6));
+  alb = mix(alb, mix(soil, dry, patchy), near * 0.8 * (1.0 - steep * 0.6) * (1.0 - 0.8 * sat));
   // Estratos en las laderas empinadas (las capas sedimentarias plegadas son la firma del Cajón del Maipo).
   float strata = 0.0;
   if (steep > 0.02) { strata = textureGrad(uNoise, vec2(y / 11.0 + cvar * 0.4, y / 190.0 + xz.x / 5000.0), vec2(dyx / 11.0, dyx / 190.0), vec2(dyy / 11.0, dyy / 190.0)).w; }
@@ -320,16 +354,30 @@ void main() {
   float cut = smoothstep(0.03, 0.3, cv.y) * (1.0 - smoothstep(0.85, 1.0, cv.y)) * smoothstep(0.05, 0.3, s2);
   alb = mix(alb, vec3(0.20, 0.175, 0.14) * (0.8 + cvar * 0.45 + strata * 0.35), cut * 0.7);
   // Caminos (ver overlay.js): en rojo, la calzada (hasta 0,8) y su eje pintado (sobre 0,8); en verde, huellas de tierra y bermas (hasta 0,6) y la línea de borde.
-  float road = min(1.0, ov.r * 1.75) * uShow.x, trail = min(1.0, ov.g * 1.7) * uShow.x, water = ov.b, border = ov.a * uShow.y;
+  float road = min(1.0, ov.r * 1.75) * uShow.x, trail = min(1.0, ov.g * 1.7) * uShow.x, border = ov.a * uShow.y;
+  // Agua (ver overlay.js): lecho de piedras del río, agua de río y lago.
+  // Los ríos anchos (Maipo, Colorado) vienen en OSM como polígonos de agua: overlay.js los escribe con 0,75, no con 1.
+  float water = clamp((ov.b - 0.35) * 2.5, 0.0, 1.0), lake = smoothstep(0.8, 0.95, ov.b);
+  // Lecho: bolones y ripio gris, de borde irregular. Donde hay foto real el lecho verdadero ya viene en ella y esto solo lo refuerza.
+  float bed = smoothstep(0.3, 0.62, clamp(ov.b / 0.35, 0.0, 1.0) + (t1.w * 0.5 + t2.w * 0.35) * 0.45) * (1.0 - water) * (1.0 - road);
+  vec3 gravel = mix(vec3(0.20, 0.19, 0.175), vec3(0.33, 0.32, 0.30), smoothstep(-0.35, 0.4, t3.w + t4.w * 0.6)) * (0.8 + 0.45 * cvar);
+  gravel = mix(gravel, gravel * 1.5 + 0.03, smoothstep(0.34, 0.6, t5.x * 0.6 + t4.x * 0.55) * close); // bolones claros, de cerca
+  vec3 albW = alb; // el color del agua sale de la imagen, no del ripio
+  alb = mix(alb, gravel, bed * (1.0 - 0.6 * sat));
   float flat_ = max(max(road, trail * 0.6), water);
   alb = mix(alb, (alb * 0.9 + vec3(0.075, 0.062, 0.045)) * (1.0 + cvar * 0.3), trail * 0.85); // huella de tierra o berma: algo más clara que su entorno
-  vec3 asphalt = vec3(0.066, 0.068, 0.073) * (1.0 + cvar * 0.25);
+  // Asfalto de cordillera: gastado y desparejo, con parches de reparación más oscuros y grano de cerca.
+  vec3 asphalt = vec3(0.070, 0.071, 0.074) * (1.0 + cvar * 0.3 + (t4.w * 0.22 + t5.w * 0.2) * close);
+  asphalt *= 1.0 - 0.28 * smoothstep(0.25, 0.4, t2.w * 0.7 + t3.w * 0.5) * near;
   // Demarcación: solo de cerca, y solo mientras cada píxel abarca menos que el ancho de una línea (si no, centellea).
   float fpx = length(dRx), fpy = length(dRy);
   float mark = ovNear * uShow.x * (1.0 - smoothstep(0.2, 0.45, max(min(fpx, fpy), max(fpx, fpy) * 0.25)));
-  asphalt = mix(asphalt, vec3(0.62, 0.44, 0.05), smoothstep(0.87, 0.95, ov.r) * mark * 0.9); // eje amarillo continuo
+  // Eje: blanco en la ciudad y en el valle bajo (de La Obra a El Melocotón), amarillo desde San Alfonso hacia arriba y en los caminos de cordillera.
+  asphalt = mix(asphalt, mix(vec3(0.52, 0.52, 0.49), vec3(0.62, 0.44, 0.05), smoothstep(1060.0, 1120.0, y)), smoothstep(0.87, 0.95, ov.r) * mark * 0.9);
   alb = mix(alb, asphalt, road * 0.92);
-  alb = mix(alb, vec3(0.50, 0.50, 0.47), smoothstep(0.64, 0.9, ov.g) * mark * 0.85); // línea de borde
+  // Línea de borde: la franja que queda entre 20 y 45 cm hacia adentro del borde de la calzada (ver overlay.js).
+  float ein = (ov.g - 0.6) * 2.5;
+  alb = mix(alb, vec3(0.50, 0.50, 0.47) * (0.75 + 0.25 * t4.w), smoothstep(0.22, 0.3, ein) * (1.0 - smoothstep(0.5, 0.58, ein)) * mark * road * 0.85);
 
   // Nieve estacional: sobre la línea de nieve, con borde irregular, sin pegarse en los paredones y bajando
   // unos 300 m más en las laderas que miran al sur (en el hemisferio sur son las de umbría).
@@ -342,8 +390,8 @@ void main() {
 
   float ndl = max(dot(N, uSunDir), 0.0);
   // Sombra de contacto del gato.
-  vec2 dc = vRel.xz - uCatPos.xz + uSunDir.xz * 0.18;
-  float blob = exp(-dot(dc, dc) / 0.16) * step(abs(vRel.y - uCatPos.y), 1.5);
+  vec2 dc = vRel.xz - uCatPos.xz + uSunDir.xz * 0.18 * uCatR;
+  float blob = exp(-dot(dc, dc) / (0.13 * uCatR * uCatR)) * step(abs(vRel.y - uCatPos.y), 1.5);
   float shade = w > 0.0 ? mix(1.0, textureLod(uShadow, uvC, 0.0).r, w) : 1.0;
   float gloss = pow(max(dot(reflect(V, N), uSunDir), 0.0), 40.0) * (ice * 0.35 + snow * 0.12) * shade; // el hielo brilla
   vec3 light = uSunColor * (ndl + gloss) * shade * (1.0 - 0.6 * blob) + uAmbient * (0.55 + 0.45 * N.y) * (1.0 - 0.35 * blob);
@@ -355,15 +403,23 @@ void main() {
     vec2 wdx = dRx / 7.0, wdy = dRy / 7.0;
     vec2 wg = textureGrad(uNoise, wuv + flow, wdx, wdy).yz + textureGrad(uNoise, wuv * 2.7 - flow * 1.6, wdx * 2.7, wdy * 2.7).yz * 0.6;
     vec3 Nw = normalize(vec3(nxz.x * 0.4 - wg.x * 0.010, 1.0, nxz.y * 0.4 - wg.y * 0.010));
-    float fres = 0.03 + 0.97 * pow(1.0 - max(dot(-V, Nw), 0.0), 5.0);
+    // Un río de cordillera va turbio y revuelto: casi no hace de espejo. Un lago sí.
+    float fres = (0.03 + 0.97 * pow(1.0 - max(dot(-V, Nw), 0.0), 5.0)) * mix(0.12, 1.0, lake);
     vec3 R = reflect(V, Nw); R.y = abs(R.y);
     // El color del agua sale sobre todo de la imagen real: el Maipo baja café con leche por el sedimento glaciar y el embalse El Yeso es turquesa.
-    vec3 body = mix(vec3(0.05, 0.075, 0.07), alb * 0.85, 0.7) * (uSunColor * max(uSunDir.y, 0.0) * 0.5 + uAmbient);
+    // Además, el río baja café con leche (limo glaciar); con foto real se respeta su tono.
+    // En invierno, con poco deshielo, baja más bien gris verdoso y lechoso. La luz del cielo (azul) se neutraliza en
+    // el río: si no, el café se vuelve gris azulado.
+    float winterW = 1.0 - smoothstep(2500.0, 4100.0, uSnowLine);
+    vec3 silt = mix(vec3(0.36, 0.27, 0.16), vec3(0.27, 0.30, 0.26), winterW) * (0.85 + 0.3 * cvar);
+    vec3 wamb = mix(vec3(dot(uAmbient, vec3(0.333))), uAmbient, 0.25 + 0.75 * lake);
+    vec3 body = mix(mix(silt, albW * 0.9, 0.22 * sat), mix(vec3(0.05, 0.075, 0.07), albW * 0.85, 0.7), lake) * (uSunColor * max(uSunDir.y, 0.0) * 0.5 + wamb);
     // Rápidos: espuma donde el río corre con pendiente.
     float foam = smoothstep(0.004, 0.05, s2) * smoothstep(-0.2, 0.6, textureGrad(uNoise, wuv * 1.9 + flow * 3.0, wdx * 1.9, wdy * 1.9).w);
-    body = mix(body, vec3(0.75, 0.78, 0.78) * (uSunColor * 0.3 + uAmbient), foam * 0.7);
+    foam = max(foam, (1.0 - lake) * 0.16 * smoothstep(0.3, 0.8, textureGrad(uNoise, wuv * 3.3 + flow * 5.0, wdx * 3.3, wdy * 3.3).w)); // el río siempre lleva algo de espuma
+    body = mix(body, mix(vec3(0.66, 0.60, 0.50), vec3(0.72, 0.74, 0.73), lake) * (uSunColor * 0.3 + wamb), foam * 0.7);
     vec3 wc = mix(body, skyColor(R), fres * (1.0 - foam * 0.6));
-    wc += uSunColor * pow(max(dot(R, uSunDir), 0.0), 420.0) * 5.0;
+    wc += uSunColor * pow(max(dot(R, uSunDir), 0.0), 420.0) * 5.0 * mix(0.3, 1.0, lake);
     col = mix(col, wc, water);
   }
 

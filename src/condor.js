@@ -41,7 +41,7 @@ void main() {
 }`;
 
 export class Condor {
-  constructor(env, { scale = 1.3 } = {}) {
+  constructor(env, { scale = 1.0 } = {}) {
     this.root = new THREE.Group(); this.scale = scale; this.root.scale.setScalar(scale);
     this.shade = { value: 1 };
     const mat = (part) => new THREE.ShaderMaterial({
@@ -111,7 +111,7 @@ export class Condor {
   }
 
   // Igual que Cat.update, más flap (0..1: cuánto aletea) y turn (rad/s: para ladearse en los virajes).
-  update(dt, t, { x, y, z, heading, speed, normal, airborne, vy, flap = 0, turn = 0 }) {
+  update(dt, t, { x, y, z, heading, speed, normal, airborne, vy, flap = 0, turn = 0, spin = 0 }) {
     const k = (r) => 1 - Math.exp(-dt * r);
     this.air += ((airborne ? 1 : 0) - this.air) * k(5);
     this.flap += (flap - this.flap) * k(6);
@@ -134,7 +134,7 @@ export class Condor {
 
     // Cuerpo: erguido en tierra (cabeza arriba), horizontal en vuelo; el cuello compensa para mirar al frente.
     const up = 0.78 * gnd;
-    this.body.rotation.x = -up + Math.sin(this.step * 2) * 0.03 * moving;
+    this.body.rotation.x = -up + Math.sin(this.step * 2) * 0.03 * moving + spin;
     this.body.rotation.z = Math.sin(this.step) * 0.07 * moving;
     this.body.position.y = 0.3 * gnd + 0.05 + Math.abs(Math.sin(this.step)) * 0.012 * moving - Math.sin(ph) * 0.05 * a * air;
     this.neck.rotation.x = up * 0.75 + 0.1 * air + Math.sin(t * 0.6) * 0.03;

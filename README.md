@@ -4,6 +4,8 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 
 **Jugar:** https://sekuismo.github.io/cordillera-colocolo/
 
+Desarrollado por **Esteban Muñoz**.
+
 - Relieve real (DEM de 30 m) de un área de 111 × 139 km: Santiago, Sierra de Ramón, Farellones y El Plomo, todo el Cajón del Maipo, los volcanes San José, Tupungato y Maipo, y unos 20 km de Mendoza.
 - Imagen satelital Sentinel-2 como color base, con suelo y rocas procedurales de cerca.
 - Vegetación según la cobertura de suelo real (ESA WorldCover + polígonos OSM): espinal, bosque esclerófilo, quiscos en solana, ciprés de la cordillera, neneo, llareta y vegas; y lo plantado: álamos en hilera, viñas, frutales, eucaliptos y árboles urbanos, con follaje caduco que cambia por estación. Glaciares, cultivos y ciudad pintados desde la misma capa.
@@ -14,7 +16,13 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 - Calles reales de Santiago y los pueblos (110 mil vías de OSM, incluidos pasajes); las casas se ordenan paralelas a su calle y los árboles urbanos van en la vereda.
 - Santiago reconocible desde los cerros: skyline por barrio e hitos a escala real (Gran Torre Costanera, Torre Entel, La Moneda, Estadio Nacional, Templo Bahá’í, Virgen del San Cristóbal…).
 - Tres animales con habilidades distintas: el colocolo salta dos veces y usa el olfato para marcar el próximo lugar por descubrir; el puma salta más lejos, corre más rápido y embiste; el cóndor vuela, planea con el viento de ladera y sube en una térmica.
-- Música andina generada por código en La menor pentatónica (quena, zampoña, charango y bombo sintetizados) y efectos de sonido procedurales: viento, río, lluvia, pasos y aleteos. Sin archivos de audio.
+- Música de raíz andina generada por código (quena, zampoña, charango y bombo sintetizados) que llega por piezas, con silencios largos entre una y otra: cada pieza sortea modo (pentatónica menor, mayor o bimodal), tono, tempo, instrumentos y volumen. Efectos y ambiente procedurales: viento, río, lluvia, pasos y aleteos. Sin archivos de audio.
+- Animales a tamaño real y con física: caen, saltan en las lomas, resbalan en las laderas muy empinadas y ruedan tras una mala caída.
+- **La montaña cuesta.** Subir gasta el aguante, en altura el aire rinde menos, las laderas muy empinadas hacen resbalar y una caída grande es fatal (se vuelve al último lugar seguro). Turbo e Híper solo corren por caminos: el cerro se sube a pata. Hay un modo paseo que apaga todo esto.
+- **Exploración.** El mapa parte tapado y se abre con lo que se recorre; llegar a una cumbre la anota en el libro de cumbres, cuenta el desnivel subido, dice qué cerros se ven de verdad desde ahí y destapa el mapa alrededor. Hay secretos (lugares reales que no figuran en ninguna lista hasta que se llega) y solo se puede viajar por el mapa a lo que ya se conoce.
+- **Pueblos como son.** Nombres reales de las calles sobre la calle misma, carteles con el nombre real de cada local y servicio en su edificio, casas distintas entre sí (alto, techo, vanos, protecciones, color), rejas y panderetas en los antejardines, postes con tendido, defensas camineras donde el camino da al barranco, y los edificios relevados uno por uno toman su color y sus pisos reales. San José de Maipo está relevado edificio por edificio (209, mirando la calle): su plaza con la pileta, la iglesia parroquial con su torre, y cada fachada del centro con su color y su cartel. Los puentes del Cajón llevan su baranda real y los distintos (el arco del río Colorado, el reticulado de El Ingenio, el mecano de San Alfonso) están modelados como son.
+- **Imagen de alta resolución** por streaming (Esri World Imagery, ~0,5 m por píxel) sobre la Sentinel-2 del repo; los techos de las casas toman su color de la foto. El río lleva su lecho de piedras, sus bolones y su agua turbia.
+- Piruetas: en el aire, con Truco, mortales y giros que dan puntos y un impulso si se aterriza derecho; chocar a la carrera contra una casa o un árbol bota al animal.
 - Funciona en escritorio, en móvil (joystick táctil) y con control de consola; la calidad se adapta sola al equipo.
 
 ## Controles
@@ -54,6 +62,10 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Vegetación | Raster de clases de 1 byte por texel (1,5 MB) compartido por CPU y GPU: la CPU decide qué especie instanciar en cada punto y el shader pinta cultivos, dosel y hielo. |
 | Estaciones | Un solo parámetro (fracción del año) mueve la declinación solar, la línea de nieve, el verdor y la probabilidad de frentes. |
 | Animales | `src/animals.js` define cifras y textos; `src/cat.js` arma colocolo y puma del mismo esqueleto y `src/condor.js` el cóndor. El vuelo es una velocidad vertical que busca su equilibrio entre planeo, aleteo, pérdida por falta de velocidad y viento de ladera. |
+| Física | Sin motor de física: el animal es un punto que cae con gravedad y choca contra la función de altura (`src/player.js`). De ahí salen los saltos en las lomas, el resbalón en laderas, las caídas, el aguante y las piruetas. |
+| Imagen por streaming | `src/sat.js`: tres niveles (zoom 18, 16 y 15) centrados en la cámara, cada uno un anillo de 8×8 teselas en una capa de una textura de arreglo. De la foto se usa el detalle (foto dividida por su promedio de ~32 m) aplicado sobre el color de la imagen propia, para que no se vea lavada ni cambie con la fecha de captura. La clave va en `src/config.js`, restringida por dominio. Nada se guarda. |
+| Calles, carteles y pueblos | `tools/build_street_names.mjs` y `tools/build_pois.mjs` sacan del extracto de OSM los nombres de las calles y de los locales, por zona de 4 km (`data/zones/names/`, `data/zones/pois/`). `src/streetnames.js` pone los letreros, `src/signs.js` pinta los carteles en un lienzo y los instancia sobre la fachada que da a la calle, `src/roadside.js` arma defensas y postes, y `src/pueblos.js` guarda los edificios relevados a mano. |
+| Progreso | `src/progreso.js`: niebla de exploración (una celda cada 500 m), libro de cumbres y secretos (`src/secretos.js`), guardados en el navegador. |
 | Sonido | `src/audio.js`: Web Audio sin archivos. Música generativa en La menor pentatónica con instrumentos sintetizados (Karplus-Strong para el charango) y capas que entran según lo que hace el animal. |
 | Color | Tone mapping AgX más un ajuste propio de saturación y contraste (`CustomToneMapping` en `src/main.js`): ACES teñía de morado el cielo y saturaba los cerros. |
 | Resolución adaptativa | Con `EXT_disjoint_timer_query_webgl2` se mide el tiempo real de GPU por cuadro y se ajustan la resolución interna y la densidad de la malla del relieve para caber en 12,5 ms; sin esa extensión, se estima por fps detectando si el navegador limita los cuadros. |
@@ -84,6 +96,8 @@ node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
 # Bajar https://download.geofabrik.de/south-america/chile-latest.osm.pbf a raw/pbf/chile.osm.pbf y luego:
 node extract_streets.mjs && node build_streets.mjs
 node extract_infra.mjs && node build_infra.mjs   # puentes, torres, tuberías, andariveles y etiquetas de rutas
+node build_street_names.mjs && node build_pois.mjs  # nombres de calles y de locales por zona (del mismo PBF)
+node build_pueblos.mjs                              # edificios relevados a mano (tools/relevamientos/*.txt) → src/pueblos_data.js
 node download.mjs sat14 && python extract_buildings.py && python build_buildings.py && python build_trees.py
 node build_zones.mjs                                # imagen, árboles y edificios por zona → data/zones/
 node build_manifest.mjs
@@ -99,6 +113,7 @@ El área y las resoluciones se definen en `tools/config.mjs`.
 - **Nombres, caminos, ríos y límite:** © colaboradores de [OpenStreetMap](https://www.openstreetmap.org/copyright), ODbL.
 - **Árboles:** [High Resolution Canopy Height Maps](https://sustainability.atmeta.com/blog/2024/04/22/using-artificial-intelligence-to-map-the-earths-forests/) © World Resources Institute y Meta, CC BY 4.0 (cada árbol es una copa detectada en la altura de dosel de ~1 m).
 - **Edificios:** [Overture Maps Foundation](https://overturemaps.org), ODbL; fusiona OpenStreetMap, Microsoft ML Buildings y Google Open Buildings.
+- **Imagen de alta resolución (streaming):** Esri World Imagery, vía ArcGIS Location Platform. Fuente: Esri, Vantor, Earthstar Geographics y la comunidad de usuarios GIS. No se almacena ni se redistribuye.
 - **Código:** MIT (ver `LICENSE`).
 
 Los textos de las fichas son divulgativos; el límite internacional dibujado es referencial. Viñas, frutales, parques, plantaciones y glaciares salen de sus polígonos OSM; en el campo abierto restante, WorldCover indica que hay cultivo pero no cuál, así que el color de cada parcela es sorteado.

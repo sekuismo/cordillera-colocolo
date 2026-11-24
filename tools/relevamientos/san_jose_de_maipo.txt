@@ -1,0 +1,366 @@
+RELEVAMIENTO SAN JOSÉ DE MAIPO — plaza, cuatro costados, Comercio, Camino al Volcán e hitos
+
+Cubrí la plaza, sus cuatro costados, Comercio completo entre Cañada Norte y Cañada Sur, y buena parte del Camino al Volcán. Quedaron huecos en Camino al Volcán (Cañada Norte→4 Norte y 2 Sur→3 Sur) y la ex estación solo se vio de lejos; el detalle está al final. Pestañas de Chrome cerradas.
+
+CONVENCIONES
+- Fuente principal: Google Street View. Sin fecha indicada = imagen de sept 2025. Otras fechas van en la línea (jul 2023, jul 2014, fotoesferas de usuario 2017–2021).
+- De La Inmaculada y 1 Sur son peatonales frente a la plaza: el auto de Google no pasa. El costado norte solo tiene imagen de jul 2014 y el sur solo fotoesferas y vistas desde las esquinas.
+- [V] = visto en imagen. [I] = inferido (casi siempre un nombre tomado de OSM/Google sin cartel leído).
+- Coordenadas del frente = posición del panorama desplazada hacia la fachada; son estimadas, error ±5 m. Los hex son aproximados a ojo.
+- Campo vacío = no visto. "Zinc" = plancha acanalada. CaV = Camino al Volcán.
+- Formato: lat, lon | calle y lado | qué es | cartel | pisos | color_muro #hex | material | techo | cierre | fachada | detalles | [V]/[I]
+- Google rotula la calle oriente a ratos como "Cam. Al Volcán"; según OSM y los letreros de calle, poniente = Camino al Volcán, oriente = Comercio. Los nombres blancos sobre la calzada en Street View son rótulos de Google, no pintura.
+
+RESUMEN: CARÁCTER DEL PUEBLO
+1. Trazado: damero angosto con dos calles norte-sur (CaV al poniente, Comercio al oriente, ~93 m entre ejes) y transversales cada ~90–100 m (Cañada Norte, 4 Norte, 3 Norte, Madre Paula Montal, De La Inmaculada, 1 Sur, 2 Sur, 3 Sur, 4 Sur, Cañada Sur). La plaza ocupa una manzana entera. Cerro con matorral pegado al oriente y cordón alto al poniente, visibles desde todas las calles.
+2. Alturas: casi todo es 1 piso de adobe en fachada continua, alero a 3,5–5 m. Excepciones: torre de la iglesia, escuela blanca de frontón empinado, Municipalidad de ladrillo (2), bloque del hospital (3), colegio (4), Bomberos (2) y unas pocas casas de 2 pisos con balcón de madera.
+3. Colores: rojo colonial u óxido (#B5403A) es el dominante (iglesia, casa parroquial, esquinas de la plaza); luego rosado salmón, blanco, crema/ocre; acentos azul, celeste, verde menta. Zócalos de piedra (laja o bolón de río con junta blanca) o pintados en color contrastante.
+4. Techos: zinc acanalado gris u oxidado rojizo, a dos o cuatro aguas, alero corto con canes de madera; casi no hay teja (solo aleritos sobre puertas). Algunos frentes con parapeto recto y cornisa.
+5. Puertas y ventanas: puertas dobles de madera de tablero, a veces con postigos; ventanas verticales de marco blanco con protección de fierro (casi todas); antepechos de balaustres en casas viejas; cortinas metálicas en comercios; letreros de madera tallada o pintada.
+6. Suelo del centro: adoquín de hormigón (adocreto) gris-rojizo con franjas gris oscuro, en la calzada de CaV frente a la plaza y en los dos paseos peatonales. Comercio es asfalto de ~6–7 m. Veredas de 2–3 m de baldosa o adoquín con solera de hormigón; bolardos de media esfera de hormigón verde-gris cada ~2,5 m en torno a la plaza.
+7. Postes y cables: postes de hormigón con marañas muy densas de cables y luminarias viales tipo cobra, sobre todo en las veredas poniente; una torre de telecomunicaciones reticulada verde/blanca (~30 m) detrás del costado sur de la plaza se ve desde todo el centro.
+8. Faroles: fierro fundido verde oscuro o negro, linterna tipo colonial, ~4 m, una luz (dobles en la plaza y plazoletas), cada 15–30 m en ambas veredas. Señales de calle color vino con flechas sobre postes verdes.
+9. Árboles de calle: caducos jóvenes en tazas cada 8–15 m (ciruelos de flor, plátanos orientales podados en la salida sur), pimientos, palmeras canarias y araucarias en jardines institucionales, cedros y coníferas grandes en la plaza y frente al hospital. No se vieron acequias abiertas, solo sumideros.
+10. Bordes: al alejarse del centro aparecen casas con antejardín y reja, pareadas de 2 pisos (CaV entre 4 Sur y Cañada Sur), sitios abiertos, panderetas, muros de bolón, cercos de tablas y casas retiradas; al norte de Cañada Norte es semirrural, con casas bajo el nivel de la calle hacia el río y sobre talud hacia el cerro.
+
+====================================================
+1) PLAZA DE ARMAS
+====================================================
+Forma y tamaño [I, medido entre ejes de calle]: casi cuadrada, ~86 m oriente-poniente × ~82 m norte-sur de solera a solera. Como Inmaculada y 1 Sur son paseos, el piso continuo llega de fachada a fachada (~103 m norte-sur). Abierta: sin rejas ni muretes. No vi odeón/glorieta ni juegos infantiles.
+Esquinas (solera) [I]: NO -33.64004,-70.35332 · NE -33.64004,-70.35243 · SO -33.64076,-70.35335 · SE -33.64078,-70.35245.
+
+Elementos (lat, lon | elemento | descripción | marca):
+-33.64038, -70.35290 | pileta central | fuente circular: pretil bajo de losas de piedra gris-rosada (~0,45 m de alto, ~0,5 m de ancho), espejo de ~7–8 m de diámetro con agua verdosa, taza interior blanca de ~3 m y pedestal de fierro fundido verde oscuro de varios platos (~2,5 m) | [V] fotoesfera ene 2021; diámetros [I]
+-33.64038, -70.35290 | explanada central | círculo pavimentado de ~22–25 m de diámetro alrededor de la pileta, adoquín de hormigón beige-rosado con franjas gris oscuro | [V] ene 2021; medida [I]
+-33.64038, -70.35290 | senderos | radiales desde el centro, pavimentados con el mismo adoquín, ~3–4 m de ancho, bordeados por seto bajo recortado (~0,6 m). Vistos: diagonal al NE (-33.64006,-70.35246), diagonal al NO (-33.64006,-70.35330), eje oriente (explanada ancha hasta -33.64040,-70.35244) y eje poniente (hasta -33.64038,-70.35331). Que sean 8 (cruz + diagonales) es [I] | [V]/[I]
+perímetro | vereda perimetral | banda pavimentada de ~6–8 m en los cuatro lados, adoquín beige con cuadrícula de franjas grises cada ~3 m, tazas cuadradas de árbol cada ~8 m, bolardos de media esfera | [V]
+interior | paños de pasto | césped entre senderos, macizos con arbustos de flor blanca junto a la pileta | [V] ene 2021
+interior | árboles grandes | cedros (tipo deodara) de 20–25 m en torno al centro; una conífera oscura cónica muy alta (~25 m) al oriente del centro; al menos 2 palmeras canarias de tronco grueso (~10–12 m) al sur y poniente de la pileta; castaño de Indias al NO; caducos en el perímetro (troncos pintados de blanco en el costado poniente) | [V]; especies [I]
+alrededor de la pileta y senderos | bancas | de listones de madera barnizada con respaldo (~1,8 m) sobre patas de hormigón/fierro, unas 8–10 en el anillo central y más en senderos y perímetro; en 2023–2025 hay también bancas de fierro verdes y algunas pintadas rojas hacia Comercio | [V]
+senderos y perímetro | faroles | fierro fundido verde oscuro, ~4 m, una o dos linternas, cada ~15 m | [V]
+-33.64005, -70.35244 | monolito esquina NE | losa de piedra rústica crema-rosada (~2 m) sobre base de ladrillo rojo | [V]
+-33.64015, -70.35251 | busto esquina NE | busto blanco sobre pedestal de piedra crema (~2 m en total), al inicio de la diagonal; OSM lo llama "Ambrosio O'Higgins" | [V]; nombre [I]
+-33.64012, -70.35252 | asta | mástil blanco alto (~12 m) con bandera chilena | [V]; coordenada [I]
+-33.64005, -70.35327 | monolito esquina NO | piedra blanca (~1,8 m) | [V]
+-33.64037, -70.35326 | plinto borde poniente | bloque blanco (~1,5 m) frente a la Municipalidad, con un poste rojo detrás; OSM ubica aquí (-33.64032,-70.35324) el monumento "Bernardo O'Higgins" | [V]; nombre [I]
+-33.64040, -70.35328 | maceteros | copas de hormigón blanco en el borde poniente; medios barriles de madera con arbustos en las entradas de los paseos | [V]
+-33.64003, -70.35320 | puesto esquina NO | toldo azul 3×3 m con gorros y sombreros | [V]
+-33.64055, -70.35250 | feria artesanal oriente | fila de toldos azules y amarillos 3×3 m sobre la explanada oriente | [V] jul 2023
+-33.64072, -70.35250 | módulo esquina SE | quiosco/cerco de madera pintado rojo | [V] jul 2023
+-33.64074, -70.35318 | puesto esquina SO | toldo azul con sombreros | [V] ene 2021
+paseo 1 Sur | feria | toldos azules en fila a lo largo del paseo sur | [V] fotoesfera jun 2017
+entradas de paseos | señales | letrero verde "INGRESO SOLO PEATONES", bolardos cilíndricos verdes con cadena, tótems informativos café-rojizos | [V]
+
+====================================================
+2) LOS CUATRO COSTADOS DE LA PLAZA
+====================================================
+COSTADO NORTE — De La Inmaculada, lado norte, de poniente (CaV) a oriente (Comercio). Paseo de ~10 m, adoquín gris.
+-33.63992, -70.35318 | Inmaculada norte, esq. NE con CaV | quiosco/local rústico de comida con terraza | disco naranja con hamburguesa, texto ilegible | 1 | madera #9C6B3F | madera | zinc claro | cerco bajo de madera | retirada | quiosco poligonal con techo de zinc, terraza con sillas amarillas y murete azul | [V]
+-33.63990, -70.35290 | Inmaculada norte | pabellón largo retirado (OSM: Colegio Rafael Eyzaguirre) | sin cartel visible | 1 | rojo #B03A32 | | zinc rojo óxido a dos aguas | reja de fierro color óxido ~2 m sobre pilares de piedra | antejardín ~4 m | frente ~50 m, ventanas en hilera con marco blanco, árboles caducos en la vereda | [V] jul 2014; nombre [I]
+-33.63991, -70.35268 | Inmaculada norte | portón de acceso con techito de madera, entre el pabellón y la casa parroquial | sin cartel | | | madera | techito a dos aguas | reja | | | [V] jul 2014
+-33.63992, -70.35260 | Inmaculada norte | casa pegada al poniente de la iglesia (casa parroquial) | sin cartel | 1 | rojo colonial #B5403A | adobe estucado | zinc rojo óxido, alero | ninguno | continua | frente ~15 m, puerta doble negra con tableros perfilados en blanco, 2 ventanas con reja blanca, farol de fierro en la vereda | [V] jul 2014; identificación como casa parroquial [I]
+-33.63992, -70.35246 | Inmaculada norte, esq. NO con Comercio | IGLESIA PARROQUIAL, frente sur hacia la plaza | sin cartel; placa de mármol y hornacina con imagen en el pilar SE | 1 muy alto + torre | rojo colonial #B5403A con columnas, cornisas y arcos blanco hueso #F2EDE4 | adobe estucado; torre de madera | zinc pintado rojo | ninguno | continua, abre directo al paseo (sin atrio cerrado) | ver hito abajo | [V]
+
+COSTADO ORIENTE — Comercio, lado oriente, de norte (Inmaculada) a sur (1 Sur).
+-33.63986, -70.35222 | Comercio oriente, esq. NE con Inmaculada (frente a la iglesia) | almacén esquina | "ALMACEN SAN ANDRES" (colgante de madera); tablilla "COMERCIO →"; n.º "19672" | 1 | azul #5B7FE0 | adobe estucado | zinc gris | ninguno | continua | ochavo, alerito azul con tejas rojas sobre la puerta, ventanas de marco blanco con reja | [V]
+-33.64008, -70.35224 | Comercio oriente, esq. SE con Inmaculada | pollería | lienzo azul "POLLOS …IOS / POLLO ASADO Y PAPAS FRITAS" (nombre con lectura parcial); lateral amarillo "POLLOS ASADOS PAPAS FRITAS" | 1 | rojo #C8363A | adobe estucado | zinc óxido con 3 ductos de acero | ninguno | continua | pintura descascarada en el zócalo, puertas y postigos blancos | [V]
+-33.64016, -70.35225 | Comercio oriente | casa | sin cartel; número tallado "19720 A" | 1 | salmón #E3A08A | adobe con estuco rústico | zinc óxido, alero de madera | ninguno | continua | puerta de madera con alerito, equipo de aire acondicionado | [V]
+-33.64020, -70.35225 | Comercio oriente | local | bastidor blanco vacío; cartel en forma de escudo rojo, ilegible | 1 | rosado rojizo #E0706A | adobe estucado | zinc óxido con 2 ductos | ninguno | continua | puerta vidriada de madera, 2 ventanas de marco café con malla | [V]
+-33.64032, -70.35226 | Comercio oriente | patio gastronómico tras muro largo | pintado "Estación San José de Maipo — Espacio Gastronómico"; pizarra "FOOD TRUCK"; lienzo "CHOCOLATE CALIENTE / MILKSHAKE" | 1 | blanco #EDEAE2 con zócalo gris #8E8E8E | adobe con estuco rústico | zinc óxido, alero con canes | ninguno | continua | muro de ~23 m (de -33.64022 a -33.64043); zaguán con marco de madera en -33.64028, banderín tricolor, flecha azul "E", puerta de madera oscura al sur | [V] sept 2025 y jul 2023
+-33.64047, -70.35228 | Comercio oriente | edificio neoclásico (uso no identificado) | placas junto a las puertas, ilegibles | 1 alto (~6 m) | rojo #B5403F con marcos y zócalo gris piedra #8F8A80 | albañilería estucada | oculto tras parapeto con cornisa | ninguno | continua | frente ~10 m, 3 vanos altos con marco moldurado gris, puerta doble de madera al centro | [V] jul 2023
+-33.64058, -70.35229 | Comercio oriente | librería | "LIBRERÍA YULI-WAL" en 2 paneles amarillos con logos "BRESLER" sobre el techo | 1 | azul #2F7DBF con pilastras crema | | tapado por los letreros | ninguno | continua | frente ~14 m, 3 toldos beige con marca Bresler | [V] jul 2023
+-33.64072, -70.35231 | Comercio oriente, esq. NE con 1 Sur | oficina municipal de turismo | "MUNICIPALIDAD DE SAN JOSE DE MAIPO / OFICINA DE TURISMO" (madera tallada) | 1 | blanco #F2EFE8 | adobe estucado | zinc gris galvanizado a dos aguas, alero de madera | ninguno | continua | frente ~17 m, zócalo de piedra laja ~0,9 m, puertas y ventanas de madera barnizada con reja, faroles de pared negros, diario mural de madera, bandera chilena en asta inclinada | [V] jul 2023 y sept 2025
+
+COSTADO SUR — 1 Sur, lado sur, de oriente (Comercio) a poniente (CaV). Paseo de ~10 m, adoquín.
+-33.64087, -70.35262 | 1 Sur sur, esq. SO con Comercio | casa esquina larga (Google marca restaurante) | tableros sobre la puerta de la esquina, ilegibles | 1 | rojo colonial #B5403A, pilastras y marcos blancos, zócalo rojo oscuro texturado | adobe estucado | zinc óxido, alero con canes | ninguno | continua | frente ~35 m por 1 Sur, puertas de madera y ventanas verticales con reja blanca, toldo azul en la puerta de la esquina y murales en el tramo poniente (jul 2023) | [V] sept 2025 y jul 2023
+-33.64087, -70.35296 | 1 Sur sur | edificio con restaurante y terraza | no leído | 2 | crema | | zinc gris | cerco bajo de madera rojo oscuro en la terraza | terraza sobre el paseo | quitasoles amarillos y blancos, ventanas corridas arriba | [V] fotoesfera ene 2021; coordenada [I]
+-33.64086, -70.35322 | 1 Sur sur, esq. SE con CaV | edificio bajo moderno (OSM/Google: BancoEstado) | lienzo azul "… BAÑOS"; no leí "BancoEstado" | 1 | blanco-gris #E6E6E2 | | metálico gris de poca pendiente | reja de barrotes negros sobre muro de bolón de río ~1,5 m | antejardín ~6 m con pasto | torre de telecomunicaciones reticulada verde/blanca (~30 m) justo detrás, palmera alta, bicicletero en la esquina | [V]; nombre [I]
+
+COSTADO PONIENTE — Camino al Volcán, lado poniente, de norte (Inmaculada) a sur (1 Sur). Calzada de adoquín.
+-33.63985, -70.35338 | CaV poniente, esq. NO con Inmaculada (frente a la esquina NO de la plaza) | minimarket | "MINIMARKET AUCO" | 1 | café-ocre #8A6B4E | adobe estucado | zinc gris a dos aguas | ninguno | continua | 2 cortinas metálicas, afiches | [V]
+-33.64010, -70.35351 | CaV poniente | ESCUELA (OSM: Escuela Básica Julieta Becerra Álvarez) | letras en relieve blanco sobre blanco "ESCUELA MIXTA SUPERIOR" (la palabra del medio con lectura dudosa); n.º "19727" | 2 en el cuerpo central | blanco #F2F0EA | albañilería estucada, zócalo de piedra con junta blanca | dos aguas muy empinado gris oscuro #4A4A4F; alas con techo gris | cerquito bajo de aros metálicos blancos (~0,5 m) | antejardín ~8 m | ver hito abajo | [V]
+-33.64041, -70.35346 | CaV poniente | acceso vehicular y estacionamiento entre escuela y Municipalidad | señal de no estacionar | | | | | reja verde | | piso de adoquín, pabellones bajos rojos con techo verde claro al fondo | [V]
+-33.64055, -70.35352 | CaV poniente | MUNICIPALIDAD | portal de madera "MUNICIPALIDAD / SAN JOSÉ DE MAIPO" con escudo comunal | 2 | ladrillo café #7A4A3A con dinteles y marcos crema #D9CDB0 | ladrillo a la vista | zinc gris a dos aguas, frontón con óculo | reja de perfiles verticales verde claro #A9B89A ~1,8 m | antejardín ~8 m con pasto | ver hito abajo | [V]
+-33.64057, -70.35362 | CaV poniente, esq. NO con 1 Sur | BCI, en el mismo edificio de ladrillo | "Bci" | 2 | ladrillo oscuro #7A4A3A | ladrillo | zinc gris | reja verde claro | antejardín | araucarias y palmeras | [V]
+
+====================================================
+4) HITOS DEL CENTRO
+====================================================
+IGLESIA PARROQUIAL (-33.63970,-70.35240 centro; frente -33.63992,-70.35246) [V sept 2025]
+- Planta: nave rectangular norte-sur de ~40 m por Comercio (de -33.63950 a -33.63988) y ~14 m de ancho [I]; muros de ~8 m.
+- Frente sur: pórtico de arcos de medio punto (3 al frente y uno a cada costado) sobre pilares rojos con columnas toscanas blancas adosadas sobre pedestal; entablamento y cornisas blancas; frontón triangular blanco con óculo al centro.
+- Torre: central sobre el frente, de madera (tinglado rojo, esquineros blancos), dos cuerpos con ventanas en arco con celosía, remate en linterna chica blanca con cruz; altura total ~18–20 m [I]. En jul 2014 el remate se veía como cúpula verde.
+- Flanco oriente: muro rojo #B5403A con zócalo blanco en talud, 3 contrafuertes, ventanas altas en arco con marco de madera, puerta lateral de madera con frontón triangular, faroles de pared negros, cornisa de madera clara, techo rojo.
+- Protección: monumento histórico junto con la casa parroquial, decreto N°309 de 15-06-1992 (dato de documento municipal encontrado por búsqueda web).
+CASA PARROQUIAL: ver línea -33.63992,-70.35260 del costado norte. Por Comercio, al norte de la iglesia, hay además un chalet de madera café retirado tras seto y portón negro (-33.63946,-70.35233) y un galpón largo de madera (-33.63932,-70.35232), dependencias parroquiales [I].
+ESCUELA BLANCA: frente total ~55 m (de -33.64000 a -33.64035) [I]. Cuerpo central con frontón triangular de ~11 m, escudo nacional arriba y otro escudo sobre el rótulo, 4 ventanas en el 2º nivel, puerta triple de madera barnizada vidriada, rampa con baranda metálica; alas laterales con ventanales de cuadrícula blanca; chimenea-torre de piedra en el ala sur; magnolio caduco y coníferas en el antejardín.
+MUNICIPALIDAD: frente ~35 m (de -33.64046 a -33.64078) [I]; volumen de ladrillo de 2 pisos con ventanas de madera oscura; portal-pérgola de madera en la reja (-33.64050,-70.35347) con estrella de luces; araucaria grande (~18 m) y palmera en el antejardín, banderas.
+BOMBEROS y EX SANATORIO LAENNEC: ver en Comercio (Primera Compañía en -33.63846; hospital en la cuadra 1 Sur–2 Sur). Cuartel General de Bomberos: ver salida sur de CaV.
+
+====================================================
+3) CALLE COMERCIO (de norte a sur)
+====================================================
+Eje de calzada (panoramas): -33.63638,-70.35200 (Cañada Norte) · -33.63796,-70.35209 · -33.63911,-70.35225 (M. P. Montal) · -33.64085,-70.35240 (1 Sur) · -33.64176,-70.35247 (2 Sur) · -33.64270,-70.35259 · -33.64362,-70.35268 · -33.64433,-70.35268 (Cañada Sur).
+
+AL NORTE DE CAÑADA NORTE (solo vistas oblicuas, poco detalle)
+-33.63320, -70.35215 | Comercio poniente | galpón de madera | "taller Azul" | 1 | azul #2A4FB5 | madera | zinc | | | al oriente, ladera con matorral sin edificios | [V]
+-33.63480, -70.35215 | Comercio poniente | edificio (Google lo marca como templo) | ilegible | 1 | terracota #A5523F | | | | | zócalo imitación piedra con junta blanca, portón de madera; al oriente muro de contención de piedra y casas en alto | [V]
+-33.63620, -70.35207 | Comercio poniente, esq. NO Cañada Norte | casa larga de adobe viejo | cartel de madera "Lavandería-Lavaseco" con flecha | 1 | rosado terroso desconchado #B98A7A | adobe | | ninguno | continua | ventanas de madera, vereda de tierra | [V]
+-33.63620, -70.35190 | Comercio oriente, esq. NE Cañada Norte | botillería | "DONDE RAMOS"; "…RIA DONDE RAMOS"; "Pisco Campanario" | 1 | salmón y rojo #C8383A | | | ninguno | continua | zócalo de bloques de piedra gris, toldos rojos | [V]
+— CRUCE CAÑADA NORTE (-33.63638): avenida ancha con bandejón de pasto, árboles caducos grandes, bancas, paraderos de madera con techo verde y kioscos.
+
+CAÑADA NORTE – 4 NORTE, lado oriente
+-33.63654, -70.35190 | Comercio oriente, esq. SE Cañada Norte | casa esquina con comercio | tablero blanco ilegible; cartel de precio "5600" | 1 | rojo #C8383A | adobe estucado | zinc | ninguno | continua | puerta de madera, paradero al frente | [V]
+-33.63672, -70.35190 | Comercio oriente | casa larga de adobe, mitad norte | sin cartel | 1 | beige crema deteriorado #CDBFA8 | adobe estucado | zinc rojizo, alero de madera | ninguno | continua | ventanas de madera con antepecho de balaustres, puerta doble rojiza, zócalo blanco | [V]
+-33.63690, -70.35191 | Comercio oriente | misma casa, mitad sur (largo total ~45 m) | sin cartel | 1 | gris tierra #8C8273 | adobe con estuco rústico | zinc rojizo | ninguno | continua | 3 ventanas con balaustres, puerta de madera, portón negro | [V]
+-33.63706, -70.35192 | Comercio oriente | patio de distribuidora de gas | "abastible" + "979449068 / 226496098"; pilar "19368" | | blanco con franjas naranja y verde | albañilería | | pandereta baja, entrada abierta | patio | cilindros naranjos al fondo, concertina | [V]
+-33.63716, -70.35185 | Comercio oriente | casa retirada | letrero blanco ilegible | 1 | blanco | | zinc gris | reja de fierro + portón metálico verde | antejardín | bandera chilena | [V]
+-33.63730, -70.35183 | Comercio oriente, esq. NE 4 Norte | casa retirada | sin cartel | 2 | ocre #B8863B | madera | zinc a dos aguas | madera (tablas terracota sobre zócalo de piedra) + seto | antejardín | anexos con techo rojo | [V] (esquina solo en imagen feb 2022)
+CAÑADA NORTE – 4 NORTE, lado poniente
+-33.63656, -70.35207 | Comercio poniente, esq. SO Cañada Norte | restaurante | "Inesita RESTAURANT" (colgante de madera) | 2 | verde menta #A9D3B5; 1er piso piedra laja gris rosada | albañilería + piedra | zinc | ninguno | continua | puerta de madera, ventanas blancas | [V]
+-33.63667, -70.35206 | Comercio poniente | casa/local | sin cartel | 1 | piedra laja + franja verde menta | albañilería | zinc rojizo, alero con canes | ninguno | continua | 2 ventanas con reja, cortina metálica café | [V]
+-33.63679, -70.35205 | Comercio poniente | casa | afiches "SE VENDE" | 1 | café tierra #7A5E4B | adobe estucado | zinc gris | ninguno | continua | puerta doble, ventana con reja y maceteros, portón de madera | [V]
+-33.63692, -70.35204 | Comercio poniente | casa con local | "Masajes" | 1 | rojo coral #D8404A, zócalo gris | adobe estucado | zinc rojizo | ninguno | continua | puertas de madera oscura, 3 ventanas con reja | [V]
+-33.63701, -70.35204 | Comercio poniente | portón vehicular negro de dos hojas (~5 m) | sin cartel | | | | | | | galpón detrás | [V]
+-33.63708, -70.35205 | Comercio poniente | casa | sin cartel | 1 | amarillo crema #E8C877, zócalo de piedra gris | adobe | zinc | ninguno | continua | puerta y ventanas café con reja, grafiti | [V]
+-33.63716, -70.35206 | Comercio poniente | volumen angosto | sin cartel | 2 | piedra canteada gris rosada abajo, tinglado blanco arriba | piedra + madera | zinc | ninguno | continua | ventana café arriba | [V]
+-33.63724, -70.35207 | Comercio poniente | casa | sin cartel | 1 | blanco, zócalo de piedra | albañilería | plano con parapeto | ninguno | continua | 2 ventanas café, puerta de madera | [V]
+-33.63734, -70.35208 | Comercio poniente, esq. NO 4 Norte | pollería | "POLL… PIO…" (parcial) | 1 | amarillo #F2B632 con franja roja | albañilería | plano, 4 ductos metálicos | reja en la puerta | continua | mural de alas de pollo, toldo rojo, zócalo de piedra | [V]
+— CRUCE 4 NORTE (-33.63742)
+
+4 NORTE – 3 NORTE, lado oriente
+-33.63750, -70.35190 | Comercio oriente, esq. SE 4 Norte | casa retirada | sin cartel | 1 | madera café | madera | dos aguas | reja de barras amarillas sobre zócalo de ladrillo | antejardín | jardín | [V]
+-33.63758, -70.35192 | Comercio oriente | local retirado | bandera "IDEAL" | 1 | | madera | zinc | pandereta baja blanca con jardineras | antejardín | | [V]
+-33.63766, -70.35193 | Comercio oriente | bazar y peluquería | "BAZAR · PELUQUERIA HELEN" (rojo, Coca-Cola) | 1 | blanco | | | pandereta blanca con pilares y reja; cerco de coligüe al norte | patio | banderas moradas y amarillas | [V]
+-33.63778, -70.35188 | Comercio oriente | casa retirada | sin cartel | 1 | crema | | rojo a cuatro aguas | muro bajo de piedra + seto alto + portón de reja | antejardín | | [V]
+-33.63790, -70.35185 | Comercio oriente | supermercado, retirado ~10 m | "SUPERMERCADOS San José" (verde) | 1 alto | amarillo #F0C020 | madera | dos aguas | reja negra | explanada | terraza con sillas rojas y quitasoles, banderas | [V]
+-33.63800, -70.35199 | Comercio oriente | local bajo | sin cartel (grafitis) | 1 | blanco con zócalo y pilares de piedra | albañilería | zinc a un agua | portón de reja negro | continua | cortina metálica blanca | [V]
+-33.63815, -70.35198 | Comercio oriente, esq. NE 3 Norte | sitio eriazo | "LAVANDERIA LAVASECO" (madera sobre postes) | | | | | madera y malla | | pasto, restos de pilares de piedra | [V]
+4 NORTE – 3 NORTE, lado poniente
+-33.63751, -70.35211 | Comercio poniente, esq. SO 4 Norte | botillería | "BOTILLERÍA ITALIA" (negro) + colgante "ITALIA" | 2 | rojo #C23A3A | albañilería estucada | dos aguas con aleros anchos + alero de tejas rojas al frente | portón de reja negro al norte | continua | 3 vanos en arco con reja, lienzos Coca-Cola, ventanas salientes arriba, estilo chalet | [V]
+-33.63762, -70.35212 | Comercio poniente | casa roja retirada | sin cartel | 1 | rojo | madera | | pandereta baja blanca + seto + cerco de madera | antejardín | | [V]
+-33.63770, -70.35213 | Comercio poniente | casa art déco | sin cartel | 1 | crema #EDE6D0 con zócalo y 3 franjas gris azulado #8E9BB5 | albañilería | oculto tras parapeto | ninguno | continua | puerta doble de madera, ventanas con reja romboidal, esquina curva en el acceso | [V]
+-33.63783, -70.35214 | Comercio poniente | casa | n.º "19457" | 1 | verde #5E8F5A, zócalo de piedra gris | adobe | zinc rojizo | ninguno | continua | puerta doble de madera clara, 2 ventanas con reja | [V]
+-33.63797, -70.35216 | Comercio poniente | casa | "SE VENDE" | 1 | crema #EFE3C2 con zócalo rojo | adobe | rojo | muro de piedra + reja de fierro verde, pilares blancos | antejardín ~3 m | 2 puertas rojizas, 3 ventanas con reja | [V]
+-33.63810, -70.35217 | Comercio poniente | funeraria | "FUNERARIA Mag…" + teléfono (parcial); vertical "FUNERARIA" en la vereda | 1 | azul grisáceo #5F7FA8, zócalo pintado imitación piedra azul y blanco | albañilería | zinc | ninguno | continua | puertas blancas | [V]
+-33.63820, -70.35218 | Comercio poniente, esq. NO 3 Norte | casa | sin cartel | 1 | rojo óxido #A0453A, zócalo imitación piedra blanco | adobe | zinc gris | ninguno | continua | | [V]
+— CRUCE 3 NORTE (-33.63830)
+
+3 NORTE – MADRE PAULA MONTAL, lado oriente
+-33.63836, -70.35205 | Comercio oriente, esq. SE 3 Norte | local | "DIRECTV" (2 carteles azules) + afiche "POLLO A LAS BRASAS" | 1 | blanco | adobe estucado | zinc rojizo | ninguno | continua | esquina redondeada, puerta rojiza, 2 ventanas con reja blanca | [V]
+-33.63846, -70.35206 | Comercio oriente | PRIMERA COMPAÑÍA DE BOMBEROS | "PRIMERA COMPAÑIA DE BOMBEROS / SAN JOSE DE MAIPO" (letras blancas) + "1" grande | 2 | azul #2F4E8C | albañilería/hormigón; 2º piso de madera barnizada | zinc a dos aguas | ninguno | continua | frente ~10 m; portón vidriado de marcos negros (cuadrícula ~8×4) para el carro; puerta peatonal al norte; escudos blancos en el zócalo; 2º piso retranqueado con galería de madera; galpón azul más alto detrás | [V]
+-33.63856, -70.35198 | Comercio oriente | templo evangélico, retirado ~8 m | "IGLESIA METODISTA PENTECOSTAL DE CHILE / SAN JOSE DE MAIPO … VENGA CON NOSOTROS A ADORAR A DIOS" | 1 alto | blanco | albañilería | frontón curvo | reja de barras negras con portón | antejardín (patio de baldosa) | mástil con bandera | [V]
+-33.63863, -70.35208 | Comercio oriente | casa baja | sin cartel | 1 | amarillo crema #EAD9A0 | adobe | zinc gris a dos aguas | ninguno | continua | ventana de madera con reja, árboles de calle grandes | [V]
+-33.63874, -70.35209 | Comercio oriente | casa | sin cartel | 1 | rojo intenso #D8352E, zócalo de piedra beige | adobe | oculto tras parapeto | ninguno | continua | puerta de madera clara con marco blanco, 3 ventanas con reja | [V]
+-33.63887, -70.35211 | Comercio oriente | casa | sin cartel | 1 | blanco, zócalo y cornisa rojo #B5413C | adobe | | ninguno | continua | 2 puertas rojizas, alero azul sobre una, ventana con reja blanca | [V]
+-33.63896, -70.35205 | Comercio oriente | casa retirada blanca con rojo | sin cartel | 1 | blanco y rojo | | zinc | pandereta de bloques calados blanco y rosado + portón de reja | antejardín | | [V]
+-33.63903, -70.35215 | Comercio oriente, esq. NE M. P. Montal | casa | plaquita ilegible | 1 | rosado salmón #E3A39A, zócalo gris | adobe | zinc rojizo a cuatro aguas | ninguno | continua | puerta doble rojiza, ventana con reja | [V]
+3 NORTE – MADRE PAULA MONTAL, lado poniente
+-33.63845, -70.35220 | Comercio poniente, esq. SO 3 Norte | casa larga (~28 m) | placa ilegible | 1 | amarillo ocre #E3A93A | adobe estucado | zinc, cornisa blanca | ninguno | continua | ochavo, 5–6 ventanas blancas con antepecho de balaustres y reja romboidal, puerta doble blanca | [V]
+-33.63882, -70.35226 | Comercio poniente | COLEGIO, frente ~50 m (de -33.63858 a -33.63905) | sin cartel hacia Comercio | 2 (edificios retirados) | ladrillo rojo con franjas blancas; un galpón blanco con borde rojo | ladrillo/hormigón | zinc gris a varias aguas | cierre continuo de plancha metálica acanalada café oscuro #3B2A26 ~2,2 m | retirada | sin portón por Comercio; toldos azules en el patio | [V]; nombre Rafael Eyzaguirre [I]
+— CRUCE MADRE PAULA MONTAL (-33.63911)
+
+MADRE PAULA MONTAL – DE LA INMACULADA, lado oriente
+-33.63927, -70.35205 | Comercio oriente | sitio abierto / estacionamiento (~33 m) | "LEÑA", "CARBON"; cruz verde de farmacia en poste | | | | | malla con postes | | kiosco verde, 4 banderas publicitarias, muro de adobe crudo al sur | [V]
+-33.63946, -70.35219 | Comercio oriente | casa (~12 m) | diario mural | 1 | blanco, zócalo rojo #B5413C | adobe | zinc | ninguno | continua | puerta roja con gradas, ventana con balaustres blancos, ventana con reja blanca | [V]
+-33.63961, -70.35220 | Comercio oriente | casa larga (~25 m) | sin cartel | 1 | rosado desteñido #E2A99B | adobe estucado | zinc, alero de madera | ninguno | continua | 5 ventanas de marco blanco con reja, 2 puertas dobles antiguas | [V]
+-33.63974, -70.35221 | Comercio oriente | casa | sin cartel | 1 | blanco, zócalo gris | adobe | zinc rojizo | ninguno | continua | 3 puertas-ventana de madera café con balaustres | [V]
+-33.63980, -70.35221 | Comercio oriente | paño con zaguán | plaquita ilegible | 1 | gris claro | adobe | zinc | ninguno | continua | portón doble de madera oscura | [V]
+(sigue el almacén azul de la esquina, ya listado en el costado oriente de la plaza)
+MADRE PAULA MONTAL – DE LA INMACULADA, lado poniente
+-33.63916, -70.35232 | Comercio poniente, esq. SO M. P. Montal | muro de bolón de río ~2 m | sin cartel | | piedra gris | piedra | | pandereta | | coníferas grandes detrás | [V]
+-33.63932, -70.35232 | Comercio poniente | cierre largo (~40 m) con galpón de madera detrás | sin cartel | 1 | gris | paneles con pilares de madera rojiza | zinc | pandereta | retirada | grafitis | [V]
+-33.63946, -70.35233 | Comercio poniente | chalet de madera café retirado | sin cartel | 1 | café | madera | | seto alto + portón de reja negro | antejardín | | [V]
+-33.63968, -70.35235 | Comercio poniente | flanco oriente de la iglesia (~40 m) | sin cartel | 1 muy alto (~8 m) | rojo colonial #B5403A, zócalo blanco | adobe estucado | rojo, cornisa de madera clara | ninguno | continua | ver hito | [V]
+— CRUCE DE LA INMACULADA (-33.6399) — PLAZA — CRUCE 1 SUR (-33.64083)
+
+1 SUR – 2 SUR, lado oriente: HOSPITAL SAN JOSÉ DE MAIPO / EX SANATORIO LAENNEC (frente ~95 m, de -33.64088 a -33.64172)
+-33.64110, -70.35232 | Comercio oriente, esq. SE 1 Sur | pabellón neoclásico del hospital | sin cartel visto | 1 muy alto (~6–7 m con parapeto) | rosado salmón #E0897A con pilastras, zócalo, marcos y cornisas blanco hueso #F2EDE4 | albañilería estucada | oculto tras parapeto almenado con paneles y festones blancos | ninguno (sept 2025: cierro de obra de tableros OSB ~2,4 m y malla en la esquina) | continua | ~50 m de largo; ~12 ventanas verticales de madera con reja hacia Comercio; testero a 1 Sur con ventanal tripartito de reja romboidal; puntales de madera y un remate dañado (en restauración) | [V]
+-33.64127, -70.35232 | Comercio oriente | acceso principal del hospital | escudo | 1 alto | rosado salmón #E0897A y blanco | albañilería estucada | parapeto con remate propio | ninguno | continua | cuerpo saliente algo más alto, asta con bandera chilena, puerta de madera | [V]
+-33.64146, -70.35236 | Comercio oriente | ala baja del hospital (~30 m) | sin cartel | 1 | rosado desteñido #D9796B, zócalo blanco | adobe estucado | zinc gris oxidado a dos aguas, alero | ninguno | continua | 4–5 ventanas de marco blanco con postigos de celosía; pino o cedro grande en la vereda | [V]
+-33.64166, -70.35238 | Comercio oriente, esq. NE 2 Sur | bloque del hospital (~12 m de frente, ~15 m de fondo) | sin cartel | 3 | rosado #E08C7E | hormigón/albañilería | plano | ninguno | continua | ventanas apaisadas arriba, rejas en 1er piso, grafitis en el zócalo | [V]
+-33.64172, -70.35200 | 2 Sur lado norte | ala sur del hospital, más de 70 m hacia el oriente | sin cartel | 2 | rojo salmón #D9695A | | zinc | ninguno | continua | ventanas regulares de marco blanco (rejas abajo), grafitis en toda la base | [V]; coordenada [I]
+-33.64086, -70.35215 | 1 Sur lado sur | ala norte del hospital, pegada al pabellón | sin cartel | 1 | rosado | adobe | zinc rojizo | ninguno | continua | ventanas con postigos | [V] jul 2023; coordenada [I]
+1 SUR – 2 SUR, lado poniente
+-33.64100, -70.35248 | Comercio poniente | farmacia | pintado "Farmacias y Perfumería San Jo…"; vertical "FARMACIA PERFUMERIA SAN JOSE…" | 1 | blanco crema #F1ECE0, zócalo de piedra laja | adobe | zinc, cornisa rojiza | ninguno | continua | puertas con postigos blancos, puerta de madera oscura | [V]
+-33.64110, -70.35249 | Comercio poniente | local | "Donde de Pe?ito" (letra dudosa) / "Comercio # 19823"; lienzo "MASTER DOG" | 1 | aguamarina #A9D6C8, zócalo azul marino | adobe | zinc | ninguno | continua | puerta doble azul vidriada, portón metálico azul morado | [V]
+-33.64120, -70.35250 | Comercio poniente | supermercado | "SUPERMERCADO EL TITAN" (rojo, Coca-Cola) + "el TITAN" en el frontón | 1 alto | | madera/metal | dos aguas azul oscuro, frontón abierto con cercha a la vista | ninguno (3 cortinas metálicas) | continua | carros en la entrada | [V]
+-33.64130, -70.35250 | Comercio poniente | casa | sin cartel | 1 | rosado claro #F0C4B4, zócalo cerámico tipo piedra | adobe | zinc | ninguno | continua | 2 puertas de madera con reja, ventana con reja ornamental | [V]
+-33.64138, -70.35251 | Comercio poniente | paño con puerta de tablas + local | letrero redondo verde "Ruta 25" (dudoso) | 1 | crema #EBDDB8, zócalo de piedra | adobe | zinc gris | ninguno | continua | cortina metálica café, guirnalda de luces | [V]
+-33.64144, -70.35252 | Comercio poniente | perfumería | "Perfumería Estrella del Ahorro" | 1 | rosado salmón #EDA890 | adobe | zinc | ninguno | continua | puerta blanca, diario mural | [V]
+-33.64149, -70.35252 | Comercio poniente | tienda de belleza | "CORDILLERA" (cartel fucsia) | 1 | blanco rosado, zócalo cerámico | adobe | zinc | ninguno | continua | afiches de cosméticos | [V]
+-33.64155, -70.35253 | Comercio poniente | parrilla | "PARRILLADAS El Rancho Che" (madera); pizarra "MENU" | 1 | rojo #C8473C, zócalo de piedra | adobe | zinc | ninguno | continua | viga de madera, puerta de madera, ventana con reja | [V]
+-33.64162, -70.35254 | Comercio poniente | local de empanadas | "Ricas EMPANADAS …" (resto ilegible); caballete "EMPANADAS DE HORNO" | 1 | blanco crema con marcos celestes | adobe | zinc | ninguno | continua | cortina metálica, ventana con reja, puerta de postigos blancos | [V]
+-33.64168, -70.35254 | Comercio poniente, esq. NO 2 Sur | carnicería | 'CARNICERI… "MINCH…' (resto tapado) | 1 | amarillo ocre #E5A93A, zócalo de bloques de piedra gris con junta blanca | adobe | zinc gris | ninguno | continua | puerta blanca vidriada en la esquina, poste con maraña de cables | [V]
+— CRUCE 2 SUR (-33.64176)
+
+2 SUR – 3 SUR, lado oriente
+-33.64182, -70.35240 | Comercio oriente, esq. SE 2 Sur | fuente de soda | pintado "Espacio Ágora / Comida típica & Fuente de Soda" | 1 | blanco con paño damasco | albañilería | plano con parapeto | ninguno | continua | mural de cactus y flores en la esquina, cortina metálica naranja, 2 ventanas con reja roja | [V]
+-33.64197, -70.35228 | Comercio oriente | casona retirada ~15 m (frente ~30 m) | sin cartel | 1 | blanco | | rojo a cuatro aguas | reja de fierro negra sobre muro bajo blanco con pilares, portón central | antejardín | corredor de pilares blancos, 2 palmeras canarias grandes, jardín frondoso | [V]
+-33.64213, -70.35244 | Comercio oriente | galería comercial | "PORTAL ISIDORA / CALLE COMERCIO 19940" (número dudoso); "mundo" (turquesa) | 2 | rojo rosado #D9544F | 1er piso estucado, 2º de tinglado de madera | zinc, aleros rojos | ninguno | continua | 2 vanos de local, puerta turquesa | [V]
+-33.64220, -70.35245 | Comercio oriente | tienda de mascotas | lienzo "RICARDO GARATE — Alimentos y Accesorios para Mascotas" | 2 | crema desgastado #E9E0CC | tinglado de madera, zócalo de ladrillo | zinc rojizo | ninguno | continua | cortina metálica blanca, puerta rojiza, 2 ventanas arriba | [V]
+-33.64228, -70.35246 | Comercio oriente | casa con balcón | sin cartel | 2 | rojo #C2473F | adobe y madera | zinc | ninguno | continua | balcón corrido de madera en el 2º piso con 5 pilares y baranda de palillos | [V]
+-33.64236, -70.35247 | Comercio oriente | peluquería | "CENTRO DE BELLEZA CAROLA"; "PELUQUERIA CAROLA" | 1 | blanco, con paño rojo y portón gris al norte | adobe | zinc oxidado | ninguno | continua | falso frente de tablas blancas de 2 pisos detrás | [V]
+-33.64243, -70.35248 | Comercio oriente | restaurante | "SAJAMA" (sobre portal de madera) | 1 | rojo #C8473F, zócalo de ladrillo | adobe | zinc oxidado | ninguno | continua | cortina metálica, faroles | [V]
+-33.64250, -70.35249 | Comercio oriente, esq. NE 3 Sur | botillería | por 3 Sur "Jim Beam — DONDE RAMOS"; bastidor blanco vacío sobre el techo | 1 | rojo ladrillo | ladrillo | zinc | ninguno (2 cortinas metálicas rojas) | continua | mural de montaña nevada al lado norte | [V]
+2 SUR – 3 SUR, lado poniente
+-33.64190, -70.35282 | Comercio poniente | supermercado retirado ~18 m con estacionamiento al frente | "abasto" | 1 | piedra amarilla #D8C28A con cornisa verde | albañilería revestida | rojo con lucarnas triangulares | ninguno | retirada | banderines; volumen de piedra a la línea de vereda al sur | [V]
+-33.64205, -70.35260 | Comercio poniente | panadería | "PANADERÍA (logo PANNUS) PASTELERÍA"; n.º "19925" | 1 | rojo #B8372F | adobe | zinc con alero negro | ninguno | continua | vitrina de madera y vidrio, farol | [V]
+-33.64212, -70.35260 | Comercio poniente | casa | plaquita ilegible | 1 | rojo #B8372F | adobe | | ninguno | continua | 2 ventanas de marco blanco almohadillado con reja, puerta tallada, 2 faroles negros | [V]
+-33.64222, -70.35261 | Comercio poniente | casa | sin cartel | 1 | rosado viejo #D9897A | adobe | zinc | ninguno | continua | friso superior calado en rombos, 2 ventanas con reja | [V]
+-33.64232, -70.35262 | Comercio poniente | casa más alta | sin cartel | 1 | blanco | adobe | parapeto | ninguno | continua | ventana con reja romboidal, antena | [V]
+-33.64239, -70.35263 | Comercio poniente | casa baja en tres paños | sin cartel | 1 | rojo / crema / rosado | ladrillo pintado y adobe | zinc gris | ninguno | continua | puerta doble café, ventanas con reja | [V]
+-33.64250, -70.35264 | Comercio poniente, esq. NO 3 Sur | casa | sin cartel | 1 | rosado salmón #D9756B | adobe | zinc a cuatro aguas | ninguno | continua | puerta vidriada oscura, 3 ventanas con reja | [V]
+— CRUCE 3 SUR (-33.64258)
+
+3 SUR – 4 SUR, lado oriente
+-33.64264, -70.35251 | Comercio oriente, esq. SE 3 Sur | casa | sin cartel | 1 | blanco | adobe | zinc rojizo | ninguno | continua | 2 puertas dobles de madera clara | [V]
+-33.64272, -70.35252 | Comercio oriente | botillería | "DON DRINK'S BOTILLERIA" (negro, sobre el techo); cenefa "BOTILLERIA" | 1 | celeste #7FC4E8 | adobe | zinc rojizo | ninguno | continua | jardinera en la vereda | [V]
+-33.64283, -70.35253 | Comercio oriente | casa (~25 m con la anterior) | plaquitas ilegibles | 1 | celeste #7FC4E8 | adobe | zinc rojizo | ninguno | continua | 3 ventanas de marco blanco con reja, 2 puertas de madera | [V]
+-33.64297, -70.35255 | Comercio oriente | casa (~15 m) | sin cartel | 1 | blanco con marcos rojos | adobe | rojo | ninguno | continua | 3 ventanas con reja blanca | [V]
+-33.64308, -70.35256 | Comercio oriente | muro perimetral | sin cartel | | blanco con cubremuro rojo | | | pandereta con concertina, portón de tablas | | pilar con tejas, casas retiradas | [V]
+-33.64318, -70.35256 | Comercio oriente | casa roja con blanco retirada ~20 m | sin cartel | 1 | rojo y blanco | | | madera (estacas sobre zócalo) y reja negra | antejardín | coníferas altas y palmera | [V]
+-33.64333, -70.35258 | Comercio oriente, esq. NE 4 Sur | muro de adobe (~20 m) | sin cartel | | blanco | adobe | albardilla de tejas | pandereta | | dos nichos en arco | [V]
+3 SUR – 4 SUR, lado poniente
+-33.64267, -70.35266 | Comercio poniente, esq. SO 3 Sur | casa | plaquita ilegible | 1 | verde #5CBF5A, zócalo terracota #A5513C | adobe | zinc gris | ninguno | continua | puerta de madera vidriada, ventana con reja | [V]
+-33.64281, -70.35267 | Comercio poniente | café | "Jardín del Maipo"; n.º "20019" | 1 | rojo #C2453F, zócalo de bolón con junta blanca | adobe | zinc oxidado | ninguno | continua | marcos blancos, guirnalda de luces, caballete de menú | [V]
+-33.64292, -70.35268 | Comercio poniente | oficina eléctrica | "CGE Oficina Comercial" (madera); n.º "20041" | 1 alto | rojo #D2473E | adobe | oculto tras parapeto | ninguno | continua | ventana con reja, bandera, cámara | [V]
+-33.64298, -70.35269 | Comercio poniente | portón vehicular de barras grises (~5 m) | sin cartel | | | | | reja | | malla negra detrás | [V]
+-33.64303, -70.35270 | Comercio poniente | edificio de ladrillo a la vista | sin cartel | 1 | ladrillo | ladrillo | | ninguno | continua | ventana enrejada | [V]
+-33.64312, -70.35271 | Comercio poniente | locales | "Crazy Natural"; "Todo para tus MASCOTAS"; "GROWSHOP & TABAQUERÍA"; puerta "DIDECO" | 1 | ladrillo a la vista con pilastras rojas | ladrillo | zinc | ninguno | continua | cortina metálica roja | [V]
+-33.64328, -70.35273 | Comercio poniente, esq. NO 4 Sur | casa | sin cartel | 1 | crema #E6DFC8 | adobe | zinc rojizo | ninguno | continua | 3 puertas de madera con postigos café, enredadera | [V]
+— CRUCE 4 SUR (-33.64343). Por 4 Sur, ~40 m al poniente: local gris con cartel de madera "FERRETERIA COMERCIO +56933283209".
+
+4 SUR – CAÑADA SUR, lado oriente
+-33.64352, -70.35261 | Comercio oriente, esq. SE 4 Sur | panadería | tablillas "PAN…ERIA", "CUATRO SUR", "COMERCIO 20106" (parcial) | 1 | rojo #D8423E | adobe | zinc | ninguno | continua | 2 puertas de marco blanco, persiana blanca | [V]
+-33.64360, -70.35261 | Comercio oriente | local cerrado o en obra | letrero redondo de madera "…Parada" | 1 | blanco | adobe | zinc oxidado | ninguno (vanos tapados con terciado) | continua | vitrinas de madera | [V]
+-33.64367, -70.35262 | Comercio oriente | paño con puerta de madera | sin cartel | 1 | ocre crema | | | ninguno | continua | | [V]
+-33.64373, -70.35262 | Comercio oriente | casa | plaquita | 1 | blanco | adobe | zinc oxidado | ninguno | continua | puerta de madera, ventana con reja, farol | [V]
+-33.64381, -70.35264 | Comercio oriente | local | letrero redondo color óxido con logo de montaña, ilegible | 1 | gris #8A8478 con marcos naranjos | adobe estucado | zinc rojizo, alero con luces | ninguno | continua | cortina metálica gris, 3 ventanas con reja | [V]
+-33.64391, -70.35265 | Comercio oriente | resto-bar | "ORÍGENES" (redondo) + "RESTO-BAR" | 1 | blanco, zócalo rojo teja #C96A5A | adobe | zinc gris | ninguno | continua | 2 ventanas de madera con reja blanca, puerta de madera | [V]
+-33.64399, -70.35266 | Comercio oriente | casa | sin cartel | 1 | crema, zócalo rosado | adobe | zinc | ninguno | continua | 2 ventanas blancas con reja, puerta de tablas | [V]
+-33.64405, -70.35266 | Comercio oriente | botillería | "BOTILLERIA" (negro, Coca-Cola) | 1 | crema rosado | adobe | zinc | ninguno | continua | toldo negro, afiches, bandera | [V]
+-33.64413, -70.35267 | Comercio oriente | casa | sin cartel | 1 | crema #EFE2B8, zócalo de piedra | adobe | zinc | ninguno | continua | 2 ventanas con postigos de madera, portón de garaje de madera | [V]
+-33.64422, -70.35267 | Comercio oriente, esq. NE Cañada Sur | casa | plaquita | 1 | rojo fucsia #E84A66 | adobe | zinc oxidado, alero de madera oscura | ninguno | continua | ventana con reja blanca, puerta de madera; sigue como muro rojo largo por Cañada Sur | [V]
+4 SUR – CAÑADA SUR, lado poniente
+-33.64350, -70.35276 | Comercio poniente, esq. SO 4 Sur | muro de adobe ~2,5 m con casa roja detrás | sin cartel | | rojo #C8473F | adobe | | pandereta | | | [V]
+-33.64358, -70.35276 | Comercio poniente | portón de forja ornamental negro entre pilares de ladrillo con faroles | n.º "201…" (parcial) | | | ladrillo | | reja | | | [V]
+-33.64372, -70.35277 | Comercio poniente | muro de ladrillo a la vista (~35 m) con casa retirada de techo rojo | sin cartel | | ladrillo | ladrillo | rojo | pandereta con 5 arcos rebajados enrejados y concertina | antejardín | | [V]
+-33.64412, -70.35290 | Comercio poniente | servicentro Copec, en la punta entre Comercio y CaV | tótem de precios Copec | | | | marquesina blanca y azul | pandereta de plancha gris | abierta | acceso vehicular, jardín ornamental | [V]
+— CRUCE CAÑADA SUR (-33.64433): bandejón con árboles, kiosco rojo y blanco al sur.
+
+====================================================
+CAMINO AL VOLCÁN (de norte a sur; relevamiento parcial)
+====================================================
+ENTRADA NORTE, lado poniente
+-33.63150, -70.35196 | CaV poniente | estructura baja abandonada sin techo | sin cartel | 1 | gris #8A8A85 | hormigón | sin techo | ninguno | retirada | grafitis, matorral, faroles negros | [V]
+-33.63356, -70.35217 | CaV poniente | casas bajo el nivel de la calle (una turquesa) | sin cartel | 1 | turquesa #5FC3C9 | | zinc gris | cerco de postes y malla | retirada | el terreno cae hacia el río | [V]
+-33.63411, -70.35223 | CaV poniente | sitio con contenedor/galpón | sin cartel | 1 | gris #9A9A94 | bloque de hormigón | | pandereta de bloque gris + reja negra | | farol negro en la vereda | [V]
+-33.63460, -70.35245 | CaV poniente | grupo de casas de madera | sin cartel | 1 | rojo #B5483C | madera | zinc rojo óxido a dos aguas | madera (tablas negras sobre zócalo de bolón), portón negro | antejardín | | [V]
+-33.63505, -70.35262 | CaV poniente | edificio de piedra (posible ex estación) | cartel blanco sobre postes, ilegible | 1 + mansardas | piedra gris #8C8C86 | bolón de río con mortero | zinc rojo óxido #9A4B32 a dos aguas, 2 mansardas de madera | cierre provisorio de paneles galvanizados con malla verde | retirada ~8–10 m | largo visible ~20 m, muro ~3 m, cumbrera ~6 m; conífera grande al norte; Google ubica el pin "Ex Estación San José de Maipo" en -33.63505,-70.35346, ~90 m más al poniente | [V] edificio; identificación [I]
+ENTRADA NORTE, lado oriente
+-33.63150, -70.35178 | CaV oriente | casas retiradas | sin cartel | 1 | | | | cerco/malla verde | antejardín | baranda peatonal metálica blanca en la vereda (~15 m) | [V]
+-33.63300, -70.35190 | CaV oriente | cabaña de madera elevada tras muro | sin cartel | 1 | madera café-naranja #B5703F | madera | | pandereta estucada gris | retirada | | [V]
+-33.63411, -70.35205 | CaV oriente | propiedad tras muro largo | sin cartel | | blanco #EDEBE4 | piedra pintada | | pandereta de piedra pintada blanca ~2 m | | eucaliptos grandes detrás | [V]
+-33.63460, -70.35227 | CaV oriente | casa en alto sobre talud | sin cartel | 1 | | madera | | madera, reja blanca | retirada | escalera de piedra desde la vereda | [V]
+-33.63508, -70.35235 | CaV oriente | casa de madera | sin cartel | 1 | rojo #B03A2E | madera | rojo a dos aguas | cierre de zinc ondulado azul-gris, seto | antejardín | celosía blanca en el corredor | [V]
+(Cañada Norte → 4 Norte: sin datos; ver pendientes.)
+
+4 NORTE – 3 NORTE
+-33.63785, -70.35318 | CaV poniente | casa | sin cartel | 1 | ocre #D9A441 | adobe estucado | | ninguno | continua | zócalo de piedra, grafiti | [V]
+-33.63792, -70.35318 | CaV poniente | casa larga | sin cartel | 1 | crema #E3D6B0 | adobe estucado | | ninguno | continua | zócalo de sillares grises ~0,9 m, puerta de madera con montante en arco, ventanas con rejas blancas | [V]
+-33.63808, -70.35322 | CaV poniente, esq. NO 3 Norte | local/casa de madera | no leído | 1 | madera #9C6B3F | tablas verticales | zinc gris-óxido a dos aguas | reja negra hacia 3 Norte | continua | zócalo de mosaico de piedra, banca | [V]
+-33.63775, -70.35300 | CaV oriente | casas con portón | sin cartel | 1 | | | | reja y portón metálicos rojos | antejardín | | [V]
+-33.63782, -70.35300 | CaV oriente | edificio antiguo tipo local | "SE VENDE" | 1 alto (~5 m) | rosado #E3A49A con franjas blancas | albañilería estucada | parapeto recto con cornisa blanca | ninguno | continua | zócalo de piedra gris, puerta blanca, ventana con reja | [V]
+-33.63795, -70.35300 | CaV oriente | sitio con galpón de madera | sin cartel | 1 | rojo #A8402F | madera | zinc | madera (listones grises ~1,8 m) | retirada | | [V]
+-33.63808, -70.35304 | CaV oriente, esq. NE 3 Norte | muro de cierre | sin cartel | | crema #E6DCC0 | | | pandereta estucada | | grafiti rosado | [V]
+3 NORTE – MADRE PAULA MONTAL
+-33.63822, -70.35322 | CaV poniente, esq. SO 3 Norte | muro de cierre | sin cartel | | ladrillo #A5503A | ladrillo | | pandereta | | | [V]
+-33.63841, -70.35322 | CaV poniente | casa de madera retirada | sin cartel | 1 | madera #8A5A3A | madera | café | pilares de piedra gris con portones metálicos rojos; seto con reja negra | antejardín | | [V]
+-33.63874, -70.35326 | CaV poniente | restaurante | "RUBÉN CASTILLO RESTAUR…" (letras de madera, se corta) | 1 | blanco #F0EEE6 + madera #9C6B3F | madera y estuco | rojizo | ninguno | continua | pérgola de madera al frente, mural de taza de café, pizarras en la vereda | [V]
+-33.63884, -70.35327 | CaV poniente | acceso vehicular | sin cartel | | | piedra | | reja negra entre pilares de piedra | | | [V]
+-33.63895, -70.35327 | CaV poniente, esq. NO M. P. Montal | casa antigua | sin cartel | 1 | crema-amarillo #E8D9A0 | adobe estucado | zinc rojo óxido a cuatro aguas | ninguno | continua | zócalo de piedra gris, ventanas con postigos y rejas, grafitis | [V]
+-33.63822, -70.35304 | CaV oriente, esq. SE 3 Norte | casa de madera con palmera | sin cartel | 1 | | madera | | pandereta de ladrillo + cerco metálico gris | antejardín | | [V]
+-33.63841, -70.35304 | CaV oriente | casa moderna al fondo de un jardín | sin cartel | 2 | blanco-gris #DAD8D2 | hormigón | plano | madera (tablas oscuras sobre zócalo de piedra) | retirada | | [V]
+-33.63859, -70.35306 | CaV oriente | propiedad tras muro | sin cartel | | gris #9A958C | | | pandereta estucada ~2 m + portón metálico rojo | | bastidor de letrero vacío | [V]
+-33.63880, -70.35300 | CaV oriente, esq. NE M. P. Montal | edificio de 4 pisos (colegio) | sin cartel visible | 4 | blanco #F2F0E8 con antepechos ladrillo #B5503A | hormigón y ladrillo | zinc blanco con aleros | madera (tablas negras); en la esquina muro de bolón + reja negra con seto | retirada ~10 m | galpón de zinc delante | [V]; nombre Colegio Rafael Eyzaguirre [I]
+MADRE PAULA MONTAL – DE LA INMACULADA
+-33.63912, -70.35334 | CaV poniente, esq. SO M. P. Montal | tienda de ropa/artesanía | "Bella Carol" | 1 | madera #9C6B3F | tablas | zinc | madera hacia M. P. Montal | continua | maniquíes con traje de huaso y china, banderines | [V]
+-33.63927, -70.35331 | CaV poniente | casa | sin cartel | 1 | rojo #B5403A | adobe estucado | zinc rojo óxido | ninguno | continua | ventanas y puerta con rejas blancas, cortina metálica gris al norte | [V]
+-33.63940, -70.35332 | CaV poniente | casa | sin cartel | 1 | ocre-naranjo #E0A040 | adobe estucado | parapeto recto | ninguno | continua | marcos blancos con rejas, ventana redonda con reja, zócalo gris | [V]
+-33.63948, -70.35333 | CaV poniente | portón de operador de rafting | "RAFTING ¡Por la mejor sección del Río Maipo! WWW.RUTAVERTICAL.CL" | | madera #7A5236 | madera | | madera (portón de dos hojas ~3 m, remate curvo) | continua | | [V]
+-33.63956, -70.35334 | CaV poniente | casa/sede de club deportivo | escudo "CD" (resto ilegible) | 1 | azul oscuro #2F4E9C | adobe estucado | zinc gris | ninguno | continua | puerta de madera, ventanas con rejas | [V]
+-33.63964, -70.35334 | CaV poniente | casa | sin cartel | 1 | azul #4F86C6 | adobe estucado | | ninguno | continua | ventana de madera con postigos, zócalo más oscuro | [V]
+-33.63972, -70.35335 | CaV poniente | edificio con locales | "WIKEN" (madera tallada); vertical amarillo "…IONES" | 2 | rojo #B5403A (paños verde y azul abajo) | adobe + madera | zinc, alero ancho | ninguno | continua | balcón-corredor de madera en 2º piso con pilares blancos, zócalo de piedra, pizarra de menú | [V]
+-33.63912, -70.35312 | CaV oriente, esq. SE M. P. Montal | edificio del colegio | lienzo "Tallarinata Solidaria" | 2 | rojo #B5403A y blanco | albañilería | café a dos aguas | muro de bolón ~1,2 m + reja | retirada | araucaria chica | [V]
+-33.63927, -70.35313 | CaV oriente | multicancha y gimnasio del colegio | lienzo "Colegio Rafael Eyzaguirre" (parcial) | 1 alto | ladrillo #A5503A | ladrillo, frontón café | dos aguas | muro de bolón ~2 m + reja tubular salmón ~3 m | retirada | pabellones blancos de techo rojo al fondo | [V]
+-33.63946, -70.35315 | CaV oriente | sigue el muro de la multicancha | sin cartel | | piedra #8C8C86 | bolón | | muro de bolón + reja tubular roja | | pimiento grande | [V]
+-33.63964, -70.35316 | CaV oriente | acceso y patio de puestos | sin cartel | 1 | blanco | | toldos blancos | portón metálico rojo, cerco de tablas | | mural de ave sobre muro blanco, hiedra, quiosco magenta | [V]
+— CRUCE DE LA INMACULADA — PLAZA (costado poniente arriba) — CRUCE 1 SUR (-33.6408)
+
+1 SUR – 2 SUR
+-33.64086, -70.35385 | 1 Sur lado sur | LICEO POLIVALENTE, bloque de aulas (~55 × 10 m, ~7 m) | no leído | 2 | salmón #E39A8A con franja verde abajo | hormigón | plano, borde verde | reja metálica amarillo-verde | retirada ~4 m | ventanas corridas de marco blanco, pilastras, estacionamiento en batería | [V]; dimensiones [I]
+-33.64100, -70.35352 | CaV poniente | Liceo, acceso y jardín (frente total a CaV ~95 m) | letrero sobre el portón, ilegible; placa azul | 1 | rojo #B5403A | albañilería | zinc gris | reja negra baja; portón de madera | antejardín ~10 m | palmera canaria grande, escultura de madera, pabellón largo con corredor | [V]
+-33.64122, -70.35352 | CaV poniente, en la vereda | paradero de taxis + caseta blanca | "PARADERO DE TAXIS"; "TAXI" | 1 | madera #9C6B3F / blanco | madera | un agua, tapacán verde | ninguno | sobre la vereda | bancas bajo el refugio, solera amarillo/negro | [V]
+-33.64130, -70.35354 | CaV poniente | quiosco | ilegible | 1 | naranjo #E0782F | madera/metal | plano | ninguno | sobre la vereda | | [V]
+-33.64150, -70.35358 | CaV poniente, hacia 2 Sur | Liceo, gimnasio (~35 × 20 m, ~9 m) | no leído | 1 alto | ladrillo #A5503A abajo, paneles beige #CFC7B0 arriba | ladrillo + paneles | zinc verde #3F8F4F | reja negra hacia 2 Sur | retirada | arriostramientos en X, álamos en fila por 2 Sur | [V]; dimensiones [I]
+-33.64092, -70.35332 | CaV oriente, esq. SE 1 Sur | propiedad con jardín | sin cartel | | | | | muro de bolón ~1,5 m + reja oscura, enredadera | antejardín | farol negro | [V]
+-33.64102, -70.35332 | CaV oriente | casa retirada | sin cartel | 1 | rojo/madera #A8482F | madera | | murete de piedra rojiza + reja negra, portón negro | antejardín con pasto | palmera, plátano oriental en la vereda | [V]
+-33.64112, -70.35333 | CaV oriente | terraza de local con carpas blancas | sin cartel | | | | toldos blancos | madera (listones verticales) y malla | | pasto sintético | [V]
+-33.64120, -70.35333 | CaV oriente | local de empanadas | "CHARLIE EMPANADAS" | 1 | blanco #F2F0E8 | albañilería | zinc a dos aguas | madera (tablas horizontales barnizadas) | antejardín ~6 m | árboles grandes desmochados en la vereda | [V]
+(-33.6413 → 3 Sur: sin datos; ver pendientes.)
+
+3 SUR – 4 SUR
+-33.64277, -70.35372 | CaV poniente, borde norte de la plazuela | almacén/botillería con terraza | "MEQUI…" (letrero rojo Coca-Cola, cortado) | 1 | blanco #F0EEE6 | | rojizo | reja blanca | continua | quitasoles naranjos y mesas en la vereda | [V] jul 2023
+-33.64295, -70.35375 | CaV poniente | PLAZUELA ALCALDE FERNANDO DE LA PAZ (~55 × 35 m) | no leído | | | | | reja negra baja por 4 Sur | | árboles, senderos de tierra, bancas, faroles negros, monumento central | [V] jul 2023; dimensiones [I]
+-33.64267, -70.35348 | CaV oriente | casa | sin cartel | 1 | blanco #F2F0E8 | albañilería estucada | zinc rojo óxido | pilares blancos + reja negra sobre murete; portón metálico gris oscuro | antejardín | pino/casuarina en la platabanda | [V] jul 2023
+-33.64286, -70.35350 | CaV oriente | casa tras muro | sin cartel | 1 | blanco y azul; muro café #8A6B4E | adobe/bloque sin estucar | | pandereta ~2 m con 2 portones de madera | retirada | celosía de madera rojiza sobre el muro | [V] jul 2023
+-33.64315, -70.35352 | CaV oriente, esq. NE 4 Sur | IGLESIA SUD (predio ~45 m de frente; edificio retirado ~20 m, ~5 m de alto) | no leído | 1 | beige #D8CDB0 | albañilería | gris a dos aguas | zócalo de bolón + reja de fierro gris; seto | antejardín ~20 m con pasto | sendero central de hormigón, palmera, ciprés grande, asta | [V] jul 2023; dimensiones [I]
+4 SUR – CAÑADA SUR
+-33.64345, -70.35375 | CaV poniente, esq. SO 4 Sur | casa antigua | ilegible | 1 | rojo #B5403A | adobe estucado | zinc gris | ninguno | continua | zócalo de piedra, ventanas de marco blanco con rejas, puerta de madera | [V] jul 2023
+-33.64357, -70.35376 | CaV poniente | sitio | sin cartel | | gris oscuro #4A4A4A | metal | | pandereta y portón de plancha metálica | | árbol grande detrás | [V] jul 2023
+-33.64366, -70.35377 | CaV poniente | casa retirada | sin cartel | 1–2 | rojo | | rojo | muro de ladrillo rojo + reja negra | antejardín | | [V]
+-33.64378, -70.35378 | CaV poniente | casa | sin cartel | 1 | crema #E8DDB5, frontón de madera café | albañilería/madera | zinc óxido a dos aguas | pilares salmón + reja negra | antejardín | | [V]
+-33.64393, -70.35376 | CaV poniente | casa | sin cartel | 1 | amarillo #E0C050 | | verde | madera, muro de ladrillo | antejardín | | [V] sept 2012
+-33.64413, -70.35384 | CaV poniente, esq. NO Cañada Sur | casa | sin cartel | 2 | crema #E3D9BE | siding | rojo con mansardas | muro de ladrillo rojo + reja negra; portal de madera a dos aguas | antejardín | | [V]
+-33.64345, -70.35353 | CaV oriente, esq. SE 4 Sur | casas pareadas | sin cartel | 2 | ocre #D9A441 y café-rojo #8A4A3A | albañilería abajo, zinc arriba | zinc | madera sobre zócalo de piedra | antejardín chico | | [V] jul 2023
+-33.64357, -70.35356 | CaV oriente | casas pareadas | sin cartel | 2 | salmón #E3A07A, gris-café, rojo #B03A2E | albañilería + zinc ondulado | zinc | rejas negras | antejardín chico | luego sale el Pje. Uno | [V] jul 2023
+-33.64368, -70.35357 | CaV oriente | casa | sin cartel | 2 | blanco #F2F0E8 | albañilería | | reja blanca | antejardín | | [V] jul 2023
+-33.64378, -70.35358 | CaV oriente | casas pareadas | sin cartel | 2 | blanco y turquesa #5FC3C9 | albañilería | zinc | rejas negras | antejardín | porches de madera a dos aguas agregados | [V]
+-33.64393, -70.35355 | CaV oriente, boca del Pje. Dos | casas pareadas | sin cartel | 2 | rosado #E3B0A0 y verde #7FC8A0 | ladrillo pintado, zinc arriba | zinc | rejas | antejardín | | [V] sept 2012
+-33.64408, -70.35362 | CaV oriente | edificio con local abajo | ilegible | 2 | blanco #F0EEE6 | albañilería | zinc | ninguno | continua | | [V]
+-33.64413, -70.35363 | CaV oriente | tienda de mascotas | "Patas Garras" | 1 (bajo vivienda de 2) | rojo #B5402F | zinc ondulado | zinc | ninguno | continua | poste con flechas de madera | [V]
+-33.64420, -70.35363 | CaV oriente, esq. NE Cañada Sur | casa | sin cartel | 2 | azul #2F8FD0 | zinc | zinc | madera (rojo-naranjo) | antejardín | palmera chica | [V]
+— CRUCE CAÑADA SUR (-33.6443)
+
+CAÑADA SUR Y SALIDA SUR
+-33.64405, -70.35304 | Cañada Sur lado norte, entre CaV y Comercio | COPEC (marquesina ~18 × 8 m, ~5,5 m; tótem ~7 m; predio ~40 × 35 m) | "COPEC" (marquesina y tótem azul con precios) | 1 | blanco #F5F5F5 con banda azul #1F4FA0 y roja | metal | marquesina plana | ninguno | abierta | 2 islas, muro de bloque gris al poniente | [V]; dimensiones [I]
+-33.64430, -70.35252 | Cañada Sur, empalme con Comercio | TERMINAL DE BUSES (edificio ~20 × 8 m, ~3,5 m; patio ~40 × 30 m) | no leído | 1 | rojo oscuro #9B2D2D | albañilería | café a dos aguas | ninguno | patio abierto | buses azul/blanco, plátanos orientales | [V]; dimensiones [I]
+-33.64448, -70.35245 | Cañada Sur lado sur | quiosco de comida | ilegible | 1 | rojo y blanco | madera | toldo listado rojo/blanco | ninguno | sobre la vereda | | [V]
+-33.64440, -70.35395 | esq. SO Cañada Sur / Sta. Gemita | plaza de juegos | sin cartel | | | | | baranda baja | | resbalín verde, columpios, postes azul/rojo | [V]
+-33.64460, -70.35388 | Sta. Gemita poniente | iglesia evangélica | "IGLESIA PENTECOSTAL NACIENTE / CLASE SAN JOSE DE MAIPO" | 1 | naranjo #D9743A | albañilería | zinc gris de poca pendiente | ninguno | continua | puerta blanca, ventana con reja | [V]
+-33.64456, -70.35355 | Sta. Gemita oriente | restaurante | "Tradición de Montaña" | 1 | rojo #C0392B | albañilería | zinc | ninguno | abierta a plazoleta de maicillo | toldo listado azul/blanco, chimenea de zinc, faroles dobles negros | [V]
+-33.64474, -70.35290 | CaV poniente | quiosco/minimarket | letrero rojo, ilegible | 1 | blanco/rojo | | toldo azul | ninguno | continua | quincho de madera al lado | [V]
+-33.64470, -70.35268 | CaV oriente | chalet antiguo grande | letrero verde en la reja, ilegible | 2 (con mansardas) | blanco/madera | madera | zinc gris con paños rojos | reja blanca con pilares de hormigón + portón corredero | antejardín profundo | bandera | [V]
+-33.64498, -70.35280 | CaV poniente | casas continuas | sin cartel | 1 | blanco #F0EEE6 y rojo #B5403A | albañilería | zinc gris | rejas negra y roja, setos | antejardín chico | pimiento grande; al sur nace la calle Estadio | [V] jul 2023
+-33.64495, -70.35258 | CaV oriente | chalet de madera | sin cartel | 2 | madera oscura #5A4030 | madera | empinado, café-gris | pilares de piedra + reja negra | antejardín | hilera de plátanos orientales podados | [V] jul 2023
+-33.64520, -70.35238 | CaV oriente | restaurante rústico | ilegible | 1 | madera/blanco | madera | verde | pandereta blanca festoneada | antejardín | | [V]
+-33.64558, -70.35220 | entre CaV y calle Estadio | PLAZA GENERAL CARRERA (triángulo ~70 × 25 m) | no leído | | | | | reja metálica baja blanco-verde | | césped, palmeras, paulownias, monumento central, faroles | [V]; dimensiones [I]
+-33.64574, -70.35166 | CaV oriente | CUARTEL GENERAL DE BOMBEROS (cuerpo principal ~14 × 10 m, ~6,5 m; ala baja ~15 × 8 m; torre-antena ~20 m) | no leído | 1 alto | rojo #C0392B con molduras blancas | albañilería | zinc gris a dos aguas | ninguno | retirada ~15 m, explanada de hormigón | portón vidriado con retícula roja, puerta de madera, mástil con bandera, torre-antena roja/blanca, ala baja con paneles solares | [V]; dimensiones [I]
+-33.64590, -70.35185 | CaV poniente | muro perimetral del estadio | sin cartel | | piedra multicolor #7A7A78 | piedra con mortero | | pandereta de piedra ~2,5 m + malla verde ~2 m | continua | grafitis | [V]
+-33.64600, -70.35255 | calle Estadio, fondo | ACCESO ESTADIO MUNICIPAL | letrero azul/blanco, ilegible | | piedra / hormigón gris | piedra y hormigón | graderías de hormigón | portones entre pilares de piedra (~6 m de luz) | | caseta de piedra, parque lineal con juegos al poniente | [V]
+
+====================================================
+PENDIENTES Y DUDAS
+====================================================
+- Camino al Volcán sin datos: Cañada Norte → 4 Norte (ahí están, según OSM, Subcomisaría -33.63653,-70.35325; Registro Civil -33.63671,-70.35327; Juzgado de Policía Local -33.63701,-70.35330; Correos -33.63726,-70.35298); oriente entre -33.6413 y 2 Sur; 2 Sur → 3 Sur por ambos lados; -33.6352 → -33.6363.
+- Ex estación: solo una vista lejana del edificio de piedra; no confirmé que sea la estación, ni su largo, andén o corredor.
+- Puentes: ninguno visto dentro del pueblo ni hasta -33.6315 por CaV; no revisé Calle del Río ni más al norte.
+- Costado norte de la plaza: solo imagen de 2014; que el pabellón rojo sea del Colegio Rafael Eyzaguirre y que la casa roja contigua sea la casa parroquial son inferencias.
+- Costado sur: el edificio central de 2 pisos y el nombre del restaurante de la esquina no se leyeron; "BancoEstado" viene de OSM/Google, no de un cartel.
+- Plaza: el número exacto de senderos, las especies de árboles y las identidades de los bustos son inferidos; el satélite no deja ver el trazado por la copa de los árboles.
+- Remate de la torre de la iglesia: linterna blanca en 2025, cúpula verde en 2014; conviene confirmarlo con una foto cercana.
+- Hospital: el frente del pabellón está tapado hasta ~2,4 m por el cierro de obra; largos estimados desde la calle.
+- Carteles con lectura parcial: nombre de la pollería de la esquina de la plaza, "ESCUELA MIXTA SUPERIOR", "Donde de Pe?ito", "Ruta 25", 'Carnicería "Minch…"', "Funeraria Mag…", "MEQUI…", "RUBÉN CASTILLO RESTAUR…".
+- No vi carteles de varios locales que OSM lista (Gelatería Nevadas, Sabores de Montaña, La Perla, Nomadas Vet, Biblioteca Kimun, Cafe Jennie's, Chocolatería Adicción del Maipo, Cajón del Plato, Ferretería Tricolor, El Pollo Montañés).
+- No revisé Mapillary, Wikimedia Commons ni el sitio del Consejo de Monumentos; el PDF municipal de criterios de intervención no se pudo leer.

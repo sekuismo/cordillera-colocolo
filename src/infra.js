@@ -45,6 +45,17 @@ void main() {
     // Baranda: pasamanos, zócalo, larguero y parantes; el resto es aire. De lejos se deja opaca para que no centellee.
     float bars = step(fract(vInfo.x / 1.6), 0.07) + step(0.9, vInfo.y) + step(vInfo.y, 0.1) + step(abs(vInfo.y - 0.5), 0.05);
     if (bars < 0.5 && fwidth(vInfo.y) < 0.35) discard;
+  } else if (kind > 3.5 && kind < 4.5) {
+    // Baranda vial del Cajón del Maipo: tres barras blancas sobre postes rojo-anaranjado, cada 2 m.
+    float post = step(fract(vInfo.x / 2.0), 0.06), bar = step(abs(vInfo.y - 0.94), 0.05) + step(abs(vInfo.y - 0.62), 0.045) + step(abs(vInfo.y - 0.3), 0.045);
+    if (post + bar < 0.5 && fwidth(vInfo.y) < 0.35) discard;
+    col = post > 0.5 ? vec3(0.42, 0.10, 0.045) : vec3(0.60, 0.60, 0.58);
+  } else if (kind > 4.5) {
+    // Cercha: cordones arriba y abajo, montantes cada 2,4 m y una diagonal por paño, alternada.
+    float fx = fract(vInfo.x / 2.4), h = vInfo.y / max(vInfo.w, 0.5);
+    float chord = step(h, 0.1) + step(0.9, h), vert = step(fx, 0.05) + step(0.95, fx);
+    float diag = step(abs((mod(floor(vInfo.x / 2.4), 2.0) < 0.5 ? fx : 1.0 - fx) - h), 0.06);
+    if (chord + vert + diag < 0.5 && fwidth(vInfo.y) < 0.6) discard;
   }
   float ndl = max(dot(N, uSunDir), 0.0);
   vec3 c = col * (uSunColor * ndl * vShade + uAmbient * (0.6 + 0.4 * N.y));
@@ -124,6 +135,23 @@ class Mesher {
   }
 }
 
+// Puentes relevados (Street View y satélite, 2023–2025): los que no son "una losa con baranda". El resto lleva el modelo
+// común del Cajón del Maipo: vereda angosta a cada lado y baranda de barras blancas sobre postes rojo-anaranjado.
+//   jersey: barrera de hormigón tipo New Jersey al borde de la calzada · arch: arco de hormigón de tablero superior ·
+//   truss: cerchas metálicas a los costados (color) de alto th · wood: tablero de tablones · walk: ancho de vereda (m) ·
+//   hw: semiancho real de la calzada · girder: pasarela sobre vigas y pilas, sin cables (ex puente ferroviario)
+const GREEN = [20, 50, 28], GALV = [98, 100, 102], SIDEWALK = [86, 84, 78];
+const BRIDGE_STYLES = [
+  { lat: -33.58064, lon: -70.40812, jersey: true },                                   // El Manzano: New Jersey con grafitis y, por fuera, la vereda con su baranda
+  { lat: -33.59386, lon: -70.37087, arch: true },                                     // Río Colorado: arco de hormigón sobre la garganta
+  { lat: -33.68497, lon: -70.33851, jersey: true, walk: 0 },                          // al norte de El Melocotón
+  { lat: -33.73409, lon: -70.30112, truss: GALV, th: 1.8, walk: 0 },                  // San Alfonso: puente mecano galvanizado
+  { lat: -33.76824, lon: -70.27401, truss: GREEN, th: 1.7, wood: true, walk: 0, hw: 1.9 }, // El Ingenio: reticulado verde de una pista con tablones
+  { lat: -33.67890, lon: -70.34201, walk: 0.9, hw: 3.0 },                             // El Toyo: calzada angosta sin eje pintado
+  { lat: -33.82649, lon: -70.06451, walk: 0, hw: 2.0 },                               // Baños Morales: una pista
+  { lat: -33.59537, lon: -70.37326, girder: true },                                   // ex puente ferroviario del río Colorado
+];
+
 const unpack = (flat) => { const p = new Float64Array(flat.length); for (let i = 0; i < flat.length; i++) p[i] = flat[i] / 10; return p; };
 const cellKey = (x, z, size) => Math.floor(x / size) * 8192 + Math.floor(z / size);
 
@@ -136,7 +164,13 @@ export class Infra {
     const feat = (x, z) => { const k = cellKey(x, z, CHUNK); let f = this.features.get(k); if (!f) this.features.set(k, (f = { bridges: [], towers: [], pipes: [], lifts: [] })); return f; };
 
     // --- puentes: además de dibujarse, se pueden pisar; por eso llevan un índice espacial propio
-    this.bridges = data.bridges.map(([w, flat]) => ({ foot: w < 0, hw: Math.abs(w) / 20, pts: unpack(flat), st: null }));
+    this.bridges = data.bridges.map(([w, flat]) => ({ foot: w < 0, hw: Math.abs(w) / 20, pts: unpack(flat), st: null, style: null, walk: 0 }));
+    for (const b of this.bridges) { // ¿es uno de los relevados? (su punto medio a menos de 90 m)
+      const n = b.pts.length / 2, mx = (b.pts[0] + b.pts[n * 2 - 2]) / 2, mz = (b.pts[1] + b.pts[n * 2 - 1]) / 2;
+      for (const s of BRIDGE_STYLES) if (Math.hypot((s.lon - manifest.core.west) * manifest.mPerDegLon - mx, (manifest.core.north - s.lat) * manifest.mPerDegLat - mz) < 90 && (!s.girder || b.foot)) b.style = s;
+      if (b.style && b.style.hw) b.hw = b.style.hw;
+      b.walk = b.foot ? 0 : b.style && b.style.walk !== undefined ? b.style.walk : 1.05;
+    }
     this.hash = new Map();
     for (const b of this.bridges) {
       const p = b.pts, n = p.length / 2; let last = -1;
@@ -203,7 +237,7 @@ export class Infra {
       const list = this.hash.get((cx + dx) * 8192 + cz + dz); if (!list) continue;
       for (const b of list) {
         if (b._q === this._tick) continue; b._q = this._tick;
-        const st = this._profile(b), lim = (b.hw + 0.25) ** 2;
+        const st = this._profile(b), lim = (b.hw + b.walk + 0.25) ** 2;
         for (let i = 0; i < st.length - 1; i++) {
           const a = st[i], c = st[i + 1], ex = c.x - a.x, ez = c.z - a.z, t = Math.max(0, Math.min(1, ((x - a.x) * ex + (z - a.z) * ez) / (ex * ex + ez * ez || 1e-6)));
           const px = x - a.x - ex * t, pz = z - a.z - ez * t;
@@ -216,25 +250,55 @@ export class Infra {
   }
 
   _bridge(M, b) {
-    const st = this._profile(b), hw = b.hw, foot = b.foot, T = foot ? 0.3 : Math.min(2.2, Math.max(0.9, b.L / 26));
+    const st = this._profile(b), hw = b.hw, foot = b.foot, T = foot ? 0.3 : Math.min(2.2, Math.max(0.9, b.L / 26)), S = b.style || {};
+    const ow = hw + b.walk; // borde exterior del tablero: la calzada más la vereda
     const pt = (q, side, dy = 0, off = hw) => [q.x - q.tz * side * off, q.y + dy, q.z + q.tx * side * off];
-    const top = foot ? WOOD : ASPHALT, body = foot ? RAIL : CONCRETE;
+    const top = foot || S.wood ? WOOD : ASPHALT, body = foot ? RAIL : S.truss || CONCRETE;
     for (let i = 0; i < st.length - 1; i++) {
       const a = st[i], c = st[i + 1];
-      M.quad(pt(a, 1), pt(a, -1), pt(c, -1), pt(c, 1), top, foot ? 0 : 1, hw, -hw, a.s, c.s, hw);                          // calzada
-      M.quad(pt(a, 1, -T), pt(c, 1, -T), pt(c, -1, -T), pt(a, -1, -T), body);                                                // fondo
+      M.quad(pt(a, 1), pt(a, -1), pt(c, -1), pt(c, 1), top, foot || S.wood ? 0 : 1, hw, -hw, a.s, c.s, hw);                // calzada
+      M.quad(pt(a, 1, -T, ow), pt(c, 1, -T, ow), pt(c, -1, -T, ow), pt(a, -1, -T, ow), body);                              // fondo
       for (const side of [1, -1]) {
-        M.quad(pt(a, side, -T), pt(c, side, -T), pt(c, side), pt(a, side), body);                                             // costado de la viga
-        if (foot) M.quad(pt(a, side), pt(c, side), pt(c, side, 1.1), pt(a, side, 1.1), RAIL, 2, a.s, c.s, 0, 1);              // baranda
-        else {                                                                                                                 // barrera de hormigón
-          M.quad(pt(a, side), pt(c, side), pt(c, side, 0.85), pt(a, side, 0.85), CONCRETE);
-          M.quad(pt(a, side, 0.85), pt(c, side, 0.85), pt(c, side, 0.85, hw - 0.3), pt(a, side, 0.85, hw - 0.3), CONCRETE);
-          M.quad(pt(a, side, 0, hw - 0.3), pt(c, side, 0, hw - 0.3), pt(c, side, 0.85, hw - 0.3), pt(a, side, 0.85, hw - 0.3), CONCRETE);
+        M.quad(pt(a, side, -T, ow), pt(c, side, -T, ow), pt(c, side, 0, ow), pt(a, side, 0, ow), body);                      // costado de la viga
+        if (foot) { M.quad(pt(a, side), pt(c, side), pt(c, side, 1.1), pt(a, side, 1.1), RAIL, 2, a.s, c.s, 0, 1); continue; } // baranda de pasarela
+        const up = b.walk > 0 ? 0.18 : 0;
+        if (b.walk > 0) { // vereda: solera y losa, 18 cm sobre la calzada
+          M.quad(pt(a, side), pt(c, side), pt(c, side, up), pt(a, side, up), CONCRETE);
+          M.quad(pt(a, side, up), pt(c, side, up), pt(c, side, up, ow), pt(a, side, up, ow), SIDEWALK);
         }
+        if (S.jersey) { // barrera de hormigón al borde de la calzada (la vereda queda por fuera)
+          M.quad(pt(a, side, 0, hw - 0.28), pt(c, side, 0, hw - 0.28), pt(c, side, 0.82, hw - 0.12), pt(a, side, 0.82, hw - 0.12), CONCRETE);
+          M.quad(pt(a, side, 0.82, hw - 0.12), pt(c, side, 0.82, hw - 0.12), pt(c, side, 0.82, hw + 0.06), pt(a, side, 0.82, hw + 0.06), CONCRETE);
+          M.quad(pt(a, side, up, hw + 0.2), pt(c, side, up, hw + 0.2), pt(c, side, 0.82, hw + 0.06), pt(a, side, 0.82, hw + 0.06), CONCRETE);
+        }
+        if (S.truss) M.quad(pt(a, side, 0, ow + 0.1), pt(c, side, 0, ow + 0.1), pt(c, side, S.th, ow + 0.1), pt(a, side, S.th, ow + 0.1), S.truss, 5, a.s, c.s, 0, S.th, S.th); // cercha
+        else if (b.walk > 0 || !S.jersey) M.quad(pt(a, side, up, ow), pt(c, side, up, ow), pt(c, side, up + 1.1, ow), pt(a, side, up + 1.1, ow), STEEL, 4, a.s, c.s, 0, 1); // baranda blanca y roja
       }
     }
-    for (const q of [st[0], st[st.length - 1]]) M.quad(pt(q, 1, -T), pt(q, -1, -T), pt(q, -1), pt(q, 1), body);              // tapas
-    if (foot) {
+    for (const q of [st[0], st[st.length - 1]]) M.quad(pt(q, 1, -T, ow), pt(q, -1, -T, ow), pt(q, -1, 0, ow), pt(q, 1, 0, ow), body); // tapas
+    if (S.arch) {
+      // Arco de tablero superior: dos costillas que arrancan abajo, en las paredes de la garganta, y tocan el tablero al
+      // centro; sobre ellas, columnas que lo sostienen. Sin cepas en el cauce.
+      const n = st.length, o = hw * 0.78;
+      let clear = 0; for (const q of st) clear = Math.max(clear, q.y - T - q.g);
+      const depth = Math.max(4, Math.min(clear * 0.85, b.L * 0.3));
+      const ya = (q) => { const t = (2 * q.s) / b.L - 1; return -T - 0.4 - depth * t * t; }; // relativo a la calzada
+      for (let i = 0; i < n - 1; i++) {
+        const a = st[i], c = st[i + 1], ya0 = ya(a), ya1 = ya(c);
+        for (const side of [1, -1]) {
+          M.quad(pt(a, side, ya0, o), pt(c, side, ya1, o), pt(c, side, ya1 - 1.4, o), pt(a, side, ya0 - 1.4, o), CONCRETE);
+          M.quad(pt(a, side, ya0, o - 0.9), pt(c, side, ya1, o - 0.9), pt(c, side, ya1 - 1.4, o - 0.9), pt(a, side, ya0 - 1.4, o - 0.9), CONCRETE);
+          M.quad(pt(a, side, ya0, o), pt(c, side, ya1, o), pt(c, side, ya1, o - 0.9), pt(a, side, ya0, o - 0.9), CONCRETE);
+          M.quad(pt(a, side, ya0 - 1.4, o), pt(c, side, ya1 - 1.4, o), pt(c, side, ya1 - 1.4, o - 0.9), pt(a, side, ya0 - 1.4, o - 0.9), CONCRETE);
+        }
+      }
+      for (let i = 1; i < n - 1; i++) {
+        const q = st[i], h = -T - ya(q); if (h < 0.7 || i % 2) continue;
+        for (const side of [1, -1]) { const p = pt(q, side, 0, o - 0.45); M.box(p[0], q.y + ya(q), p[2], q.tx, q.tz, 0.28, 0.4, h, CONCRETE); }
+      }
+      return;
+    }
+    if (foot && !S.girder) {
       // Pasarela colgante: mástiles en los extremos y dos cables portantes que bajan casi hasta la baranda al centro.
       if (b.L < 28) return;
       const a = st[0], c = st[st.length - 1], mh = Math.min(7, 2.5 + b.L * 0.045);

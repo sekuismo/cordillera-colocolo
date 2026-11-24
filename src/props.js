@@ -9,6 +9,7 @@
 //              lo nativo es siempre verde: esa es la gracia del bosque esclerófilo.
 import * as THREE from 'three';
 import { COMMON_VERT, ATMOS_GLSL } from './shaders.js';
+import { PAREDES, COMUNES } from './pueblos.js';
 
 const TYPES = [
   { key: 'pasto', cell: 6, range: 60, per: 14, max: 9000 },
@@ -19,6 +20,7 @@ const TYPES = [
   { key: 'casa', cell: 15, range: 560, per: 1, max: 6000 },
   { key: 'alto', cell: 6, range: 520, per: 1, max: 5000, lod: 120 },  // árboles columnares o cónicos
   { key: 'vid', cell: 9, range: 190, per: 3, max: 6000 },    // hileras de parra
+  { key: 'reja', cell: 15, range: 170, per: 0, max: 5000 },  // cierres de antejardín: solo salen de los edificios reales (ver _step)
 ];
 // Radio (m) y densidad máxima de construcciones alrededor de cada localidad OSM, según su tipo.
 const URBAN = { ciudad: [4500, 1], pueblo: [950, 0.85], barrio: [1500, 0.8], villa: [430, 0.7], caserio: [150, 0.5] };
@@ -32,12 +34,19 @@ uniform vec2 uAnchor, uCoreSize;
 uniform float uTime, uRange;
 uniform vec3 uLeaf; // x: hoja en los caducos (0 = invierno), y: color de otoño, z: floración
 uniform sampler2D uCoreAlb, uShadow;
+#if TYPE == 5
+uniform highp sampler2DArray uSat; // imagen de alta resolución (sat.js): de ahí sale el color real de cada techo
+uniform vec4 uSatA[3];
+uniform vec3 uSatB[3];
+varying vec4 vRoof;
+#endif
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
 varying float vVar, vShade, vAlong;
 void main() {
   vec3 p = position;
   vAlong = 0.0;
+  vec2 fl = vec2(0.0);
   float fade = 1.0 - smoothstep(uRange * 0.72, uRange, length(iPR.xyz - uCamRel)); // se encoge al borde del alcance: sin "pop"
   float kind = floor(iSV.y), crown = step(0.5, uv.x);
   vec2 sway = vec2(sin(uTime * 0.9 + iPR.x * 0.2), cos(uTime * 0.7 + iPR.z * 0.2)) * 0.03 * crown;
@@ -60,9 +69,10 @@ void main() {
   #elif TYPE == 5
     if (iSV.x < 0.0) { // edificio real (zones.js): el rectángulo de su huella, con sus pisos (o un estimado)
       float q = -iSV.x, L = floor(q / 1000.0) * 0.1, Wd = (q - floor(q / 1000.0) * 1000.0) * 0.1;
-      float floors = max(1.0, floor(iSV.y)), H = floors * 2.9 + 0.3;
+      // Ninguna casa mide lo mismo que la del lado: la altura del muro y la pendiente del techo varían de una a otra.
+      float floors = max(1.0, floor(iSV.y)), H = floors * 2.9 + 0.3 + (floors < 2.5 ? (fract(iSV.y * 7.31) - 0.35) * 0.9 : 0.0);
       // Casas con techo a dos aguas; galpones y naves, con poca pendiente; de 3 pisos para arriba, techo plano.
-      float roofK = floors > 2.5 ? 0.04 : Wd < 13.0 ? min(1.2, Wd / 5.4) : min(2.2, Wd * 0.07);
+      float roofK = floors > 2.5 ? 0.04 : Wd < 13.0 ? min(1.2, Wd / 5.4) * (0.7 + 0.55 * fract(iSV.y * 3.17)) : min(2.2, Wd * 0.07);
       p.y = uv.x > 0.5 ? H + (p.y - 2.7) * roofK : p.y / 2.7 * H;
       p *= fade * vec3(L / 7.0, 1.0, Wd / 5.4);
       vAlong = abs(normal.x) > 0.5 ? p.z : p.x; // metros a lo largo del muro: para repartir las ventanas
@@ -79,6 +89,8 @@ void main() {
     p *= iSV.x * fade * vec3(1.0, 0.9 + fract(iSV.y * 5.7) * 0.25, 1.0);
   #elif TYPE == 7
     p *= fade * vec3(1.0, mix(0.62, 1.0, uLeaf.x), 1.0); // podada en invierno
+  #elif TYPE == 8
+    p *= fade * vec3(iSV.x, 1.75, 1.0); fl = p.xy; // cierre: iSV.x metros de largo, 1,75 m de alto
   #else
     p *= iSV.x * fade * vec3(1.0, 0.85 + fract(iSV.y * 5.7) * 0.4, 1.0);
   #endif
@@ -87,18 +99,32 @@ void main() {
   vN = vec3(c * normal.x + s * normal.z, normal.y, -s * normal.x + c * normal.z);
   vec3 wp = p + iPR.xyz;
   vRel = wp - uCamRel; vUv = uv; vVar = iSV.y;
+  #if TYPE == 8
+    vUv = fl; // metros a lo largo y altura
+  #endif
   vGround = textureLod(uCoreAlb, (uAnchor + iPR.xz) / uCoreSize, 2.0).rgb;
   vShade = textureLod(uShadow, (uAnchor + iPR.xz) / uCoreSize, 0.0).r; // color del suelo donde está parada
+  #if TYPE == 5
+    // El techo toma el color que tiene en la foto, promediado sobre unos metros alrededor del centro de la casa.
+    vRoof = vec4(0.0);
+    for (int i = 1; i >= 0; i--) if (uSatB[i].z > 0.5) {
+      vec2 dt = (iPR.xz - uCamRel.xz) * uSatA[i].zw, q = abs(dt + uSatB[i].xy);
+      if (max(q.x, q.y) < 3.4) { vec4 s = textureLod(uSat, vec3((uSatA[i].xy + dt) / 8.0, float(i)), i == 0 ? 3.0 : 1.0); if (s.a > 0.9) vRoof = vec4(s.rgb / s.a, 1.0); }
+    }
+  #endif
   gl_Position = logDepth(projectionMatrix * modelViewMatrix * vec4(wp, 1.0));
 }`;
 
 const FRAG = /* glsl */ `
 ${ATMOS_GLSL}
 uniform vec3 uCamRel;
-uniform float uCamY;
+uniform float uCamY, uNear;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
 varying float vVar, vShade, vAlong;
+#if TYPE == 5
+varying vec4 vRoof;
+#endif
 // Hash sin seno: el moteado del follaje llama a esto 16 veces por píxel.
 float hash(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float vnoise(vec3 p) {
@@ -106,11 +132,20 @@ float vnoise(vec3 p) {
   return mix(mix(mix(hash(i), hash(i + vec3(1, 0, 0)), f.x), mix(hash(i + vec3(0, 1, 0)), hash(i + vec3(1, 1, 0)), f.x), f.y),
              mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
+#if TYPE == 5
+const vec3 PAL[16] = vec3[16](${PAREDES.map((p) => `vec3(${p.map((c) => c.toFixed(3)).join(', ')})`).join(', ')});
+#endif
 void main() {
   // La cámara en tercera persona se mete a cada rato dentro de un arbusto o una copa: lo que queda a menos de
   // ~2 m se deshace en un tramado en vez de tapar toda la pantalla.
+  // Arbustos y copas, además, se deshacen en todo el tramo entre la cámara y el animal (uNear): nunca lo tapan.
   float dcam = length(vRel);
-  if (dcam < 2.3 && (dcam - 0.5) / 1.8 < fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))) discard;
+  #if TYPE == 2 || TYPE == 3 || TYPE == 6
+    float nearD = max(2.3, uNear);
+  #else
+    float nearD = 2.3;
+  #endif
+  if (dcam < nearD && (dcam - 0.5) / (nearD - 0.5) < fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))) discard;
   vec3 N = normalize(vN);
   if (!gl_FrontFacing) N = -N;
   vec3 col; float wrap = 0.0;
@@ -127,6 +162,7 @@ void main() {
   #elif TYPE == 1    // roca: toma el color del suelo, más gris
     float g = dot(vGround, vec3(0.33));
     col = mix(vGround, vec3(g), 0.45) * (1.0 + v * 0.55) * (0.85 + 0.3 * speck); wrap = 0.3;
+    col = mix(col, vec3(0.27, 0.265, 0.25) * (0.75 + v * 0.6) * (0.85 + 0.3 * speck), step(0.5, kind) * 0.8); // bolón de río: granito gris lavado
   #elif TYPE == 2
     vec3 base = kind < 0.5 ? mix(vec3(0.03, 0.042, 0.016), vec3(0.075, 0.08, 0.032), v)   // matorral esclerófilo: oliva oscuro
       : kind < 1.5 ? mix(vec3(0.10, 0.105, 0.035), vec3(0.17, 0.155, 0.05), v)             // neneo: cojín amarillento del piso andino
@@ -148,13 +184,59 @@ void main() {
     float rib = 0.72 + 0.28 * abs(sin(vUv.x * 37.7));
     col = vec3(0.075, 0.12, 0.06) * rib * (0.8 + 0.4 * v); wrap = 0.25;
   #elif TYPE == 5    // casas: muros estucados blancos, crema, ocre o adobe; techos de zinc (lo más común), teja o zinc oxidado
-    vec3 wall = v < 0.28 ? vec3(0.55, 0.53, 0.48) : v < 0.5 ? vec3(0.47, 0.40, 0.29) : v < 0.68 ? vec3(0.40, 0.29, 0.19) : v < 0.86 ? vec3(0.44, 0.43, 0.40) : vec3(0.36, 0.33, 0.25);
+    // El color del muro sale de una paleta de 16 tonos (pueblos.js): la semilla de cada casa elige el suyo. Las casas
+    // relevadas a mano traen la semilla que corresponde a su color real.
+    vec3 wall = PAL[int(min(v, 0.999) * 16.0)];
     vec3 roof = v < 0.45 ? vec3(0.30, 0.31, 0.32) : v < 0.7 ? vec3(0.25, 0.10, 0.065) : v < 0.88 ? vec3(0.21, 0.13, 0.09) : vec3(0.13, 0.13, 0.14);
-    // Ventanas: un vano por tramo de muro y por piso (una franja corrida hace ver bloques de oficinas). El modelo mide 4,1 de alto y el muro 2,7.
-    float tw = clamp(vUv.y * 4.1 / 2.7, 0.0, 1.0), fl = max(1.0, kind);
-    vec2 wv = vec2(fract(vAlong / 3.4 + v * 3.0), fract(tw * fl));
-    float win = step(0.3, wv.x) * step(wv.x, 0.64) * step(0.38, wv.y) * step(wv.y, 0.78) * step(abs(N.y), 0.5);
-    col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) : mix(wall * (0.86 + 0.14 * tw) * (0.94 + 0.12 * speck), vec3(0.035, 0.045, 0.055), win * 0.85);
+    // Fachada: un vano por tramo de muro y por piso (una franja corrida hace ver bloques de oficinas), con marco,
+    // vidrio que refleja algo de cielo, cortinas en algunas, una puerta cada tantos tramos y zócalo. Los bordes se
+    // suavizan según cuántos metros abarca cada píxel, así de lejos no centellean. El modelo mide 4,1 de alto y el muro 2,7.
+    float tw = clamp(vUv.y * 4.1 / 2.7, 0.0, 1.0), fl = max(1.0, kind), isWall = step(abs(N.y), 0.5);
+    float along = vAlong / 3.4 + v * 3.0, up = tw * fl, aw = fwidth(vAlong) + 1e-4;
+    vec2 wv = vec2(fract(along), fract(up));
+    float hb = fract(sin(floor(along) * 12.9898 + floor(up) * 4.1 + v * 78.233) * 43758.5453);
+    float ex = aw / 3.4 * 1.2, ey = fwidth(up) * 1.2 + 1e-4;
+    float isDoor = step(hb, 0.2) * step(up, 1.0);
+    // Cada casa tiene sus ventanas: angostas o anchas, más altas o más bajas.
+    float wh = 0.11 + 0.13 * fract(v * 5.3), w0 = 0.47 - wh, w1 = 0.47 + wh, s0 = 0.33 + 0.1 * fract(v * 9.1), s1 = 0.75 + 0.07 * fract(v * 3.3);
+    float win = smoothstep(w0 - ex, w0 + ex, wv.x) * (1.0 - smoothstep(w1 - ex, w1 + ex, wv.x)) * smoothstep(s0 - ey, s0 + ey, wv.y) * (1.0 - smoothstep(s1 - ey, s1 + ey, wv.y)) * isWall * (1.0 - isDoor);
+    float frame = smoothstep(w0 - 0.03 - ex, w0 - 0.03 + ex, wv.x) * (1.0 - smoothstep(w1 + 0.03 - ex, w1 + 0.03 + ex, wv.x)) * smoothstep(s0 - 0.04 - ey, s0 - 0.04 + ey, wv.y) * (1.0 - smoothstep(s1 + 0.04 - ey, s1 + 0.04 + ey, wv.y)) * isWall * (1.0 - isDoor);
+    float door = isDoor * smoothstep(0.36 - ex, 0.36 + ex, wv.x) * (1.0 - smoothstep(0.6 - ex, 0.6 + ex, wv.x)) * (1.0 - smoothstep(0.74 - ey, 0.74 + ey, wv.y)) * isWall;
+    vec3 glass = mix(vec3(0.03, 0.04, 0.05), vec3(0.15, 0.19, 0.24), smoothstep(0.38, 0.78, wv.y) * 0.8);
+    glass = mix(glass, vec3(0.40, 0.38, 0.33), step(0.62, hb) * 0.6);                          // cortinas
+    glass = mix(glass, vec3(0.02, 0.022, 0.02), step(0.5, fract(v * 11.7)) * step(fract(wv.x * 24.0), 0.2) * (1.0 - smoothstep(0.012, 0.04, aw)) * 0.85); // protecciones de fierro
+    vec3 wc = wall * (0.86 + 0.14 * tw) * (0.94 + 0.12 * speck);
+    wc *= 1.0 - 0.28 * (1.0 - smoothstep(0.1, 0.16, up));                                      // zócalo
+    wc *= 1.0 - 0.2 * smoothstep(0.9, 0.97, tw);                                               // la sombra del alero
+    wc = mix(wc, wall * 1.22 + 0.03, clamp(frame - win, 0.0, 1.0) * 0.8);                      // marco
+    wc = mix(wc, glass, win * 0.95);
+    wc = mix(wc, vec3(0.15, 0.095, 0.06) * (0.75 + 0.5 * fract(hb * 7.0)), door);
+    // Techo: los nervios de la calamina (o las hileras de teja), solo de cerca.
+    float rib = 1.0 + 0.06 * sin(vAlong * 27.0) * (1.0 - smoothstep(0.02, 0.07, aw));
+    roof = mix(roof, vRoof.rgb * 0.62, vRoof.a * 0.85); // el color que ese techo tiene de verdad
+    col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) * rib : wc;
+  #elif TYPE == 8    // cierre del antejardín: reja de fierro sobre zócalo y entre pilares, pandereta, o tablas
+    float al = vUv.x, hg = vUv.y, sty = fract(v * 7.31);
+    float pil = step(abs(fract(al / 2.6 + 0.5) - 0.5) * 2.6, 0.15);
+    vec3 stucco = (v < 0.3 ? vec3(0.50, 0.48, 0.43) : v < 0.55 ? vec3(0.42, 0.33, 0.24) : v < 0.8 ? vec3(0.38, 0.37, 0.35) : vec3(0.47, 0.41, 0.30)) * (0.88 + 0.24 * speck);
+    if (sty < 0.55) {
+      float solid = max(step(hg, 0.5), pil);
+      if (solid < 0.5) {
+        if (hg > 1.62) discard;                                             // los pilares sobresalen de la reja
+        // De cerca, barrote por barrote y dos travesaños; de lejos, un tramado (los barrotes centellearían).
+        float bars = max(step(fract(al * 8.0), 0.17), step(abs(hg - 1.5), 0.035) + step(abs(hg - 0.62), 0.035));
+        float th = dcam < 38.0 ? bars : step(fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715)))), 0.3);
+        if (th < 0.5) discard;
+      }
+      col = solid > 0.5 ? stucco : (v < 0.5 ? vec3(0.03, 0.035, 0.03) : vec3(0.045, 0.10, 0.065)); // fierro negro o verde
+    } else if (sty < 0.85) {
+      if (hg > 1.52 + 0.12 * pil) discard;
+      col = stucco * (hg > 1.44 ? 0.72 : 1.0) * (0.92 + 0.08 * step(0.5, fract(hg * 5.0)));        // pandereta: hiladas, y su remate
+    } else {
+      if (hg > 1.38 || fract(al * 6.5) < 0.08) discard;
+      col = vec3(0.16, 0.11, 0.07) * (0.7 + 0.6 * fract(sin(floor(al * 6.5) * 91.7 + v * 13.0) * 43758.5));   // tablas
+    }
+    wrap = 0.2;
   #elif TYPE == 6
     vec3 leaf = kind < 0.5 ? decid * 1.15                                                  // álamo: el amarillo del otoño en el Cajón
       : kind < 1.5 ? mix(vec3(0.014, 0.032, 0.016), vec3(0.03, 0.055, 0.026), v)           // ciprés de la cordillera
@@ -246,6 +328,7 @@ function geometries() {
   const ri = [0, 4, 1, 1, 4, 5, 2, 3, 4, 3, 5, 4, 0, 2, 4, 1, 5, 3], rpos = [];
   for (const i of ri) rpos.push(rp[i * 3], rp[i * 3 + 1], rp[i * 3 + 2]);
   const roofGeo = new THREE.BufferGeometry(); roofGeo.setAttribute('position', new THREE.Float32BufferAttribute(rpos, 3)); roofGeo.computeVertexNormals();
+  const fence = new THREE.BoxGeometry(1, 1, 0.09); fence.translate(0, 0.5, 0);
   // Árbol alto: tronco + copa alargada. En el vertex shader se vuelve columna (álamo) o cono (ciprés, pino).
   const tallTrunk = new THREE.CylinderGeometry(0.06, 0.11, 1.4, 6, 1, true); tallTrunk.translate(0, 0.6, 0);
   const tallCrown = blob(1, 0.28, 5.5, 1, true); tallCrown.scale(0.62, 2.0, 0.62); tallCrown.translate(0, 2.9, 0);
@@ -259,6 +342,7 @@ function geometries() {
     arbol: merge([{ geo: trunk, part: 0 }, { geo: crownA, part: 1 }, { geo: crownB, part: 1 }, { geo: crownC, part: 1 }]),
     quisco: merge([{ geo: col(0.17, 2.4, 0, -0.2, 0), ang: [0, 0] }, { geo: col(0.13, 1.3, 0.42, 0.5, 0.05), ang: [0.42, 0.05] }, { geo: col(0.12, 0.9, -0.3, 0.9, -0.22), ang: [-0.3, -0.22] }]),
     casa: merge([{ geo: walls, part: 0 }, { geo: roofGeo, part: 1 }]),
+    reja: merge([{ geo: fence, part: 0 }]),
     alto: merge([{ geo: tallTrunk, part: 0 }, { geo: tallCrown, part: 1 }]),
     // Versiones livianas para lejos: icosaedro sin subdividir (20 caras) y tronco de 4 lados. A más de 100 m no se nota.
     rocaFar: merge([{ geo: far(blob(0, 0.42, 1.7), 0, 0.35, 0), part: 0 }]),
@@ -272,9 +356,38 @@ function geometries() {
 const hash2 = (ix, iz, k) => { let h = Math.imul(ix, 374761393) ^ Math.imul(iz, 668265263) ^ Math.imul(k + 1, 2147483647); h = Math.imul(h ^ (h >>> 13), 1274126177); return ((h ^ (h >>> 16)) >>> 0) / 4294967296; };
 const sm = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
 
+// Índice espacial de los ríos (tramos por celda): a qué distancia está el eje del río más cercano y su semiancho.
+export class RiverIndex {
+  constructor(c, cell = 128) {
+    this.c = c; this.cell = cell; this.map = new Map(); this._o = { d: 0, hw: 0 };
+    for (let k = 0; k < c.types.length; k++) {
+      const hw = c.types[k] / 20, pad = hw * 2.4 + 10;
+      for (let i = c.offsets[k]; i < c.offsets[k + 1] - 1; i++) {
+        const x0 = c.coords[i * 2], z0 = c.coords[i * 2 + 1], x1 = c.coords[i * 2 + 2], z1 = c.coords[i * 2 + 3];
+        for (let cz = Math.floor((Math.min(z0, z1) - pad) / cell); cz <= Math.floor((Math.max(z0, z1) + pad) / cell); cz++)
+          for (let cx = Math.floor((Math.min(x0, x1) - pad) / cell); cx <= Math.floor((Math.max(x0, x1) + pad) / cell); cx++) {
+            const key = cx * 65536 + cz; let a = this.map.get(key); if (!a) this.map.set(key, (a = [])); a.push(i, hw);
+          }
+      }
+    }
+  }
+  near(x, z) {
+    const a = this.map.get(Math.floor(x / this.cell) * 65536 + Math.floor(z / this.cell)); if (!a) return null;
+    const c = this.c.coords, o = this._o; o.d = Infinity;
+    for (let j = 0; j < a.length; j += 2) {
+      const i = a[j], x0 = c[i * 2], z0 = c[i * 2 + 1], dx = c[i * 2 + 2] - x0, dz = c[i * 2 + 3] - z0;
+      const t = Math.min(1, Math.max(0, ((x - x0) * dx + (z - z0) * dz) / (dx * dx + dz * dz + 1e-9))), d = Math.hypot(x - x0 - dx * t, z - z0 - dz * t);
+      if (d < o.d) { o.d = d; o.hw = a[j + 1]; }
+    }
+    return o;
+  }
+}
+
 export class Props {
   constructor({ hf, manifest, env, coreAlb, land, amount, labels, shadowTex, streets }) {
-    this._c = [0, 0]; this.streets = streets;
+    this._c = [0, 0]; this.streets = streets; this.river = null; this.relevados = null; this.zoneVersion = 0; // relevados: edificios descritos a mano (pueblos.js) // RiverIndex: para sembrar bolones en el lecho
+    this.nearU = { value: 2.3 }; // distancia cámara–animal: la vegetación más cerca que eso se hace transparente
+    this.satU = { uSat: { value: null }, uSatA: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, uSatB: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] } };
     this.hf = hf; this.m = manifest; this.land = land; this.amount = amount;
     this._buildUrban(labels);
     this.group = new THREE.Group();
@@ -282,7 +395,7 @@ export class Props {
     this._n = nrm;
     this.types = TYPES.map((t, i) => {
       const range = t.range * (0.6 + 0.4 * amount), max = Math.ceil(t.max * amount);
-      const uniforms = { ...env, uCamRel: { value: new THREE.Vector3() }, uAnchor: { value: new THREE.Vector2() }, uCoreSize: { value: new THREE.Vector2(manifest.core.sizeX, manifest.core.sizeZ) }, uRange: { value: range }, uCoreAlb: { value: coreAlb }, uShadow: { value: shadowTex }, uCamY: { value: 0 } };
+      const uniforms = { ...env, ...this.satU, uNear: this.nearU, uCamRel: { value: new THREE.Vector3() }, uAnchor: { value: new THREE.Vector2() }, uCoreSize: { value: new THREE.Vector2(manifest.core.sizeX, manifest.core.sizeZ) }, uRange: { value: range }, uCoreAlb: { value: coreAlb }, uShadow: { value: shadowTex }, uCamY: { value: 0 } };
       const material = new THREE.ShaderMaterial({ uniforms, vertexShader: VERT, fragmentShader: FRAG, defines: { TYPE: i }, side: i === 0 ? THREE.DoubleSide : THREE.FrontSide });
       const level = (geo) => { // un nivel de detalle = una malla instanciada con sus propios búferes
         const g = new THREE.InstancedBufferGeometry();
@@ -327,14 +440,14 @@ export class Props {
   // Donde hay datos por zonas, los árboles (tipos 3 y 6) y las casas (5) dejan de inventarse: cada árbol detectado en
   // la altura de dosel y cada huella de edificio se pone en su lugar. Qué especie es cada árbol sigue saliendo de la
   // cobertura de suelo, la altitud y la exposición, pero ahora con su altura real.
-  useZones() { this.real = { 3: new Map(), 5: new Map(), 6: new Map() }; this.zoneCells = new Map(); this.jobs = []; }
+  useZones() { this.real = { 3: new Map(), 5: new Map(), 6: new Map(), 8: new Map() }; this.zoneCells = new Map(); this.jobs = []; }
   // Una zona trae decenas de miles de árboles y edificios: se clasifican de a poco (≈3 ms por cuadro) para no dar tirones.
   addZone(key, data) { this.jobs.push({ key, data, t: 0, b: 0, put: [] }); }
   _work(budget) {
     const t0 = performance.now();
     while (this.jobs.length && performance.now() - t0 < budget) {
       const job = this.jobs[0];
-      if (this._step(job, 2000)) { this.jobs.shift(); this.zoneCells.set(job.key, job.put); this._invalidate(job.data.x0, job.data.z0); }
+      if (this._step(job, 2000)) { this.jobs.shift(); this.zoneCells.set(job.key, job.put); this._invalidate(job.data.x0, job.data.z0); this.zoneVersion++; }
     }
   }
   _step(job, n) { // procesa hasta n elementos; true cuando terminó la zona
@@ -368,8 +481,28 @@ export class Props {
       const x = B[n], z = B[n + 1], L = B[n + 2], W = B[n + 3], area = L * W, r = hash2(Math.round(x * 4), Math.round(z * 4), 13);
       // Sin dato de pisos (casi todo lo que no es OSM): un piso. Solo en ciudad una parte de las casas medianas tiene dos.
       // Una huella grande no es un edificio alto: es un galpón, un colegio o varias casas pareadas fundidas en una.
-      const floors = B[n + 5] || (area > 110 && area < 320 && r < 0.3 && this._cls(x, z) === 5 && hf.base(x, z) < 900 ? 2 : 1);
-      push(5, x, z, -B[n + 4], -(Math.min(3200, Math.round(L * 10)) * 1000 + Math.min(999, Math.round(W * 10))), Math.min(99, floors) + r * 0.999);
+      let floors = B[n + 5] || (area > 110 && area < 320 && r < 0.3 && this._cls(x, z) === 5 && hf.base(x, z) < 900 ? 2 : 1);
+      // Edificio relevado a mano: sus pisos y el tono real de su muro. Los demás sortean entre los tonos comunes.
+      const rv = this.relevados && this.relevados.at(x, z, L, W, -B[n + 4]);
+      if (rv && rv.hito) continue; // los hitos (la iglesia) se construyen aparte, a mano: hitos_pueblo.js
+      if (rv && rv.pisos) floors = rv.pisos;
+      const seed = rv && rv.tono >= 0 ? (rv.tono + 0.15 + r * 0.7) / 16 : (r * COMUNES) / 16;
+      push(5, x, z, -B[n + 4], -(Math.min(3200, Math.round(L * 10)) * 1000 + Math.min(999, Math.round(W * 10))), Math.min(99, floors) + seed * 0.999);
+      // Cierre del antejardín: si la casa queda retirada de su calle (en el centro de un pueblo las fachadas van a
+      // la línea de la vereda y no hay reja; en una población, casi todas la tienen), una reja o pandereta a lo
+      // largo de la vereda, del ancho del frente de la casa y un poco más.
+      const cierre = rv ? rv.cierre : undefined;
+      const st = cierre !== 'ninguno' && (cierre || (floors <= 2 && area < 700)) && this.streets ? this.streets.nearest(x, z, 26) : null;
+      if (st && st.d > 1) {
+        const ux = st.px / st.d, uz = st.pz / st.d, c = Math.cos(-B[n + 4]), s = Math.sin(-B[n + 4]);
+        const depth = Math.abs(ux * c - uz * s) * L / 2 + Math.abs(ux * s + uz * c) * W / 2, line = st.hw + 1.7, gap = st.d - depth - line;
+        if ((gap > 2.2 && gap < 15) || (cierre && gap > 0.8)) {
+          const wl = Math.min(34, Math.abs(st.tx * c - st.tz * s) * L + Math.abs(st.tx * s + st.tz * c) * W + 3), fh = hash2(Math.round(z * 4), Math.round(x * 4), 14);
+          // El estilo del cierre sale de fract(v * 7,31) en el shader: para forzar uno, se elige la semilla que cae en su tramo.
+          const fv = cierre ? (Math.floor(fh * 6.99) + (cierre === 'reja' ? 0.25 : cierre === 'pandereta' ? 0.7 : 0.93)) / 7.31 : fh * 0.999;
+          push(8, x - ux * (st.d - line), z - uz * (st.d - line), Math.atan2(-st.tz, st.tx), wl, Math.min(0.999, fv));
+        }
+      }
     }
     job.b = bEnd; return bEnd >= B.length;
   }
@@ -382,7 +515,7 @@ export class Props {
   }
   _invalidate(x0, z0) { // las celdas ya armadas sobre la zona se rehacen con los datos reales
     const S = this.zoneSize;
-    for (const ti of [3, 5, 6]) {
+    for (const ti of [3, 5, 6, 8]) {
       const t = this.types[ti], C = t.cell;
       for (const k of [...t.cache.keys()]) { const cx = Math.floor(k / 65536) * C, cz = (k % 65536) * C; if (cx + C > x0 && cx < x0 + S && cz + C > z0 && cz < z0 + S) t.cache.delete(k); }
       t.cx = NaN;
@@ -402,7 +535,7 @@ export class Props {
   }
 
   _cell(t, ti, ix, iz) {
-    if (this.real && (ti === 3 || ti === 5 || ti === 6)) return this._realCell(ti, ix, iz);
+    if (this.real && (ti === 3 || ti === 5 || ti === 6 || ti === 8)) return this._realCell(ti, ix, iz);
     const hf = this.hf, out = [], C = t.cell;
     for (let k = 0; k < t.per; k++) {
       const h0 = hash2(ix, iz, k * 5 + ti * 101), h1 = hash2(ix, iz, k * 5 + 1 + ti * 101);
@@ -423,6 +556,9 @@ export class Props {
       } else if (ti === 1) {  // rocas
         dens = (0.1 + 0.55 * sm(0.04, 0.35, s2) + 0.25 * sm(2300, 3300, alt)) * [1, 0.5, 0.8, 0.7, 0.05, 0.03, 1.2, 1, 0, 0.2, 0.03, 0.03, 0.1, 0.4][c];
         scale = 0.14 + v * v * v * 1.3 + (v > 0.985 ? 1.4 : 0);
+        // Lecho del río: bolones redondeados, muchos y más grandes que la piedra suelta del cerro.
+        const rv = this.river && this.river.near(x, z);
+        if (rv && rv.d < rv.hw * 2.4 + 8) { dens = 1.5; scale = 0.22 + v * v * 1.5 + (v > 0.95 ? 1.2 : 0); kind = 1; }
       } else if (ti === 2) {  // arbustos, cojines andinos y frutales
         if (c === 11) { // frutales: marco de plantación de 7 m
           x = (ix + ((k % 2) + 0.5) / 2) * C; z = (iz + (Math.floor(k / 2) + 0.5) / 2) * C;
@@ -490,6 +626,24 @@ export class Props {
     }
     return new Float32Array(out);
   }
+
+  // Edificio real más cercano a (x, z), midiendo hasta su muro: { x, z, rot, L, W, floors } o null. Para apoyar carteles.
+  buildingNear(x, z, max) {
+    if (!this.real) return null;
+    const C = this.types[5].cell, m = this.real[5], n = Math.ceil((max + 40) / C);
+    let best = null, bd = max;
+    for (let dz = -n; dz <= n; dz++) for (let dx = -n; dx <= n; dx++) {
+      const l = m.get((Math.floor(x / C) + dx) * 65536 + Math.floor(z / C) + dz); if (!l) continue;
+      for (let k = 0; k < l.length; k += 5) {
+        const q = -l[k + 3], L = Math.floor(q / 1000) * 0.1, W = (q - Math.floor(q / 1000) * 1000) * 0.1, rot = l[k + 2], co = Math.cos(rot), si = Math.sin(rot);
+        const ox = x - l[k], oz = z - l[k + 1], lx = co * ox - si * oz, lz = si * ox + co * oz;
+        const d = Math.hypot(Math.max(Math.abs(lx) - L / 2, 0), Math.max(Math.abs(lz) - W / 2, 0));
+        if (d < bd) { bd = d; best = { x: l[k], z: l[k + 1], rot, L, W, floors: Math.floor(l[k + 4]) }; }
+      }
+    }
+    return best;
+  }
+  setSat(sat) { this.satU.uSat.value = sat.tex; this.satU.uSatA.value = sat.A; this.satU.uSatB.value = sat.B; }
 
   // Colisiones contra lo que tiene cuerpo: casas (caja orientada), troncos, quiscos y rocas grandes.
   // Usa las mismas celdas ya generadas para dibujar; devuelve la posición corregida.

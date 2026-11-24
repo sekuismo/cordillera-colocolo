@@ -53,7 +53,7 @@ export class StreetIndex {
           if (d2 >= best) continue;
           best = d2; found = true;
           const d = Math.sqrt(d2), len = Math.sqrt(len2);
-          o.d = d; o.tx = ex / len; o.tz = ez / len; o.hw = g.wc[i * 2];
+          o.d = d; o.tx = ex / len; o.tz = ez / len; o.hw = g.wc[i * 2]; o.px = px; o.pz = pz; // (px, pz): del eje de la calle al punto consultado
           if (d > 1e-3) { o.nx = px / d; o.nz = pz / d; } else { o.nx = -o.tz; o.nz = o.tx; }
         }
       }

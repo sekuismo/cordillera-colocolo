@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0d1216">
+<meta name="author" content="Esteban Muñoz">
 <meta name="description" content="Recorre en 3D la cordillera de Santiago y el Cajón del Maipo como un gato colocolo, un puma o un cóndor. Relieve real, nombres de cerros y datos de cada lugar.">
 <title>Cordillera · Un colocolo en los Andes de Santiago</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1216'/%3E%3Cpath d='M3 25 12 10l5 7 4-5 8 13z' fill='%23e8b25c'/%3E%3Cpath d='m12 10 2.6 3.6-2.6 1.6-2-1.8z' fill='%23fff'/%3E%3C/svg%3E">
@@ -34,6 +35,16 @@
 <link rel="modulepreload" href="./src/animals.js">
 <link rel="modulepreload" href="./src/condor.js">
 <link rel="modulepreload" href="./src/audio.js">
+<link rel="modulepreload" href="./src/sat.js">
+<link rel="modulepreload" href="./src/streetnames.js">
+<link rel="modulepreload" href="./src/progreso.js">
+<link rel="modulepreload" href="./src/signs.js">
+<link rel="modulepreload" href="./src/roadside.js">
+<link rel="modulepreload" href="./src/hitos_pueblo.js">
+<link rel="modulepreload" href="./src/pueblos_data.js">
+<link rel="modulepreload" href="./src/pueblos.js">
+<link rel="modulepreload" href="./src/secretos.js">
+<link rel="modulepreload" href="./src/config.js">
 <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -43,7 +54,7 @@
 <div id="labels" aria-hidden="true"></div>
 
 <div id="hud" hidden>
-  <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-meta"></span><span id="place-clima"></span><span id="place-next"></span></div>
+  <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-street"></span><span id="place-meta"></span><span id="place-clima"></span><span id="place-next"></span></div>
   <div id="compass" aria-hidden="true"><div id="compass-tape"></div><i></i></div>
   <nav id="menu">
     <button data-panel="capas">Ajustes</button>
@@ -53,6 +64,7 @@
   </nav>
   <canvas id="mini" width="320" height="320" title="Abrir mapa"></canvas>
   <div id="toast" role="status"></div>
+  <div id="attrib" hidden>Imagen: Esri, Vantor, Earthstar Geographics y la comunidad GIS · Powered by Esri</div>
   <article id="card" hidden>
     <header><span id="card-tag"></span><button id="card-close" aria-label="Cerrar">×</button></header>
     <h2 id="card-title"></h2>
@@ -61,6 +73,7 @@
   </article>
   <div id="speed">
     <span id="kmh">0 km/h</span>
+    <div id="stam" title="Aguante: subir y correr lo gastan; descansar lo devuelve"><i></i></div>
     <div id="speed-levels">
       <button data-level="0">Paseo</button><button data-level="1">Trote</button><button data-level="2">Carrera</button><button data-level="3">Turbo</button><button data-level="4">Híper</button>
     </div>
@@ -77,7 +90,7 @@
     <h3>Animal</h3>
     <div class="seg" id="animal-seg"></div>
     <h3>Sonido</h3>
-    <label class="slider"><span>Música andina</span><input type="range" id="vol-music" min="0" max="1" step="0.05" value="0.7"></label>
+    <label class="slider"><span>Música</span><input type="range" id="vol-music" min="0" max="1" step="0.05" value="0.7"></label>
     <label class="slider"><span>Efectos y ambiente</span><input type="range" id="vol-sfx" min="0" max="1" step="0.05" value="0.8"></label>
     <label><input type="checkbox" id="mute"><span>Silenciar todo</span></label>
     <h3>Nombres en el paisaje</h3>
@@ -87,9 +100,12 @@
     <label><input type="checkbox" data-layer="relieve" checked><span>Valles, cajones y cordones</span></label>
     <label><input type="checkbox" data-layer="lugares" checked><span>Parques, refugios y miradores</span></label>
     <label><input type="checkbox" data-layer="vias" checked><span>Rutas y puentes</span></label>
+    <label><input type="checkbox" data-layer="calles" checked><span>Nombres de las calles</span></label>
     <h3>Sobre el terreno</h3>
     <label><input type="checkbox" data-layer="caminos" checked><span>Caminos y senderos</span></label>
     <label><input type="checkbox" data-layer="limite" checked><span>Límite Chile–Argentina</span></label>
+    <h3>Dificultad</h3>
+    <label><input type="checkbox" id="libre"><span>Modo paseo: sin cansancio, sin caídas fatales, con Turbo en cualquier parte y viaje libre por el mapa</span></label>
     <h3>Aprender</h3>
     <label><input type="checkbox" data-layer="info" checked><span>Fichas explicativas al llegar a un lugar</span></label>
     <h3>Hora del día <output id="hora-out"></output></h3>
@@ -99,6 +115,7 @@
     <label><input type="checkbox" id="epoca-auto" checked><span>Que las estaciones avancen solas</span></label>
     <button class="wide-btn" id="tormenta">Provocar una tormenta</button>
     <h3>Calidad gráfica</h3>
+    <label><input type="checkbox" id="sat" checked><span>Imagen satelital de alta resolución (Esri; necesita internet)</span></label>
     <div class="seg" id="calidad"><button data-q="lo">Liviana</button><button data-q="hi">Alta</button></div>
     <label><input type="checkbox" id="aa"><span>Suavizado de bordes (más fino, pero bastante más lento)</span></label>
     <button class="wide-btn" id="fullscreen" hidden>Pantalla completa</button>
@@ -108,13 +125,13 @@
 
 <section class="panel" id="panel-guia" hidden>
   <header><h2>Guía de la cordillera</h2><button class="close" aria-label="Cerrar">×</button></header>
-  <div class="body"><p class="note">Los lugares se marcan cuando llegas a ellos. Toca uno para leer su ficha o viajar directo.</p><ul id="guia-list"></ul></div>
+  <div class="body"><p class="note" id="progreso"></p><ul id="logros"></ul><p class="note">Los lugares se marcan cuando llegas a ellos. Toca uno para leer su ficha; solo puedes viajar directo a los que ya conoces.</p><ul id="guia-list"></ul></div>
 </section>
 
 <section class="panel wide" id="panel-mapa" hidden>
   <header><h2>Mapa</h2><button class="close" aria-label="Cerrar">×</button></header>
   <div class="body"><div id="map-wrap"><canvas id="bigmap"></canvas></div>
-    <div id="map-bar"><span id="map-hint">Toca cualquier punto del mapa para viajar ahí.</span><button id="map-go" hidden>Viajar aquí</button></div></div>
+    <div id="map-bar"><span id="map-hint">Toca un lugar que ya conozcas, o un pueblo, para viajar ahí.</span><button id="map-go" hidden>Viajar aquí</button></div></div>
 </section>
 
 <section class="panel" id="panel-ayuda" hidden>
@@ -128,6 +145,7 @@
       <dt>Shift</dt><dd>Subir una marcha mientras lo aprietas</dd>
       <dt>Espacio</dt><dd>Saltar. Con el cóndor: despegar, y mantener para subir</dd>
       <dt>C</dt><dd>Bajar en picada (cóndor)</dd>
+      <dt>C + W A S D</dt><dd>Piruetas en el aire (colocolo y puma): mortales y giros. Aterriza derecho o te caes</dd>
       <dt>Q</dt><dd>Habilidad especial del animal</dd>
       <dt>T</dt><dd>Cambiar de animal</dd>
       <dt>E</dt><dd>Avance automático</dd>
@@ -137,23 +155,26 @@
     <dl class="keys touch">
       <dt>Lado izquierdo</dt><dd>Joystick para moverse</dd>
       <dt>Lado derecho</dt><dd>Arrastra para mirar; pellizca para alejar la cámara</dd>
-      <dt>Botones</dt><dd>Marcha, saltar, bajar (cóndor) y habilidad</dd>
+      <dt>Botones</dt><dd>Marcha, saltar, habilidad y Truco: mantenlo en el aire y mueve el joystick para hacer piruetas (con el cóndor, es Bajar)</dd>
     </dl>
     <h3>Con control</h3>
     <dl class="keys">
       <dt>Stick izq. · der.</dt><dd>Moverse · mirar</dd>
       <dt>A</dt><dd>Saltar; con el cóndor, aletear</dd>
-      <dt>B o LT</dt><dd>Bajar (cóndor) · cerrar paneles</dd>
+      <dt>B o LT</dt><dd>Piruetas en el aire con el stick (felinos) · bajar (cóndor) · cerrar paneles</dd>
       <dt>X · Y</dt><dd>Habilidad · mapa</dd>
       <dt>LB · RB</dt><dd>Bajar o subir de marcha</dd>
       <dt>RT</dt><dd>Una marcha más mientras lo aprietas</dd>
       <dt>Cruceta ↑ ↓</dt><dd>Acercar o alejar la cámara</dd>
       <dt>Select · Start</dt><dd>Cambiar de animal · esta ayuda</dd>
     </dl>
-    <p class="note">El mundo está a escala real: cruzar a pie de Santiago a Argentina toma horas. Para eso están las marchas Turbo e Híper y el viaje rápido del mapa.</p>
-    <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Cobertura de suelo: © ESA WorldCover 2021 (CC BY 4.0). Nombres, caminos, puentes, líneas eléctricas y ríos: © colaboradores de OpenStreetMap (ODbL). Árboles: High Resolution Canopy Height Maps © WRI y Meta (CC BY 4.0). Edificios: Overture Maps Foundation (ODbL), con datos de OpenStreetMap, Microsoft y Google Open Buildings.</p>
+    <p class="note">El mundo está a escala real y la montaña cuesta: subir gasta el aguante (la barra sobre las marchas), en altura el aire rinde menos, y una caída grande es fatal. Turbo e Híper solo corren por caminos; el cerro se sube a pata. El mapa parte tapado y se abre con lo que recorres: una cumbre destapa todo lo que se ve desde ella. Hay secretos que no figuran en ninguna lista. Si solo quieres pasear, activa el modo paseo en Ajustes.</p>
+    <p class="note credits"><b>Desarrollado por Esteban Muñoz.</b></p>
+    <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Cobertura de suelo: © ESA WorldCover 2021 (CC BY 4.0). Nombres, caminos, puentes, líneas eléctricas y ríos: © colaboradores de OpenStreetMap (ODbL). Árboles: High Resolution Canopy Height Maps © WRI y Meta (CC BY 4.0). Edificios: Overture Maps Foundation (ODbL), con datos de OpenStreetMap, Microsoft y Google Open Buildings. Imagen de alta resolución (por streaming, no se guarda): Esri World Imagery · Esri, Vantor, Earthstar Geographics y la comunidad de usuarios GIS.</p>
   </div>
 </section>
+
+<div id="death" hidden><div><b>No la contaste</b><span id="death-text"></span><em>La cordillera no perdona un mal paso. Vuelves al último lugar seguro.</em></div></div>
 
 <div id="intro">
   <div class="intro-inner">
@@ -164,6 +185,7 @@
     <div id="bar"><i></i></div>
     <p id="status">Cargando relieve…</p>
     <button id="start" hidden>Comenzar a explorar</button>
+    <p id="by">Desarrollado por Esteban Muñoz</p>
     <p id="ver"></p>
   </div>
 </div>

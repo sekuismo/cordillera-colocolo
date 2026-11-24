@@ -9,9 +9,9 @@ const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'
 const STORE = 'cordillera:v1';
 
 export class UI {
-  constructor({ manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal }) {
-    Object.assign(this, { m: manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal });
-    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5, year: 0.04, auto: true, epocas: [], tormenta: false, animal: 'colocolo', vol: { music: 0.7, sfx: 0.8 }, mute: false };
+  constructor({ manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal, sat, streetNames }) {
+    Object.assign(this, { m: manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal, sat, streetNames });
+    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5, year: 0.04, auto: true, epocas: [], tormenta: false, animal: 'colocolo', vol: { music: 0.7, sfx: 0.8 }, mute: false, sat: true, estilo: 0, mejor: 0, libre: false };
     try { Object.assign(this.saved, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { /* almacenamiento bloqueado: se juega igual */ }
     this.seen = new Set(this.saved.seen); this.pisos = new Set(this.saved.pisos);
     this.lugares = LUGARES.map((l) => ({ ...l, x: (l.lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - l.lat) * manifest.mPerDegLat }));
@@ -53,8 +53,16 @@ export class UI {
     vm.value = this.saved.vol.music; vs.value = this.saved.vol.sfx; mute.checked = !!this.saved.mute; applyVol();
     for (const el of [vm, vs, mute]) el.addEventListener('input', () => { this.saved.vol = { music: +vm.value, sfx: +vs.value }; this.saved.mute = mute.checked; applyVol(); this.save(); });
     input.on('KeyK', () => { mute.checked = !mute.checked; mute.dispatchEvent(new Event('input')); this.toast(mute.checked ? 'Sonido apagado' : 'Sonido encendido'); });
-    input.on('KeyN', () => { const on = !Object.values(labels.enabled).some(Boolean); for (const g of ['cumbres', 'localidades', 'agua', 'lugares', 'relieve', 'vias']) this.setLayer(g, on); this.toast(on ? 'Nombres visibles' : 'Nombres ocultos'); });
+    input.on('KeyN', () => { const on = !Object.values(labels.enabled).some(Boolean); for (const g of ['cumbres', 'localidades', 'agua', 'lugares', 'relieve', 'vias', 'calles']) this.setLayer(g, on); this.toast(on ? 'Nombres visibles' : 'Nombres ocultos'); });
 
+    // --- imagen de alta resolución (Esri): se puede apagar; la atribución es obligatoria mientras se muestre
+    const satBox = $('#sat');
+    if (sat) { satBox.checked = this.saved.sat !== false; sat.setEnabled(satBox.checked); satBox.addEventListener('change', () => { sat.setEnabled(satBox.checked); this.saved.sat = satBox.checked; this.save(); }); }
+    else satBox.closest('label').hidden = true;
+    this.combo = 0; this.lastTrick = -99;
+    // --- dificultad: el modo paseo apaga el cansancio, las caídas fatales y las restricciones de viaje
+    const libre = $('#libre'); libre.checked = !!this.saved.libre; document.body.classList.toggle('libre', libre.checked);
+    libre.addEventListener('change', () => { this.saved.libre = libre.checked; player.free = libre.checked; document.body.classList.toggle('libre', libre.checked); this.save(); this.toast(libre.checked ? 'Modo paseo: sin esfuerzo ni peligro' : 'Modo montaña: la cordillera vuelve a cobrar'); });
     // --- capas
     document.querySelectorAll('[data-layer]').forEach((c) => {
       const k = c.dataset.layer; if (k in this.saved.layers) c.checked = this.saved.layers[k];
@@ -118,7 +126,7 @@ export class UI {
       li.innerHTML = `<div><b></b><small></small></div><button>Ir</button>`;
       li.querySelector('b').textContent = l.n; li.querySelector('small').textContent = l.t;
       li.addEventListener('click', (e) => {
-        if (e.target.tagName === 'BUTTON') { this.travel(l.x, l.z, l.n); return; }
+        if (e.target.tagName === 'BUTTON') { if (this.saved.libre || this.seen.has(l.id)) this.travel(l.x, l.z, l.n); else this.toast('Aún no conoces ese lugar: hay que llegar por tus medios', 3000); return; }
         this.queue.length = 0; this.showCard({ tag: l.t, title: l.n, text: l.d, foot: this.seen.has(l.id) ? 'Ya estuviste aquí' : 'Aún no lo visitas' }, true);
         if (matchMedia('(max-width: 820px)').matches) this.toggle(null);
       });
@@ -133,9 +141,16 @@ export class UI {
     this.big.addEventListener('pointerdown', (e) => {
       const r = this.big.getBoundingClientRect();
       this.target = { x: ((e.clientX - r.left) / r.width) * manifest.core.sizeX, z: ((e.clientY - r.top) / r.height) * manifest.core.sizeZ };
+      // En modo montaña solo se viaja a lo conocido: el toque se ajusta al destino permitido más cercano, si hay uno.
+      let name = null;
+      if (!this.saved.libre) {
+        const t = this.progress && this.progress.travelTarget(this.target.x, this.target.z);
+        if (!t) { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = 'Ahí no has estado: solo puedes viajar a lugares que ya conoces o a un pueblo.'; this.drawBig(); return; }
+        this.target = { x: t.x, z: t.z }; name = t.name;
+      }
       const near = labels.nearest(this.target.x, this.target.z);
       const km = Math.hypot(this.target.x - player.x, this.target.z - player.z) / 1000;
-      $('#map-hint').textContent = `${near ? near.name : 'Punto en la cordillera'} · a ${km.toFixed(km < 10 ? 1 : 0)} km`;
+      $('#map-hint').textContent = `${name || (near ? near.name : 'Punto en la cordillera')} · a ${km.toFixed(km < 10 ? 1 : 0)} km`;
       $('#map-go').hidden = false; this.drawBig();
     });
     $('#map-go').addEventListener('click', () => { if (this.target) this.travel(this.target.x, this.target.z); });
@@ -174,6 +189,7 @@ export class UI {
     for (const b of document.querySelectorAll('#animals .animal, #animal-seg button')) b.classList.toggle('on', b.dataset.id === a.id);
     $('#start').textContent = `Comenzar como ${a.corto.toLowerCase()}`;
     $('#ability-name').textContent = a.ability.n; $('#ability').title = a.ability.d;
+    $('#down').textContent = a.fly ? 'Bajar' : 'Truco';
     document.body.dataset.animal = a.id;
     if (announce) this.audio.play('ui');
     if (announce && this.started) {
@@ -186,11 +202,37 @@ export class UI {
     const open = document.querySelector('.panel:not([hidden])');
     document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('on', !!open && open.id === 'panel-' + b.dataset.panel));
     if (open) this.audio.play('ui');
-    if (open && open.id === 'panel-mapa') { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = 'Toca cualquier punto del mapa para viajar ahí.'; this.drawBig(); }
+    if (open && open.id === 'panel-mapa') { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = this.saved.libre ? 'Toca cualquier punto del mapa para viajar ahí.' : 'Toca un lugar que ya conozcas, o un pueblo, para viajar ahí.'; this.drawBig(); }
+    if (open && open.id === 'panel-guia') this.refreshProgress();
   }
   toast(text, ms = 2200) {
     const t = $('#toast'); t.textContent = text; t.classList.add('on');
     clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('on'), ms);
+  }
+  // Pirueta bien aterrizada: nombre, puntos y combo (encadenar otra antes de 8 s multiplica).
+  trick({ flips, halves, air }) {
+    const now = performance.now() / 1000, parts = [];
+    this.combo = now - this.lastTrick < 8 ? this.combo + 1 : 1; this.lastTrick = now;
+    const nf = Math.abs(flips), nh = Math.abs(halves);
+    if (nf) parts.push((nf > 1 ? ['', '', 'Doble mortal', 'Triple mortal'][nf] || nf + ' mortales' : 'Mortal') + (flips > 0 ? ' adelante' : ' atrás'));
+    if (nh) parts.push('Giro ' + nh * 180);
+    const pts = Math.round(((nf * 500 + nh * 200) * (1 + air * 0.25) * this.combo) / 10) * 10;
+    this.saved.estilo += pts; if (pts > this.saved.mejor) this.saved.mejor = pts; this.save();
+    this.toast(`${parts.join(' + ')} · +${fmt(pts)}${this.combo > 1 ? ' · combo ×' + this.combo : ''}`, 2600);
+  }
+  bail(text) { this.combo = 0; this.toast(text, 1800); }
+  // Pantalla de caída fatal (text = null la quita).
+  death(text) { const el = $('#death'); if (text === null) { el.hidden = true; return; } $('#death-text').textContent = text; el.hidden = true; void el.offsetWidth; el.hidden = false; this.combo = 0; this.toggle(null); }
+  // Resumen de lo conquistado, arriba en la Guía: mapa visto, cumbres y secretos (los secretos, solo los ya encontrados).
+  refreshProgress() {
+    const P = this.progress; if (!P) return;
+    const cs = Object.entries(P.data.cumbres).sort((a, b) => b[1][0] - a[1][0]);
+    $('#progreso').textContent = `Has visto el ${P.pct.toFixed(P.pct < 10 ? 1 : 0).replace('.', ',')} % del mapa · ${cs.length} de ${P.cumbres.length} cumbres · ${P.found.size} de ${P.secretos.length} secretos · ${fmt(P.data.desnivel)} m subidos${P.data.muertes ? ' · ' + P.data.muertes + (P.data.muertes === 1 ? ' caída fatal' : ' caídas fatales') : ''}`;
+    const ul = $('#logros'); ul.textContent = '';
+    const add = (cls, name, note) => { const li = document.createElement('li'); li.className = cls; li.appendChild(document.createElement('b')).textContent = name; li.appendChild(document.createElement('small')).textContent = note; ul.appendChild(li); };
+    for (const s of P.secretos) if (P.found.has(s.id)) add('sec', s.n, 'secreto · ' + s.cat);
+    for (const [name, v] of cs.slice(0, 12)) add('cum', name, fmt(v[0]) + ' m');
+    if (cs.length > 12) add('cum', `… y ${cs.length - 12} cumbres más`, '');
   }
   travel(x, z, name) {
     const p = this.player;
@@ -242,6 +284,7 @@ export class UI {
       const lat = m.core.north - p.z / m.mPerDegLat, lon = m.core.west + p.x / m.mPerDegLon;
       const near = this.labels.nearest(p.x, p.z);
       $('#place-name').textContent = near ? near.name : this.country === 'ar' ? 'Cordillera de Mendoza' : 'Cordillera de Santiago';
+      $('#place-street').textContent = (this.streetNames && this.streetNames.current) || '';
       $('#place-meta').textContent = `${fmt(p.y)} m s. n. m. · ${Math.abs(lat).toFixed(3).replace('.', ',')}° S ${Math.abs(lon).toFixed(3).replace('.', ',')}° O`;
       const env = this.env, temp = Math.round(env.temperature(p.y)), line = fmt(Math.round(env.snowLine / 50) * 50);
       const sky = env.storm > 0.4 ? (env.snowingHere ? 'nevando' : `lloviendo (nieva sobre ${fmt(Math.round(env.fallLine / 50) * 50)} m)`) : `nieve sobre ${line} m`;
@@ -249,7 +292,8 @@ export class UI {
       $('#epoca-out').textContent = `${SEASONS[env.season]} · ${env.month}`;
       if (env.auto) { this.epoca.value = env.year; this.saved.year = env.year; }
       if (!env.forceStorm && $('#tormenta').classList.contains('on')) { $('#tormenta').classList.remove('on'); $('#tormenta').textContent = 'Provocar una tormenta'; }
-      $('#kmh').textContent = `${fmt(p.speed * 3.6)} km/h · ${(p.odo / 1000).toFixed(p.odo < 1e5 ? 1 : 0).replace('.', ',')} km recorridos`;
+      $('#kmh').textContent = `${fmt(p.speed * 3.6)} km/h · ${(p.odo / 1000).toFixed(p.odo < 1e5 ? 1 : 0).replace('.', ',')} km${this.saved.estilo ? ' · estilo ' + fmt(this.saved.estilo) : ' recorridos'}`;
+      const at = $('#attrib'), showAt = !!(this.sat && this.sat.covered); if (at.hidden === showAt) at.hidden = !showAt;
       // Próximo lugar sin visitar, con rumbo y distancia: ayuda a dimensionar cuánto falta de verdad.
       let nextL = null, nd = Infinity;
       for (const l of this.lugares) { if (this.seen.has(l.id)) continue; const d = Math.hypot(l.x - p.x, l.z - p.z); if (d < nd) { nd = d; nextL = l; } }
@@ -260,6 +304,7 @@ export class UI {
       } else $('#place-next').textContent = '';
       this.nextPlace = nextL;
       // Recarga de la habilidad: el botón se va destapando.
+      const st = $('#stam'); st.firstElementChild.style.width = (p.stamina * 100).toFixed(0) + '%'; st.classList.toggle('low', p.stamina < 0.35 && !p.exhausted); st.classList.toggle('out', p.exhausted);
       const cd = Math.max(0, p.abilityReady - performance.now() / 1000), ab = $('#ability');
       ab.classList.toggle('wait', cd > 0); ab.style.setProperty('--cd', (cd / p.animal.ability.cd).toFixed(3));
     }
@@ -313,6 +358,7 @@ export class UI {
     g.fillStyle = '#1a1f22'; g.fillRect(0, 0, W, W);
     g.imageSmoothingQuality = 'high';
     g.drawImage(img, sx(p.x - span / 2), sz(p.z - span / 2), sx(span), sz(span), 0, 0, W, W);
+    if (this.progress && !this.saved.libre) this.progress.drawFog(g, p.x - span / 2, p.z - span / 2, span, span, 0, 0, W, W);
     for (const l of this.lugares) {
       const x = ((l.x - p.x) / span + 0.5) * W, y = ((l.z - p.z) / span + 0.5) * W;
       if (x < 0 || y < 0 || x > W || y > W) continue;
@@ -326,6 +372,7 @@ export class UI {
     if (cv.width !== 818) { cv.width = 818; cv.height = Math.round((818 * img.naturalHeight) / img.naturalWidth); } // tamaño fijo: los marcadores y textos están pensados para él
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, X = (v) => (v / m.core.sizeX) * W, Z = (v) => (v / m.core.sizeZ) * H;
     g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, W, H);
+    if (this.progress && !this.saved.libre) this.progress.drawFog(g, 0, 0, m.core.sizeX, m.core.sizeZ, 0, 0, W, H);
     const b = this.border;
     if (b) { // límite internacional
       g.beginPath();

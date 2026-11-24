@@ -8,7 +8,7 @@ const GROUP_OF = {
   lago: 'agua', rio: 'agua', estero: 'agua', glaciar: 'agua', cascada: 'agua', termas: 'agua',
   refugio: 'lugares', mirador: 'lugares', atractivo: 'lugares', parque: 'lugares', ski: 'lugares',
   valle: 'relieve', cordon: 'relieve', region: 'relieve',
-  ruta: 'vias', puente: 'vias',
+  ruta: 'vias', puente: 'vias', calle: 'calles',
 };
 // Grandes unidades del relieve: [nombre, lat, lon]. Son el "mapa mental" de la zona.
 const REGIONS = [
@@ -33,7 +33,8 @@ const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'
 export class Labels {
   constructor(container, data, hf, manifest, max) {
     this.hf = hf; this.max = max; this.container = container;
-    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true, relieve: true, vias: true };
+    this.enabled = { cumbres: true, localidades: true, agua: true, lugares: true, relieve: true, vias: true, calles: true };
+    this.dyn = []; // letreros que cambian de lugar (nombres de calles, ver streetnames.js): se revisan junto con los fijos
     this.items = data.items.map(([name, k, x, z, rank, ele]) => ({ name, kind: data.kinds[k], group: GROUP_OF[data.kinds[k]], x, z, rank, ele }));
     for (const [name, kind, lat, lon, ele] of FAR)
       this.items.push({ name, kind, group: GROUP_OF[kind], x: (lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - lat) * manifest.mPerDegLat, rank: 0, ele, far: true });
@@ -57,9 +58,10 @@ export class Labels {
   refresh(camera) {
     const cam = camera.position, hf = this.hf, p = [0, 0], cands = [];
     this._vp.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
-    for (const it of this.items) {
+    for (let n = 0, N = this.items.length + this.dyn.length; n < N; n++) {
+      const it = n < this.items.length ? this.items[n] : this.dyn[n - this.items.length];
       if (!this.enabled[it.group]) continue;
-      const R = RANGE[it.rank], dx = it.x - cam.x, dz = it.z - cam.z, d2 = dx * dx + dz * dz;
+      const R = it.range || RANGE[it.rank], dx = it.x - cam.x, dz = it.z - cam.z, d2 = dx * dx + dz * dz;
       if (d2 > R * R) continue;
       if (it.y === undefined) it.y = Math.max(hf.base(it.x, it.z), it.far ? it.ele * 0.97 : 0) + (it.lift || 0);
       if (!this._project(it, p) || Math.abs(p[0]) > 1.08 || p[1] > 1.15 || p[1] < -1.05) continue;
@@ -107,7 +109,7 @@ export class Labels {
           rects.push(x0, y0, x1, y1); shown++;
           el.style.display = 'block';
           el.style.transform = `translate(${sx.toFixed(1)}px,${sy.toFixed(1)}px) translate(-50%,-100%)`;
-          el.style.opacity = Math.min(1, Math.max(0.25, (1.05 - it.d / RANGE[it.rank]) * 3)).toFixed(2);
+          el.style.opacity = Math.min(1, Math.max(0.25, (1.05 - it.d / (it.range || RANGE[it.rank])) * 3)).toFixed(2);
           continue;
         }
       }

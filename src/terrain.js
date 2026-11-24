@@ -54,7 +54,9 @@ export class Terrain {
       uCamFrac: { value: OCTAVES.map(() => new THREE.Vector2()) },
       uWaterFrac: { value: new THREE.Vector2() },
       uCapSun: { value: new THREE.Vector3(0.494, 0.839, -0.23) },
-      uCatPos: { value: new THREE.Vector3(0, -1e6, 0) },
+      uCatPos: { value: new THREE.Vector3(0, -1e6, 0) }, uCatR: { value: 1 },
+      uSat: { value: null }, // sin imagen por streaming hasta que main.js conecte sat.js
+      uSatA: { value: [new THREE.Vector4(), new THREE.Vector4(), new THREE.Vector4()] }, uSatB: { value: [new THREE.Vector3(), new THREE.Vector3(), new THREE.Vector3()] },
       uOv0: { value: overlay.targets[0].texture }, uOv1: { value: overlay.targets[1].texture }, uOv2: { value: overlay.targets[2].texture }, uOv3: { value: overlay.targets[3].texture },
       uOv: { value: overlay.uniformValue },
       uShow: { value: new THREE.Vector4(1, 1, 0, 0) },

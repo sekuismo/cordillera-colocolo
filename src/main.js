@@ -13,7 +13,7 @@ import { Player } from './player.js';
 import { Input } from './input.js';
 import { Labels } from './labels.js';
 import { UI } from './ui.js';
-import { Props } from './props.js';
+import { Props, RiverIndex } from './props.js';
 import { Shadows } from './shadows.js';
 import { City, HITOS } from './city.js';
 import { SpeedFX } from './speedfx.js';
@@ -21,12 +21,20 @@ import { StreetIndex } from './streets.js';
 import { Infra } from './infra.js';
 import { Carve, makeBase, CLASSES as CARVE_CLASSES } from './carve.js';
 import { Zones } from './zones.js';
+import { Sat } from './sat.js';
+import { StreetNames } from './streetnames.js';
+import { Progress } from './progreso.js';
+import { Signs } from './signs.js';
+import { Roadside } from './roadside.js';
+import { PuebloHitos } from './hitos_pueblo.js';
+import { Relevados, EDIFICIOS } from './pueblos.js';
+import { ESRI_KEY } from './config.js';
 
 const $ = (s) => document.querySelector(s);
 
 // Versión del código que está corriendo. version.json se pide sin caché: si no coincide, el navegador tiene archivos
 // viejos guardados y se avisa. Hay que cambiar los dos juntos en cada deploy.
-const VERSION = '2026-11-23d';
+const VERSION = '2026-11-24b';
 $('#ver').textContent = 'versión ' + VERSION;
 fetch(new URL('../version.json', import.meta.url), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
   if (version !== VERSION) { $('#ver').textContent = `Estás viendo una versión guardada (${VERSION}); la publicada es ${version}. Recarga con Ctrl+Shift+R.`; $('#ver').classList.add('old'); }
@@ -101,13 +109,30 @@ vec3 CustomToneMapping(vec3 color) {
     props.useZones(); props.zoneSize = zones.size;
     zones.onBin = (key, d) => props.addZone(key, d); zones.onDrop = (key, d) => props.dropZone(key, d);
   }
+  if (data.lines.river) props.river = new RiverIndex(data.lines.river);
+  props.relevados = new Relevados(manifest);
+  // Carteles: los de OpenStreetMap más los de los edificios relevados a mano.
+  const signs = new Signs({ env: env.uniforms, hf, props });
+  signs.extra = EDIFICIOS.filter((e) => e.cartel).map((e) => ({ n: e.cartel, k: e.tipo ?? 0, x: (e.lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - e.lat) * manifest.mPerDegLat }));
   const city = new City({ hf, manifest, env: env.uniforms, skyline: data.skyline });
   const infra = data.infra ? new Infra({ hf, manifest, env: env.uniforms, data: data.infra, shadowTex: shadows.tex }) : null;
   const scene = new THREE.Scene();
-  const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props);
-  scene.add(terrain.group, props.group, city.mesh, env.sky, env.precip, speedfx.mesh);
+  const speedfx = new SpeedFX(env.uniforms, $('#rush'), quality.props, env.pu.uPx);
+  scene.add(terrain.group, props.group, city.mesh, env.sky, env.precip, speedfx.group);
   if (infra) scene.add(infra.group);
-  const camera = new THREE.PerspectiveCamera(60, 1, 0.25, FAR);
+  scene.add(signs.mesh);
+  const roadside = new Roadside({ hf, env: env.uniforms, overlay, shadowTex: shadows.tex, manifest, cls: (x, z) => props._cls(x, z) });
+  scene.add(roadside.group);
+  const hitos = new PuebloHitos({ hf, env: env.uniforms, shadowTex: shadows.tex, manifest });
+  scene.add(hitos.group);
+  const camera = new THREE.PerspectiveCamera(60, 1, 0.12, FAR);
+  // Imagen de alta resolución por streaming (si hay clave). En calidad liviana, un solo nivel intermedio.
+  let sat = null;
+  if (ESRI_KEY) try {
+    sat = new Sat(renderer, manifest, ESRI_KEY, quality.tier === 'hi' ? [18, 16, 15] : [16]);
+    terrain.uniforms.uSat.value = sat.tex; terrain.uniforms.uSatA.value = sat.A; terrain.uniforms.uSatB.value = sat.B;
+    props.setSat(sat);
+  } catch (e) { console.warn('[sat] no se pudo iniciar:', e); sat = null; }
   // Pide una ventana nueva cuando la cámara se alejó un cuarto de ella; mientras el worker trabaja, solo una a la vez.
   const requestCarve = (p) => {
     const cx = Math.round(p.x / cSnap) * cSnap, cz = Math.round(p.z / cSnap) * cSnap, key = cx + ',' + cz;
@@ -133,7 +158,10 @@ vec3 CustomToneMapping(vec3 color) {
   const labels = new Labels($('#labels'), data.labels, hf, manifest, quality.maxLabels);
   labels.add(HITOS.map((h) => ({ name: h.n, x: h.x, z: h.z, y: h.top + 8, note: h.nota })));
   player.collide = (x, z) => props.collide(x, z);
+  // ¿Hay camino de vehículos bajo las patas? (calles, rutas y huellas; los senderos no cuentan.) Turbo e Híper dependen de esto.
+  player.road = (x, z) => { const s = props.streets.nearest(x, z, 16); return !!s && s.d < s.hw + 4.5; };
   if (infra) { labels.add(infra.labels); player.deck = (x, z) => infra.deckAt(x, z); }
+  const streetNames = new StreetNames(labels, hf);
   const audio = new GameAudio();
   const setAnimal = (id) => {
     const a = ANIMALS[id] || ANIMALS.colocolo;
@@ -141,16 +169,38 @@ vec3 CustomToneMapping(vec3 color) {
     for (const k in models) models[k].root.visible = k === a.id;
     cat = models[a.id];
     const zoom = player.camDist / player.animal.camDist; // conserva el acercamiento relativo que traía la cámara
-    player.setAnimal(a); player.camDist = a.camDist * zoom;
+    player.setAnimal(a); player.camDist = a.camDist * zoom; terrain.uniforms.uCatR.value = a.scale;
   };
-  const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border, audio, onAnimal: setAnimal });
+  const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border, audio, onAnimal: setAnimal, sat, streetNames });
+  const progress = (ui.progress = new Progress({ manifest, player, labels, hf, audio, ui }));
+  for (const l of ui.lugares) if (ui.seen.has(l.id)) progress.reveal(l.x, l.z, 2500); // lo descubierto antes de que existiera la niebla
+  ui.refreshProgress(); player.free = !!ui.saved.libre;
+  let offT = 0;
   ui.pickAnimal(ui.saved.animal, false);
+  const isWater = () => !player.onDeck && hf.slope2(player.x, player.z) < 2.5e-5;
   player.onEvent = (n, v) => {
     if (n === 'jump' || n === 'jump2') audio.play(player.animal.fly ? 'flap' : 'jump', { gain: n === 'jump2' ? 0.7 : 1 });
     else if (n === 'land' && v > 3) {
-      audio.play(hf.slope2(player.x, player.z) < 2.5e-5 ? 'splash' : 'land', { gain: Math.min(1, v / 14) });
+      const water = isWater();
+      audio.play(water ? 'splash' : 'land', { gain: Math.min(1.4, v / 14) });
       if (v > 9) input.rumble(Math.min(1, v / 20), 0.3, 140);
-    }
+      if (!water && v > 6) speedfx.puff(Math.min(36, (v * 1.6) | 0), player.x, player.y + 0.05, player.z, player.vx * 0.2, 0.6, player.vz * 0.2, 1.5 + v * 0.12, 0.25 + 0.3 * player.size, 1.1, dustBright);
+    } else if (n === 'tumble') {
+      audio.play('tumble', { gain: Math.min(1.5, v / 22) }); input.rumble(1, 0.6, 420);
+      ui.toast(v > player.animal.hard * 1.6 ? '¡Tremendo porrazo!' : 'Mala caída: a rodar', 1800);
+    } else if (n === 'boom') { audio.play('boom', { gain: v === 2 ? 1.3 : 0.9 }); input.rumble(0.7, 1, v === 2 ? 420 : 260); }
+    else if (n === 'crash') {
+      audio.play('tumble', { gain: Math.min(1.5, v / 14) }); input.rumble(1, 0.7, 380); ui.bail('¡Choque!');
+      speedfx.puff(22, player.x, player.y + 0.2 * player.size, player.z, player.vx * 0.3, 1.2, player.vz * 0.3, 3, 0.2 + 0.3 * player.size, 1, dustBright);
+    } else if (n === 'bail') { audio.play('tumble', { gain: 0.9 }); input.rumble(0.9, 0.5, 320); ui.bail('Pirueta a medias: al suelo'); }
+    else if (n === 'trick') { audio.play('trick', { gain: Math.min(1.4, 0.7 + 0.2 * (Math.abs(v.flips) + Math.abs(v.halves))) }); input.rumble(0.3, 0.7, 180); ui.trick(v); }
+    else if (n === 'death') {
+      audio.play('tumble', { gain: 1.5 }); audio.play('error', { gain: 0.8 }); input.rumble(1, 1, 700); progress.death();
+      const near = labels.nearest(player.x, player.z);
+      ui.death(`Caíste ${Math.round(v.drop)} m${near ? ' en ' + near.name : ''}.`);
+    } else if (n === 'respawn') ui.death(null);
+    else if (n === 'tired') { audio.play('error', { gain: 0.4 }); ui.toast(v > 3200 ? 'Sin aliento: a esta altura el aire no alcanza. Descansa' : 'Sin aliento: descansa un momento', 3000); }
+    else if (n === 'air' && started && player.tumble <= 0) ui.toast(`Vuelo de ${v.toFixed(1).replace('.', ',')} s`, 1600);
   };
 
   // Marca de luz del olfato del colocolo: una columna sobre el próximo lugar sin descubrir, visible desde lejos.
@@ -189,8 +239,8 @@ vec3 CustomToneMapping(vec3 color) {
   // Los navegadores solo dejan sonar después de un gesto: el primer clic o tecla enciende el audio (y la música de la portada).
   const unlock = () => audio.start();
   addEventListener('pointerdown', unlock, { once: true }); addEventListener('keydown', unlock, { once: true });
-  const snd = { animal: 'colocolo', speed: 0, grounded: true, flying: false, flap: 0, swimming: false, altitude: 0, snow: false, water: 0, storm: 0, rain: 0, night: 0, rush: 0, menu: true };
-  let water = 0, waterTick = 0;
+  const snd = { animal: 'colocolo', slide: 0, speed: 0, grounded: true, flying: false, flap: 0, swimming: false, altitude: 0, snow: false, water: 0, storm: 0, rain: 0, night: 0, rush: 0, menu: true };
+  let water = 0, waterTick = 0, dustBright = 1;
 
   // Resolución adaptativa: si el equipo no da, se baja la densidad de píxeles antes que los cuadros por segundo.
   // Con el cronómetro de GPU (Chrome y Edge) se mide cuánto cuesta de verdad dibujar cada cuadro; sin él, se estima por fps.
@@ -233,7 +283,14 @@ vec3 CustomToneMapping(vec3 color) {
     }
     cat.root.visible = !fp;
     sink += ((player.swimming ? 0.21 * player.size + Math.sin(t * 2.4) * 0.015 : 0) - sink) * (1 - Math.exp(-dt * 6));
-    cat.update(dt, t, { x: player.x, y: player.y - sink, z: player.z, heading: player.heading, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy, flap: player.flap, turn: player._turn });
+    cat.update(dt, t, { x: player.x, y: player.y - sink, z: player.z, heading: player.heading + player.trickY, speed: player.speed, normal: player.normal, airborne: !player.grounded, vy: player.vy, flap: player.flap, turn: player._turn, spin: player.spin + player.trickP, tuck: player.tricking ? 1 : 0 });
+    // Polvo: al correr fuerte, al resbalar y al rodar. Sobre la nieve es blanco; en el agua no hay.
+    if (started && player.grounded && !player.swimming && !player.flying) {
+      const snowy = player.y > env.snowLine + 60; dustBright = snowy ? 1.9 : 1;
+      const rate = (player.tumble > 0 ? 60 : 0) + player.slide * 45 + (player.speed > 11 ? Math.min(70, player.speed * 0.9) : 0);
+      if (rate > 0) speedfx.trail(dt, rate, player.x, player.y + 0.04, player.z, player.vx * 0.25, player.vz * 0.25, (0.14 + 0.2 * player.size) * (1 + player.rush * 2.5), dustBright);
+    }
+    speedfx.updateDust(dt);
     const groundY = hf.height(player.x, player.z), agl = player.y - groundY;
     // La sombra de contacto solo existe cerca del suelo: un cóndor a 300 m no deja una mancha bajo él.
     terrain.uniforms.uCatPos.value.set(player.x - camera.position.x, agl > 6 ? 1e6 : groundY - camera.position.y, player.z - camera.position.z);
@@ -250,7 +307,7 @@ vec3 CustomToneMapping(vec3 color) {
     }
     snd.animal = player.animal.id; snd.speed = player.speed; snd.grounded = player.grounded; snd.flying = player.flying; snd.flap = player.flap; snd.swimming = player.swimming;
     snd.altitude = player.y; snd.snow = player.y > env.snowLine + 120; snd.water = water; snd.storm = env.storm; snd.rain = env.storm > 0.3 && !env.snowingHere ? env.storm : 0;
-    snd.night = city.uniforms.uNight.value; snd.rush = player.rush; snd.menu = !started;
+    snd.night = city.uniforms.uNight.value; snd.rush = player.rush; snd.menu = !started; snd.slide = player.slide;
     audio.update(dt, snd);
     env.update(camera, t, dt);
     // Las sombras del relieve se recalculan (en un worker) solo cuando el sol se movió.
@@ -258,15 +315,19 @@ vec3 CustomToneMapping(vec3 color) {
     cat.shade.value += (shadows.at(player.x, player.z) - cat.shade.value) * (1 - Math.exp(-dt * 8));
     city.update(camera, env.elevation);
     if (infra) infra.update(camera);
-    speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt);
+    speedfx.update(camera, player.vx, player.vy, player.vz, started && !fp ? player.rush : player.rush * 0.6, dt, player.kick);
     requestCarve(player);
+    if (sat) sat.update(dt, camera.position.x, camera.position.z, player.speed);
     if (zones) zones.update(renderer, player.x, player.z);
     overlay.update(renderer, camera.position);
     terrain.update(camera);
+    if (started) { roadside.update(camera); hitos.update(player.x, player.z); }
+    props.nearU.value = fp ? 2.3 : Math.hypot(camera.position.x - player.x, camera.position.y - player.y, camera.position.z - player.z) * 0.92;
     props.update(camera, player.speed);
     let q = null;
     if (tq && queries.length < 6) { q = gl.createQuery(); gl.beginQuery(tq.TIME_ELAPSED_EXT, q); }
     renderer.render(scene, camera);
+    speedfx.post(renderer);
     if (q) { gl.endQuery(tq.TIME_ELAPSED_EXT); queries.push(q); }
     while (queries.length && gl.getQueryParameter(queries[0], gl.QUERY_RESULT_AVAILABLE)) { // el resultado llega uno o dos cuadros después
       const done = queries.shift();
@@ -275,6 +336,10 @@ vec3 CustomToneMapping(vec3 color) {
     }
 
     if (started) {
+      progress.update(dt);
+      signs.update(dt, player.x, player.z, camera);
+      if (player.offroad && (offT -= dt) <= 0) { offT = 9; ui.toast('Turbo e Híper solo corren por caminos: el cerro se sube a pata', 3200); }
+      streetNames.update(dt, player.x, player.z, Math.sin(player.camYaw), Math.cos(player.camYaw), player.speed);
       if ((labelTick -= dt) <= 0) { labelTick = 0.25; labels.refresh(camera); }
       labels.update(camera, innerWidth, innerHeight);
       ui.update(dt, camera);
@@ -317,7 +382,7 @@ vec3 CustomToneMapping(vec3 color) {
     }
   };
   renderer.setAnimationLoop(frame);
-  window.__juego = { zones, carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, get cat() { return cat; }, models, setAnimal, audio, quality, input, start: () => $('#start').click() };
+  window.__juego = { frame, sat, streetNames, progress, signs, roadside, hitos, speedfx, zones, carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, get cat() { return cat; }, models, setAnimal, audio, quality, input, start: () => $('#start').click() };
 
   $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
   $('#start').hidden = false; $('#animals').hidden = false;

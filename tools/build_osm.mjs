@@ -146,7 +146,8 @@ for (const e of await load('water')) {
       if (ring.length < 4 || !inside(ring, 0)) continue;
       const a = area(ring); if (a < 600) continue;
       const s = simplify(ring, a > 2e5 ? 3 : 1.5);
-      if (s.length >= 4) classes.lake.push({ type: 0, pts: s });
+      // tipo 1: polígono de río (el Maipo, el Colorado vienen así en OSM). No es un lago: no hace de espejo y baja turbio.
+      if (s.length >= 4) classes.lake.push({ type: /^(river|stream|canal)$/.test(t.water || '') || /^(r[ií]o|estero|canal)/i.test(t.name || '') ? 1 : 0, pts: s });
     }
   }
 }

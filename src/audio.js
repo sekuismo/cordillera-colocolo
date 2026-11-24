@@ -1,11 +1,17 @@
-// Todo el sonido del juego, generado por código con Web Audio (sin archivos): música andina en La menor pentatónica
-// (quena, zampoña, charango, bombo y chajchas sintetizados), ambiente (viento, río, lluvia, truenos, pájaros, grillos),
-// pasos y efectos. La música es generativa pero "compuesta": frases de 4 compases en forma AABB sobre un huayno en 2/4,
-// con capas que entran y salen según lo que hace el animal. Nada suena hasta start(), que debe venir de un gesto.
+// Todo el sonido del juego, generado por código con Web Audio (sin archivos): música de raíz andina (quena, zampoña,
+// charango, bombo y chajchas sintetizados), ambiente (viento, río, lluvia, truenos, pájaros, grillos), pasos y efectos.
+//
+// La música no suena siempre. Llega por PIEZAS, como en Minecraft: una pieza dura de uno a tres minutos, se va, y queda
+// un rato largo solo el ambiente. Cada pieza sortea su carácter: modo (pentatónica menor, su relativa mayor, o bimodal:
+// parte en mayor y cierra en menor, lo más andino que hay), tono, tempo (de un yaraví lento a un huayno), instrumentos
+// (quena sola, con charango, con bombo suave, o el conjunto completo) y volumen. Lo que hace el animal solo la matiza.
+// Dentro de una pieza la música es generativa pero "compuesta": frases de 4 compases en forma AABB en 2/4.
+// Nada suena hasta start(), que debe venir de un gesto.
 
-const PENT = [0, 3, 5, 7, 10];   // La Do Re Mi Sol, en semitonos desde La
-// Grado de la escala → Hz. El grado 0 es La3 (220 Hz) y cada 5 grados sube una octava: 5 = La4, 10 = La5.
-const degFreq = (d) => { const o = Math.floor(d / 5); return 220 * Math.pow(2, o + PENT[d - o * 5] / 12); };
+const PENT = [0, 3, 5, 7, 10];   // pentatónica menor: La Do Re Mi Sol (en semitonos desde la tónica)
+let ROOT = 220;                  // Hz del grado 0; cada pieza elige su tono
+// Grado de la escala → Hz. El grado 0 es la tónica grave y cada 5 grados sube una octava: 5 = La4, 10 = La5 (en La).
+const degFreq = (d) => { const o = Math.floor(d / 5); return ROOT * Math.pow(2, o + PENT[d - o * 5] / 12); };
 const clamp01 = (x) => ((x = +x) > 0 ? (x < 1 ? x : 1) : 0);   // de paso convierte undefined y NaN en 0
 const smooth = (a, b, x) => { const t = clamp01((x - a) / (b - a)); return t * t * (3 - 2 * t); };
 const num = (v, d) => (typeof v === 'number' && v === v ? v : d);
@@ -24,6 +30,28 @@ const STEP_ARC = [1, 1, -1, 2, 1, -1, 0, -2], STEP_DN = [-1, -1, 1, -2, -1, 1, 0
 // Abiertas (quedan en Mi o en Do y piden la repetición), con el acorde que las acompaña.
 const CAD_CLOSE = [[8, 2, 7, 1, 6, 1, 5, 4], [6, 2, 5, 2, 4, 1, 5, 3], [7, 2, 6, 2, 5, 2, 5, 2]];
 const CAD_OPEN = [[7, 2, 8, 1, 9, 1, 8, 4], [8, 2, 7, 2, 6, 2, 6, 2], [10, 2, 9, 1, 8, 1, 8, 4]], CAD_OPEN_CH = [2, 1, 2];
+// Modo mayor: las mismas cinco notas, pero con el centro en Do (la relativa mayor). Progresiones sobre C y G, y
+// cadencias que cierran en Do (Mi-Re-Do, Sol-Mi-Do, Re-Mi-Do) o quedan abiertas en Sol o en Re.
+const PROG_A_M = [[1, 1, 3, 1], [1, 0, 3, 1], [1, 4, 3, 1]], PROG_B_M = [[3, 1, 3, 1], [0, 1, 3, 1], [4, 3, 1, 1]];
+const CAD_CLOSE_M = [[8, 2, 7, 1, 6, 1, 6, 4], [9, 2, 8, 2, 6, 4], [7, 2, 8, 2, 6, 2, 6, 2]];
+const CAD_OPEN_M = [[8, 2, 9, 2, 9, 4], [6, 2, 7, 2, 7, 4], [10, 2, 9, 1, 8, 1, 9, 4]], CAD_OPEN_CH_M = [3, 3, 3];
+const FREE_START_M = [9, 11, 8, 6];
+const KEYS = [-5, -3, -2, 0, 0, 2, 3];        // tonos posibles de una pieza, en semitonos respecto de La
+// Pieza de ambiente (la más frecuente): acordes arpegiados despacio, con una nota de color arriba, y de vez en cuando
+// una frase suelta. Aquí la armonía ya no es pentatónica: son los acordes de La menor / Do mayor con sus novenas y
+// séptimas. Cada acorde: [bajo, [notas del arpegio], [notas de color para la voz de arriba]], en semitonos desde la
+// tónica (0 = La3 si la pieza está en La). 0 Lam(add9) · 1 Fa maj7 · 2 Do(add9) · 3 Sol6 · 4 Mim7 · 5 Rem(add9)
+const AMB_CH = [
+  [-12, [0, 3, 7, 12], [14, 19, 10]],
+  [-16, [-4, 0, 3, 7], [12, 14, 15]],
+  [-9, [-2, 3, 7, 10], [17, 15, 19]],
+  [-14, [-2, 2, 5, 10], [14, 17, 19]],
+  [-17, [-5, -2, 2, 7], [10, 14, 17]],
+  [-7, [0, 5, 8, 12], [15, 19, 12]],
+];
+const AMB_NEXT = [[1, 2, 4, 5, 3], [2, 0, 3, 5], [3, 0, 1, 4], [0, 2, 4, 1], [0, 1, 2], [0, 3, 1, 4]];   // a qué acorde se puede ir desde cada uno
+const AMB_PAT = [[0, 1, 2, 3], [0, 1, 2, 3, 2, 1], [0, 2, 1, 3], [0, 1, 3, 2], [1, 2, 3], [0, 2, 3], [3, 2, 1, 0]];
+const AMB_SCALE = [7, 10, 12, 14, 15, 17, 19, 22, 24];   // registro de la voz de arriba: pentatónica menor más la novena (Si)
 const ARP = [0, -1, 2, 1, 3, -1, 2, 1];        // qué cuerda del acorde toca el arpegio en cada semicorchea (-1: silencio)
 const FREE_START = [8, 10, 7, 8];
 const FANF = [[5, 8, 9, 10], [8, 9, 10, 11, 10], [6, 8, 10], [5, 7, 8, 10]];   // fanfarrias de 'discover': todas llegan a La5
@@ -39,9 +67,11 @@ export class GameAudio {
     let s = (this.seed = (Date.now() ^ 0x9e3779b9) >>> 0);
     this.rnd = () => { let t = (s = (s + 0x6d2b79f5) | 0); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
     // estado del juego ya saneado (se reescribe en cada update, sin crear objetos) y nivel 0..1 de cada capa de la música
-    this.q = { animal: 'colocolo', speed: 0, grounded: true, flying: false, swimming: false, snow: false, menu: false, alt: 800, water: 0, storm: 0, rain: 0, night: 0, rush: 0 };
+    this.q = { animal: 'colocolo', slide: 0, speed: 0, grounded: true, flying: false, swimming: false, snow: false, menu: false, alt: 800, water: 0, storm: 0, rain: 0, night: 0, rush: 0 };
     this.lv = { quena: 1, zamp: 0, char: 0, full: 0, perc: 0, fly: 0 };
     this.bpm = 96; this.duck = 1; this.sparse = 0; this.nv = 0;
+    // piezas: la que suena (null = silencio), cuándo parte la próxima, su entrada/salida suave y la actividad reciente del jugador
+    this.piece = null; this.tPiece = 0; this.pk = 0; this.act = 0; this.pieces = 0;
     // secuenciador: semicorchea 0..7 dentro del compás, compás 0..15 dentro de la forma AABB
     this.step = 0; this.bar = 0; this.tStep = 0; this.gridMel = false;
     this.ph = [0, 1, 2, 3].map(() => ({ deg: new Int8Array(32).fill(-1), len: new Uint8Array(32) }));   // A, A', B, B'
@@ -49,6 +79,7 @@ export class GameAudio {
     // melodía libre (sin compás) de los momentos tranquilos
     this.tFree = 0; this.freeLeft = 0; this.freeLen = 0; this.freeDeg = 8; this.fm = new Int8Array(8);
     this.ks = [];   // caché de cuerdas Karplus-Strong, por grado
+    this.ksf = new Map();   // ídem por frecuencia, para la pieza de ambiente (cuerdas más largas y graves, tipo guitarra)
     this.tCtl = 0; this.tBird = 0; this.tThunder = 0; this.tFlap = 0; this.pFlap = 0; this.stepPh = 0.6; this.stepAlt = false;
     if (typeof document !== 'undefined') document.addEventListener('visibilitychange', () => this._gate());
   }
@@ -93,7 +124,8 @@ export class GameAudio {
     try {
       const t = this.ctx.currentTime, o = this.vol;
       this.sfxVol.gain.setTargetAtTime(o.sfx, t, 0.05); this.ambVol.gain.setTargetAtTime(o.sfx * 0.9, t, 0.05);
-      this.musicVol.gain.setTargetAtTime(o.music * this.duck * 0.9, t, 0.05); this.percVol.gain.setTargetAtTime(o.music * this.duck * 0.9, t, 0.05);
+      const mv = o.music * this.duck * 0.9 * this.pk * (this.piece ? this.piece.level : 1);
+      this.musicVol.gain.setTargetAtTime(mv, t, 0.05); this.percVol.gain.setTargetAtTime(mv, t, 0.05);
     } catch (e) { /* ídem */ }
     this._gate();
   }
@@ -156,6 +188,10 @@ export class GameAudio {
     const pulse = G(0.5, this.crkG), trem = G(0.5, pulse);
     O(4300, trem); O(4730, trem); O(23, G(0.5, trem.gain)); O(1.15, G(0.5, pulse.gain));
 
+    // derrumbe: piedras y tierra que ruedan cuando el animal resbala por una ladera
+    this.slideG = G(0, this.ambVol);
+    const sl = loop(this.white, 0.4); sl.connect(F('bandpass', 1300, 0.6, this.slideG)); sl.connect(F('lowpass', 260, 0.7, G(1.6, this.slideG)));
+
     this._compose(true);
     this._vols();
   }
@@ -207,7 +243,7 @@ export class GameAudio {
     q.animal = s.animal === 'puma' || s.animal === 'condor' ? s.animal : 'colocolo';
     q.speed = Math.min(400, Math.max(0, num(s.speed, 0))); q.alt = num(s.altitude, 800);
     q.grounded = s.grounded !== false; q.flying = !!s.flying; q.swimming = !!s.swimming; q.snow = !!s.snow; q.menu = !!s.menu;
-    q.water = clamp01(s.water); q.storm = clamp01(s.storm); q.rain = clamp01(s.rain); q.night = clamp01(s.night); q.rush = clamp01(s.rush);
+    q.slide = clamp01(s.slide); q.water = clamp01(s.water); q.storm = clamp01(s.storm); q.rain = clamp01(s.rain); q.night = clamp01(s.night); q.rush = clamp01(s.rush);
 
     // --- pasos: una fase que avanza con la cadencia; cada vez que da la vuelta suena una pisada. La cadencia crece con la
     // velocidad y se satura (un gato no da 40 pasos por segundo); pasados ~35 m/s las pisadas se funden en el viento.
@@ -236,17 +272,33 @@ export class GameAudio {
     const q = this.q, lv = this.lv, v = q.menu ? 0 : q.speed, fly = q.flying && !q.menu;
     const high = smooth(3300, 4400, q.alt), altK = clamp01((q.alt - 500) / 5000), k = 1 - Math.exp(-dt / 2.2);
 
-    // --- capas: cada nivel persigue su meta despacio (unos 2 s), así los instrumentos entran y salen sin cortes.
-    // Paseo: solo quena. Trote: charango. Carrera: huayno completo. En vuelo manda la zampoña y el bombo espera al Turbo.
-    const full = smooth(11, 17, v), perc = (fly ? smooth(40, 60, v) : full) * (1 - 0.55 * q.night) * (1 - 0.4 * high);
-    lv.char += (smooth(3.2, 5.5, v) * (1 - 0.25 * q.night) - lv.char) * k;
-    lv.full += (full - lv.full) * k; lv.perc += (perc - lv.perc) * k; lv.fly += ((fly ? 1 : 0) - lv.fly) * k;
-    lv.zamp += (Math.max(full * (1 - 0.6 * q.night), fly ? 1 : 0) - lv.zamp) * k;
+    // --- piezas: entre una y otra queda solo el ambiente. La primera llega pronto; después, de a ratos largos.
+    this.act += (clamp01(v / 16) - this.act) * (1 - Math.exp(-dt / 20));
+    let P = this.piece;
+    if (!P) {
+      if (!this.tPiece) this.tPiece = now + (q.menu ? 0.8 : 5 + R() * 12);
+      if (now >= this.tPiece) P = this._newPiece(now);
+    } else if (!P.out && now > P.end) P.out = true;
+    this.pk += ((P && !P.out ? 1 : 0) - this.pk) * (1 - Math.exp(-dt / (P && !P.out ? 2.5 : 3.5)));
+    if (P && P.out && this.pk < 0.02) {
+      this.piece = P = null; this.pk = 0;
+      // silencio: medio minuto a dos minutos y medio (de noche y arriba en la montaña, más largo)
+      this.tPiece = now + (q.menu ? 6 + R() * 10 : (35 + R() * 115) * (1 + 0.5 * q.night + 0.4 * high));
+    }
+    // --- capas: lo que la pieza permite, matizado por lo que hace el animal. Cada nivel persigue su meta despacio
+    // (unos 2 s), así los instrumentos entran y salen sin cortes. En vuelo manda la zampoña.
+    const tex = P ? P.tex : 0, a = 0.55 + 0.45 * smooth(2, 12, v);
+    const perc = (tex === 3 ? 0.9 : tex === 2 ? 0.4 : 0) * a * (1 - 0.55 * q.night) * (1 - 0.4 * high);
+    lv.char += ((tex === 4 ? 1 : tex >= 1 ? a * (1 - 0.25 * q.night) : 0) - lv.char) * k;   // en la pieza de ambiente las cuerdas llevan todo: no dependen de la carrera
+    lv.full += ((tex === 3 ? 1 : 0) - lv.full) * k; lv.perc += (perc - lv.perc) * k; lv.fly += ((fly ? 1 : 0) - lv.fly) * k;
+    lv.zamp += (Math.max(tex >= 2 ? 0.85 * (1 - 0.6 * q.night) : 0, fly ? 1 : 0) - lv.zamp) * k;
     lv.quena += ((fly ? 0.3 : 1) * (1 - 0.2 * q.night) - lv.quena) * k;
-    this.bpm += (96 + 16 * q.rush - this.bpm) * k;
-    this.sparse = clamp01(high * 0.7 + q.night * 0.4);         // 0..1: cuánto se ralea la música (altura y noche)
+    this.bpm += ((P ? P.bpm : 90) + 8 * q.rush - this.bpm) * k;
+    this.sparse = clamp01(high * 0.7 + q.night * 0.4 + (P ? P.thin : 0)); // 0..1: cuánto se ralea la música (altura, noche y el carácter de la pieza)
     this.duck = (1 - 0.6 * q.storm) * (1 - 0.3 * q.night);     // con tormenta la música cede ante el viento y la lluvia
-    const calm = 1 - lv.char, mv = this.vol.music * this.duck * 0.9;
+    // el volumen de la pieza respira: sube y baja muy lento, además de su entrada y su salida
+    const swell = P ? 1 + 0.22 * Math.sin((now / P.swT) * 6.283 + P.swP) : 1;
+    const calm = 1 - lv.char, mv = this.vol.music * this.duck * 0.9 * this.pk * (P ? P.level : 1) * swell;
     this.bQuena.gain.setTargetAtTime(lv.quena, now, 0.25); this.bZamp.gain.setTargetAtTime(lv.zamp * 0.9, now, 0.25);
     this.bChar.gain.setTargetAtTime(lv.char * 0.6, now, 0.25); this.bPerc.gain.setTargetAtTime(lv.perc * (0.75 + 0.2 * q.rush), now, 0.25);
     this.musicVol.gain.setTargetAtTime(mv, now, 0.6); this.percVol.gain.setTargetAtTime(mv, now, 0.6);
@@ -262,6 +314,7 @@ export class GameAudio {
     this.whG.gain.setTargetAtTime((0.1 * altK * altK + 0.1 * q.storm + 0.06 * q.rush) * gust, now, 0.8);
     this.whBP.frequency.setTargetAtTime(820 + 330 * Math.sin(now * 0.29) + 250 * q.storm, now, 0.8);
 
+    this.slideG.gain.setTargetAtTime(q.slide * 0.3, now, 0.09);
     // --- agua
     this.rivG.gain.setTargetAtTime(q.water * q.water * 0.9, now, 0.4);
     this.rainG.gain.setTargetAtTime(q.rain * (0.22 + 0.1 * q.storm), now, 0.6);
@@ -294,6 +347,8 @@ export class GameAudio {
   _seq(now) {
     // si update dejó de llamarse (pestaña oculta, tirón largo) la agenda quedó en el pasado: se retoma desde ahora,
     // sin tocar de golpe todo lo que no sonó
+    if (!this.piece || (this.piece.out && this.pk < 0.03)) { this.tStep = 0; return; }   // entre piezas no se agenda nada
+    if (this.piece.tex === 4) { this._ambient(now); return; }                             // sin compás: va a su propio paso
     if (this.tStep < now - 0.03) this.tStep = now + 0.05;
     for (let n = 0; n < 6 && this.tStep < now + AHEAD; n++) {
       const sd = 15 / this.bpm;   // duración de una semicorchea
@@ -347,11 +402,12 @@ export class GameAudio {
 
     // --- percusión: bombo en los tiempos, aro en las dos semicorcheas del contratiempo, chajchas en corcheas
     if (lv.perc > 0.04) {
-      if (b === 0) this._bombo(t, (step === 0 ? 1 : 0.8) * en);
-      else if (b === 2) this._aro(t, 0.8);
-      else if (b === 3 && r() > sparse * 0.8) this._aro(t, 0.5);
-      if (bp === 3 && step >= 6 && (p & 1)) this._bombo(t, 0.5);   // remate antes de cerrar la frase repetida
-      if (q.night < 0.6 && ((step & 1) === 0 || q.rush > 0.5)) this._chaj(t, (b === 2 ? 1 : 0.6) * (0.8 + 0.4 * q.rush));
+      const whole = lv.full > 0.5;   // sin el conjunto completo, el bombo va solo y apenas marca el pulso
+      if (b === 0 && (whole || step === 0)) this._bombo(t, (step === 0 ? 1 : 0.8) * en);
+      else if (whole && b === 2) this._aro(t, 0.8);
+      else if (whole && b === 3 && r() > sparse * 0.8) this._aro(t, 0.5);
+      if (whole && bp === 3 && step >= 6 && (p & 1)) this._bombo(t, 0.5);   // remate antes de cerrar la frase repetida
+      if (whole && q.night < 0.6 && ((step & 1) === 0 || q.rush > 0.5)) this._chaj(t, (b === 2 ? 1 : 0.6) * (0.8 + 0.4 * q.rush));
     }
   }
 
@@ -362,29 +418,131 @@ export class GameAudio {
     if (this.freeLeft <= 0) {   // frase nueva; la mitad de las veces retoma el motivo de la anterior
       if (!this.freeLen || r() < 0.5) for (let k = 0; k < 8; k++) m[k] = STEP_DN[(r() * 8) | 0];
       this.freeLen = this.freeLeft = 3 + ((r() * 4) | 0);
-      this.freeDeg = FREE_START[(r() * 4) | 0];
+      // en modo mayor las frases descansan en Do o Sol; en menor, en La o Mi; la bimodal alterna
+      const md = this.piece ? this.piece.mode : 0; this.freeMaj = md === 1 || (md === 2 && r() < 0.5);
+      this.freeDeg = (this.freeMaj ? FREE_START_M : FREE_START)[(r() * 4) | 0];
     } else { const d = this.freeDeg + m[this.freeLen - this.freeLeft]; this.freeDeg = d > 11 ? 22 - d : d < 5 ? 10 - d : d; }
     const last = this.freeLeft === 1;
-    if (last) this.freeDeg = this.freeDeg >= 9 ? 10 : this.freeDeg >= 7 ? 8 : 5;
+    if (last) this.freeDeg = this.freeMaj ? (this.freeDeg >= 10 ? 11 : this.freeDeg >= 8 ? 9 : 6) : this.freeDeg >= 9 ? 10 : this.freeDeg >= 7 ? 8 : 5;
     const slow = (1 + 0.5 * this.sparse + (this.q.menu ? 0.15 : 0)) * (fly ? 1.7 : 1);
     const dur = (last ? 1.9 + r() * 1.3 : r() < 0.22 ? 0.32 : 0.6 + r() * 0.8) * slow;
     if (fly) this._zamp(t, this.freeDeg - 5, dur * 1.08, 0.8);
     else this._quena(t, this.freeDeg, dur * 0.96, 0.65 + r() * 0.25, dur > 0.5 && r() < 0.3);
-    this.tFree = t + dur + (last ? (1.5 + r() * 3) * slow : 0);
+    this.tFree = t + dur + (last ? (1.5 + r() * 3 + (this.piece ? this.piece.thin * 8 : 0)) * slow : 0);
     this.freeLeft--;
+  }
+
+  // Pieza nueva: sortea modo, tono, tempo, instrumentos y volumen. Lo que hace el animal inclina la balanza
+  // (corriendo es más probable el conjunto completo; de noche y en la altura, la quena sola), pero no decide.
+  _newPiece(now) {
+    const r = this.rnd, q = this.q, x = r(), y = r();
+    const mode = x < 0.5 ? 0 : x < 0.8 ? 1 : 2;                 // 0 menor · 1 mayor · 2 bimodal
+    // texturas: 0 quena sola y libre · 1 con arpegio de charango · 2 con zampoña y bombo suave · 3 huayno completo
+    //           4 ambiente: acordes arpegiados lentos con una voz encima (más de la mitad de las piezas)
+    let tex = y < 0.55 ? 4 : y < 0.7 ? 0 : y < 0.86 ? 1 : y < 0.95 ? 2 : 3;
+    if (this.act > 0.6 && tex >= 1 && tex < 3 && r() < 0.3) tex++;
+    if (this.act < 0.4 && tex === 3) tex = 2;
+    if ((q.night > 0.5 || q.alt > 3600) && tex >= 1 && tex <= 3 && r() < 0.75) tex = r() < 0.5 ? 0 : 4;
+    if (q.menu) tex = r() < 0.7 ? 4 : 1;
+    // Nada va apurado: de un yaraví muy lento a un trote tranquilo; solo el huayno completo se acerca a lo bailable.
+    const bpm = tex === 3 ? 84 + r() * 16 : tex === 0 ? 54 + r() * 22 : 56 + r() * 28;
+    ROOT = 220 * Math.pow(2, KEYS[(r() * KEYS.length) | 0] / 12);
+    this.ks = []; this.ksf.clear();                              // las cuerdas se afinan de nuevo
+    const P = (this.piece = { mode, tex, bpm, level: q.menu ? 0.85 : 0.45 + r() * 0.55, thin: r() < 0.35 ? 0.15 + r() * 0.3 : 0,
+      end: now + (tex === 4 ? 95 + r() * 130 : 70 + r() * 110), out: false, swT: 30 + r() * 50, swP: r() * 6.283,
+      // carácter de la pieza de ambiente: acorde de partida, cada cuántos compases vuelve a él, cuánto dura un compás,
+      // qué tan rápido va el arpegio, y con qué frecuencia calla, deja una nota arriba o suelta una frase
+      amb: { t: 0, tonic: mode === 1 ? 2 : 0, ch: 0, bars: 0, home: 3 + ((r() * 3) | 0), bar: 4.2 + r() * 3.6, arp: 0.2 + r() * r() * 0.5, rest: 0.07 + r() * 0.16,
+        sop: 0.25 + r() * 0.4, mel: 0.12 + r() * 0.3, lead: (r() * 3) | 0, high: r() < 0.3, dyn: 0.7 + r() * 0.3 } });
+    this.pieces++; this.bpm = bpm;
+    this.step = 0; this.bar = 0; this.tStep = now + 0.4; this.tFree = 0; this.freeLeft = 0; this.gridMel = false;
+    this._compose(true);
+    return P;
+  }
+  // Pieza de ambiente: un "compás" de varios segundos por acorde. Suena el bajo, sube el arpegio a su paso, y a
+  // veces queda una nota de color arriba (el Si sobre La menor) o entra una frase corta. Hay compases que callan.
+  // Nada se repite igual: el acorde siguiente, el dibujo del arpegio, su velocidad y lo que pasa arriba se sortean.
+  _ambient(now) {
+    const P = this.piece, A = P.amb, r = this.rnd;
+    if (!A.t) A.t = now + 0.7; else if (A.t < now - 0.05) A.t = now + 0.15;
+    if (A.t > now + AHEAD || this.nv > MAXV) return;
+    const t = A.t, f = (st) => ROOT * Math.pow(2, st / 12);
+    if (A.bars === 0) A.ch = A.tonic;
+    else { const nx = AMB_NEXT[A.ch]; A.ch = A.bars % A.home === 0 && r() < 0.65 ? A.tonic : nx[(r() * nx.length) | 0]; }
+    A.bars++;
+    const C = AMB_CH[A.ch], L = A.bar * (0.85 + r() * 0.3);
+    if (r() < A.rest + this.sparse * 0.25) { if (r() < 0.5) this._pluckF(t, f(C[0]), 0.5 * A.dyn); A.t = t + L * 0.8; return; }   // compás de respiro
+    this._pluckF(t, f(C[0]), 0.78 * A.dyn);
+    const pat = AMB_PAT[(r() * AMB_PAT.length) | 0], n = pat.length - (r() < 0.3 ? 1 : 0);
+    let tt = t + A.arp * (0.6 + r() * 0.5);
+    for (let i = 0; i < n; i++) {
+      this._pluckF(tt + R() * 0.012, f(C[1][pat[i]] + (A.high && i >= 2 ? 12 : 0)), (i === 0 ? 0.6 : 0.4 + r() * 0.2) * A.dyn);
+      tt += A.arp * (1 + i * 0.06) * (0.9 + r() * 0.2);   // se va frenando apenas, como quien toca sin apuro
+    }
+    const x = r(), room = L - (tt - t);
+    if (x < A.sop) this._lead(tt + 0.1, f(C[2][(r() * C[2].length) | 0]), Math.max(1.4, Math.min(room, 2 + r() * 1.8)), 0.4 + r() * 0.15, A.lead);
+    else if (x < A.sop + A.mel) this._phrase(tt + 0.25, C, Math.max(2.5, room + 1.5), A);
+    A.t = t + L;
+  }
+  // Frase suelta de 3 a 5 notas por grados vecinos, que termina en una nota del acorde.
+  _phrase(t, C, room, A) {
+    const r = this.rnd, f = (st) => ROOT * Math.pow(2, st / 12), n = 3 + ((r() * 3) | 0);
+    let k = 1 + ((r() * 5) | 0), tt = t;
+    for (let i = 0; i < n && tt - t < room; i++) {
+      const last = i === n - 1 || tt - t > room - 1.2;
+      if (i) k = Math.max(0, Math.min(AMB_SCALE.length - 1, k + [-2, -1, -1, 1, 1, 2][(r() * 6) | 0]));
+      let st = AMB_SCALE[k];
+      if (last) { let bd = 99; for (const c of C[1]) for (const o of [0, 12]) { const d = Math.abs(c + o - st); if (d < bd && c + o >= 7) { bd = d; st = c + o; } } }
+      const dur = last ? 1.5 + r() * 1.5 : r() < 0.3 ? 0.42 : 0.62 + r() * 0.5;
+      this._lead(tt, f(st), dur * 0.95, 0.42 + r() * 0.2, A.lead === 2 ? (r() < 0.5 ? 0 : 1) : A.lead);
+      tt += dur; if (last) break;
+    }
+  }
+  // Voz de arriba: quena (0) o zampoña una octava abajo (1).
+  _lead(t, f, dur, vel, inst) { if (inst === 1) this._zamp(t, 0, dur * 1.05, vel * 1.15, f / 2); else this._quena(t, 0, dur, vel, false, f); }
+  // Cuerda pulsada por frecuencia (Karplus-Strong), más larga y redonda que la del charango: suena a guitarra o arpa.
+  _ksF(f) {
+    const key = Math.round(f * 4); let e = this.ksf.get(key);
+    if (e) return e;
+    const c = this.ctx, sr = c.sampleRate, N = Math.max(2, Math.round(sr / f - 0.25)), secs = f < 150 ? 3.8 : f < 320 ? 3.2 : 2.6, len = (sr * secs) | 0, b = 0.25;
+    const buf = c.createBuffer(1, len, sr), d = buf.getChannelData(0), rho = Math.pow(0.001, 1 / (f * secs * 0.9));
+    let prev = 0, mean = 0;
+    for (let i = 0; i <= N; i++) { prev = 0.42 * (R() * 2 - 1) + 0.58 * prev; d[i] = prev; mean += prev; }   // excitación más apagada: menos metal
+    mean /= N + 1;
+    for (let i = 0; i <= N; i++) d[i] -= mean;
+    for (let i = N + 1; i < len; i++) d[i] = rho * ((1 - b) * d[i - N] + b * d[i - N - 1]);
+    const fo = (sr * 0.05) | 0;
+    for (let i = 0; i < fo; i++) d[len - 1 - i] *= i / fo;
+    e = { buf, rate: (f * (N + b)) / sr }; this.ksf.set(key, e); return e;
+  }
+  _pluckF(t, f, vel) {
+    if (!(vel > 0.001) || this.nv > HARD) return;
+    const c = this.ctx, e = this._ksF(f), g = c.createGain(), s = c.createBufferSource();
+    s.buffer = e.buf; s.playbackRate.value = e.rate; s.connect(g); g.connect(this.bChar); g.gain.setValueAtTime(vel * 0.42, t);
+    s.start(t);
+    this._fin(s, g);
+  }
+
+  // Un hallazgo (un lugar, una cumbre) adelanta la próxima pieza: la música llega como premio, no como hilo musical.
+  cue() {
+    const c = this.ctx;
+    if (c && !this.piece && this.tPiece > c.currentTime + 7) this.tPiece = c.currentTime + 2.5 + R() * 4;
   }
 
   // ---------------------------------------------------------------------------------------------------------------
   // Composición. Cada vuelta de la forma (16 compases) conserva a veces la frase A o la B, y siempre cambia los finales:
   // así el tema se reconoce pero no se repite igual.
   _compose(first) {
-    const r = this.rnd, nc = CAD_CLOSE.length;
-    if (first || r() < 0.45) { this.progA = PROG_A[(r() * PROG_A.length) | 0]; this._body(0, false); }
-    if (first || r() < 0.55) { this.progB = PROG_B[(r() * PROG_B.length) | 0]; this._body(2, true); }
-    // A queda abierta y A' cierra en La; B cierra con otra cadencia y B' siempre con Mi-Re-Do-La, la más conclusiva
+    const r = this.rnd, nc = CAD_CLOSE.length, md = this.piece ? this.piece.mode : 0;
+    // menor: todo en La. mayor: todo en Do. bimodal: la frase A en mayor y la B en menor (se abre luminosa y cierra andina).
+    const majA = md !== 0, majB = md === 1, PA = majA ? PROG_A_M : PROG_A, PB = majB ? PROG_B_M : PROG_B;
+    if (first || r() < 0.45) { this.progA = PA[(r() * PA.length) | 0]; this._body(0, false); }
+    if (first || r() < 0.55) { this.progB = PB[(r() * PB.length) | 0]; this._body(2, true); }
+    // A queda abierta y su repetición cierra en la tónica; B cierra con otra cadencia y su repetición, con la más conclusiva
     const o = (r() * CAD_OPEN.length) | 0, c1 = (r() * nc) | 0, c2 = (c1 + 1 + ((r() * (nc - 1)) | 0)) % nc;
-    this.openCh = CAD_OPEN_CH[o];
-    this._cad(0, CAD_OPEN[o]); this._cad(1, CAD_CLOSE[c1]); this._cad(2, CAD_CLOSE[c2]); this._cad(3, CAD_CLOSE[0]);
+    const CA = majA ? CAD_CLOSE_M : CAD_CLOSE, CB = majB ? CAD_CLOSE_M : CAD_CLOSE;
+    this.openCh = (majA ? CAD_OPEN_CH_M : CAD_OPEN_CH)[o];
+    this._cad(0, (majA ? CAD_OPEN_M : CAD_OPEN)[o]); this._cad(1, CA[c1]); this._cad(2, CB[c2]); this._cad(3, CB[0]);
   }
   // Los tres primeros compases de una frase (y de su repetición): motivo, el mismo motivo en secuencia, y la bajada.
   _body(pi, isB) {
@@ -454,14 +612,14 @@ export class GameAudio {
 
   // --- quena: onda casi pura, soplo que sigue a la nota, entrada con un pequeño glissando desde abajo y un vibrato
   // que recién aparece cuando la nota ya está asentada. `mord`: mordente rápido con la nota vecina de arriba.
-  _quena(t, deg, dur, vel, mord) {
+  _quena(t, deg, dur, vel, mord, f0) {
     if (this.nv > MAXV) return;
-    const c = this.ctx, f = degFreq(deg), end = t + dur, pk = 0.2 * vel, off = end + 0.5;
+    const c = this.ctx, f = f0 || degFreq(deg), end = t + dur, pk = 0.2 * vel, off = end + 0.5;
     const o = c.createOscillator(), env = c.createGain(), lfo = c.createOscillator(), vib = c.createGain();
     const n = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain();
     o.setPeriodicWave(this.wQuena);
     o.frequency.setValueAtTime(f * 0.955, t); o.frequency.exponentialRampToValueAtTime(f, t + 0.055);
-    if (mord) { o.frequency.setValueAtTime(degFreq(deg + 1), t + 0.1); o.frequency.setValueAtTime(f, t + 0.15); }
+    if (mord) { o.frequency.setValueAtTime(f0 ? f * 1.122 : degFreq(deg + 1), t + 0.1); o.frequency.setValueAtTime(f, t + 0.15); }
     lfo.frequency.value = 4.7 + R() * 0.7; vib.gain.setValueAtTime(0, t);   // vibrato en cents, sobre detune
     if (dur > 0.5) { vib.gain.setValueAtTime(0, t + 0.24); vib.gain.linearRampToValueAtTime(16, t + 0.24 + Math.min(0.5, dur - 0.3)); }
     lfo.connect(vib); vib.connect(o.detune);
@@ -475,9 +633,9 @@ export class GameAudio {
   }
 
   // --- zampoña: dos cañas apenas desafinadas, armónicos impares, mucho soplo y el "chiff" de ruido al atacar
-  _zamp(t, deg, dur, vel) {
+  _zamp(t, deg, dur, vel, f0) {
     if (this.nv > MAXV) return;
-    const c = this.ctx, f = degFreq(deg), end = t + dur, pk = 0.11 * vel, off = end + 0.6;
+    const c = this.ctx, f = f0 || degFreq(deg), end = t + dur, pk = 0.11 * vel, off = end + 0.6;
     const a = c.createOscillator(), b = c.createOscillator(), env = c.createGain();
     const n = c.createBufferSource(), bp = c.createBiquadFilter(), ng = c.createGain();
     a.setPeriodicWave(this.wZamp); b.setPeriodicWave(this.wZamp);
@@ -570,6 +728,7 @@ export class GameAudio {
         this._tn(t, D, 'sine', 160, 60, 0.22, 0.3 * g, 0.004, 0.1); this._nz(t, D, 'bandpass', 2600, 500, 0.7, 0.55, 0.8 * g, 0.02);
         this._nz(t + 0.04, D, 'highpass', 4000, 2500, 0.5, 0.7, 0.14 * g, 0.08); break;
       case 'discover': { // fanfarria: charango de cuerda doble con una campanita una octava arriba, y un La menor para cerrar
+        this.cue();   // y de paso adelanta la próxima pieza: la música llega con el hallazgo
         const f = FANF[(R() * FANF.length) | 0], n = f.length;
         for (let i = 0; i < n; i++) {
           const tt = t + i * 0.12, last = i === n - 1, hz = degFreq(f[i] + 5);
@@ -589,6 +748,18 @@ export class GameAudio {
         this._nz(t, D, 'bandpass', 1200, 6000, 2, 0.4, 0.25 * g, 0.15); break;
       case 'error':     // Do-La hacia abajo, opaco y sin estridencia
         this._tn(t, D, 'triangle', degFreq(1), degFreq(1), 0.14, 0.16 * g, 0.005); this._tn(t + 0.13, D, 'triangle', 220, 220, 0.26, 0.16 * g, 0.005); break;
+      case 'boom':      // estampido al entrar en velocidad de viaje: un golpe grave y el aire que se abre
+        this._tn(t, D, 'sine', 74, 30, 0.9, 0.75 * g, 0.008, 0.5); this._nz(t, D, 'lowpass', 280, 2600, 0.8, 0.95, 0.9 * g, 0.1, this.pink);
+        this._nz(t + 0.05, D, 'bandpass', 500, 5200, 1.2, 0.75, 0.5 * g, 0.22); break;
+      case 'tumble':    // porrazo: golpe seco y las piedras que quedan rodando
+        this._tn(t, D, 'sine', 125 * k, 42 * k, 0.3, 0.6 * g, 0.003, 0.1); this._nz(t, D, 'lowpass', 1400, 200, 0.7, 0.26, 1.1 * g, 0.004);
+        for (let i = 1; i < 5; i++) this._nz(t + i * 0.16 + R() * 0.06, D, 'bandpass', 900 + R() * 900, 400, 1.5, 0.12, (0.5 * g) / i, 0.004);
+        break;
+      case 'summit':    // cumbre: la fanfarria, más larga, con zampoña debajo
+        this._sfx('discover', t, g); this._zamp(t + 0.1, 5, 1.6, 0.9); this._zamp(t + 0.75, 8, 1.4, 0.8); break;
+      case 'trick':     // pirueta lograda: tres notas rápidas hacia arriba y un brillo
+        for (let i = 0; i < 3; i++) this._pluck(t + i * 0.07, 8 + i, 0.9 * g, D, true, 0);
+        this._nz(t + 0.1, D, 'bandpass', 2000, 7000, 2, 0.35, 0.2 * g, 0.1); break;
       case 'gear':      // tic corto
         this._nz(t, D, 'highpass', 3500, 3500, 0.7, 0.025, 0.14 * g, 0.001); this._tn(t, D, 'square', 1500, 1100, 0.03, 0.04 * g, 0.001); break;
       case 'flap': this._flapSnd(t, g); break;

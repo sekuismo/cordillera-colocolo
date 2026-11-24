@@ -14,7 +14,8 @@ attribute vec4 iSeg;  // x0, z0, x1, z1
 attribute vec2 iWC;   // semiancho (m), canal
 uniform vec3 uRect;   // centro x, centro z, semilado
 uniform float uTexel;
-varying float vAcross, vHalf, vAlpha, vPav, vMid;
+varying float vAcross, vHalf, vAlpha, vPav, vMid, vRiver;
+varying vec2 vEnd;   // posición a lo largo del tramo desde su centro (m) y medio largo del tramo
 varying vec4 vChan;
 void main() {
   vec2 a = iSeg.xy, b = iSeg.zw;
@@ -24,33 +25,44 @@ void main() {
   float vis = max(iWC.x, uTexel * mix(0.5, 1.0, isBorder));
   // Las rutas pavimentadas (7 m o más) llevan berma de ripio; las de una calzada, además, eje pintado.
   vPav = (1.0 - step(0.5, iWC.y)) * step(3.4, iWC.x); vMid = vPav * step(iWC.x, 5.0);
-  float ext = vis + uTexel + vPav * 1.6;
+  vRiver = step(1.5, iWC.y) * step(iWC.y, 2.5);
+  float ext = vis + uTexel + vPav * 1.6 + vRiver * (vis * 1.4 + 8.0); // el río lleva su lecho de piedras, bastante más ancho que el agua
   vec2 p = mix(a, b, position.x) + t * (position.x * 2.0 - 1.0) * vis + n * position.y * ext;
   vAcross = position.y * ext; vHalf = vis;
+  float hl = length(b - a) * 0.5; vEnd = vec2((position.x * 2.0 - 1.0) * (hl + vis), hl);
   vAlpha = mix(pow(iWC.x / vis, 0.6), 1.0, isBorder);
   vChan = vec4(equal(vec4(iWC.y), vec4(0.0, 1.0, 2.0, 3.0)));
   gl_Position = vec4((p - uRect.xy) / uRect.z, 0.0, 1.0);
 }`;
 const LINE_FRAG = /* glsl */ `
 uniform float uTexel;
-varying float vAcross, vHalf, vAlpha, vPav, vMid;
+varying float vAcross, vHalf, vAlpha, vPav, vMid, vRiver;
+varying vec2 vEnd;
 varying vec4 vChan;
 void main() {
   float d = abs(vAcross);
   float a = clamp((vHalf - d) / uTexel + 0.5, 0.0, 1.0) * vAlpha;
   gl_FragColor = vChan * a;
   // Canal rojo: 0–0,8 es cuánto cubre la calzada; de 0,8 a 1, el eje pintado. Canal verde: 0–0,6 es huella de tierra
-  // o berma (1,5 m más ancha que la calzada); de 0,6 a 1, la línea de borde. Las líneas son franjas angostas guardadas
-  // con su cobertura real: se suavizan solas y desaparecen en las cascadas gruesas, sin umbrales que serruchen el borde.
-  float mid = clamp((0.2 - d) / uTexel + 0.5, 0.0, 1.0) * min(1.0, 0.4 / uTexel) * vMid;
-  float edge = clamp((0.15 - abs(d - (vHalf - 0.35))) / uTexel + 0.5, 0.0, 1.0) * step(uTexel, 0.3) * vPav; // con texeles de 0,5 m (calidad liviana) la línea se vería como una fila de cuentas
+  // o berma (1,5 m más ancha que la calzada); de 0,6 a 1, qué tan adentro de la calzada está el punto (0 en el borde,
+  // 1 a 80 cm o más). La línea de borde la saca el shader del terreno de esa distancia: como los tramos se combinan
+  // con MAX, en una curva cerrada o un cruce gana el que tiene el punto más adentro y la línea solo aparece en el
+  // borde verdadero del conjunto, en vez de una franja por tramo cruzándose con las demás.
+  // El eje no pasa del extremo de su tramo (los tramos se alargan medio ancho para empalmar, y esos sobrantes se cruzaban).
+  float mid = clamp((0.2 - d) / uTexel + 0.5, 0.0, 1.0) * min(1.0, 0.4 / uTexel) * vMid * step(abs(vEnd.x), vEnd.y + uTexel);
+  float inside = clamp((vHalf - d) / 0.8, 0.0, 1.0) * step(uTexel, 0.3); // con texeles de 0,5 m (calidad liviana) no hay línea de borde
+  // Canal azul: hasta 0,35 es el lecho de piedras del río; de 0,35 a 0,75, cuánta agua de río; 1 es lago o embalse.
+  if (vRiver > 0.5) gl_FragColor.b = max(0.35 * clamp((vHalf * 2.4 + 8.0 - d) / max(uTexel, 3.0), 0.0, 1.0), a > 0.0 ? 0.35 + 0.4 * a : 0.0);
   gl_FragColor.r *= 0.8 + 0.2 * mid;
-  gl_FragColor.g = max(gl_FragColor.g * 0.6, clamp((vHalf + 1.5 - d) / uTexel + 0.5, 0.0, 1.0) * vAlpha * vPav * (0.6 + 0.4 * edge));
+  gl_FragColor.g = max(gl_FragColor.g * 0.6, clamp((vHalf + 1.5 - d) / uTexel + 0.5, 0.0, 1.0) * vAlpha * vPav * (0.6 + 0.4 * inside));
 }`;
+// Polígonos de agua. position.y lleva el valor del canal azul: 1 para un lago, 0,75 para un polígono de río.
 const FILL_VERT = /* glsl */ `
 uniform vec3 uRect;
-void main() { gl_Position = vec4((position.xz - uRect.xy) / uRect.z, 0.0, 1.0); }`;
-const FILL_FRAG = /* glsl */ `void main() { gl_FragColor = vec4(0.0, 0.0, 1.0, 0.0); }`;
+varying float vB;
+void main() { vB = position.y; gl_Position = vec4((position.xz - uRect.xy) / uRect.z, 0.0, 1.0); }`;
+const FILL_FRAG = /* glsl */ `varying float vB;
+void main() { gl_FragColor = vec4(0.0, 0.0, vB, 0.0); }`;
 
 export class Overlay {
   constructor(quality) {
@@ -115,7 +127,8 @@ export class Overlay {
       for (let i = lake.offsets[k]; i < lake.offsets[k + 1]; i++) pts.push(new THREE.Vector2(lake.coords[i * 2], lake.coords[i * 2 + 1]));
       if (pts.length > 3 && pts[0].distanceToSquared(pts[pts.length - 1]) < 1) pts.pop();
       if (pts.length < 3) continue;
-      for (const tri of THREE.ShapeUtils.triangulateShape(pts, [])) for (const i of tri) pos.push(pts[i].x, 0, pts[i].y);
+      const vb = lake.types[k] === 1 ? 0.75 : 1;
+      for (const tri of THREE.ShapeUtils.triangulateShape(pts, [])) for (const i of tri) pos.push(pts[i].x, vb, pts[i].y);
     }
     const lg = new THREE.BufferGeometry(); lg.setAttribute('position', new THREE.BufferAttribute(new Float32Array(pos), 3));
     const lm = new THREE.Mesh(lg, this.fillMat); lm.frustumCulled = false; this.scene.add(lm);
