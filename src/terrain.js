@@ -80,6 +80,9 @@ export class Terrain {
     this.stats = { nodes: 0, tris: 0 };
   }
 
+  // Detalle geométrico (1 = completo). Bajo 0,75 el alcance del nivel 0 quedaría en menos de 2,25 × NODE0 y el morph no cerraría.
+  setLodBias(b) { this.lodBias = Math.min(1, Math.max(0.78, b)); this.uniforms.uRange0.value = RANGE0 * this.lodBias; }
+
   _box3(x, z, size) {
     const mm = this._mm, c = this._cam;
     this.hf.bounds(x, z, size, mm);

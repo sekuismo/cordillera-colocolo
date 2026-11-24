@@ -1,9 +1,18 @@
-// Entrada unificada: teclado + mouse en escritorio, joystick virtual + arrastre + pellizco en pantallas táctiles.
+// Entrada unificada: teclado + mouse en escritorio, joystick virtual + arrastre + pellizco en pantallas táctiles,
+// y control de consola (Gamepad API, mapeo estándar: Xbox, PlayStation, Switch Pro y la mayoría de los genéricos).
+// Botones del control → la misma acción que su tecla. Los que se mantienen apretados (saltar, bajar, acelerar) se leen aparte.
+const PAD = { 0: 'PadA', 1: 'PadB', 2: 'KeyQ', 3: 'KeyM', 4: 'GearDown', 5: 'GearUp', 8: 'KeyT', 9: 'KeyH', 11: 'KeyV', 14: 'PadLeft', 15: 'PadRight' };
+const dead = (v) => (Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84); // zona muerta: los sticks nunca vuelven al cero exacto
+
 export class Input {
   constructor(canvas, stickEl) {
     this.move = { x: 0, y: 0 };   // x: derecha, y: adelante (relativo a la cámara)
     this.lookX = 0; this.lookY = 0; this.zoom = 0;
-    this.jump = false; this.jumpHeld = false; this.boost = false; this.auto = false;
+    this.jump = false; this.jumpHeld = false; this.boost = false; this.auto = false; this.descend = false;
+    this.touchJump = false; this.touchDown = false;
+    this.pads = 0; this.padPrev = []; this.padName = '';
+    addEventListener('gamepadconnected', (e) => { this.pads++; this.padName = e.gamepad.id; this.handlers.PadOn?.(e.gamepad.id); });
+    addEventListener('gamepaddisconnected', () => { this.pads = Math.max(0, this.pads - 1); this.padPrev.length = 0; this.handlers.PadOff?.(); });
     this.keys = new Set(); this.handlers = {};
     this.joy = null; this.joyVec = { x: 0, y: 0 };
     this.pointers = new Map(); this.pinch = 0;
@@ -65,16 +74,49 @@ export class Input {
 
   }
   on(code, fn) { this.handlers[code] = fn; }
+  _pad() {
+    if (!this.pads || !navigator.getGamepads) return null;
+    let any = null;
+    for (const g of navigator.getGamepads()) { if (!g || !g.connected) continue; if (g.mapping === 'standard') return g; any = any || g; }
+    return any;
+  }
+  // Vibración del control (si la tiene): fuerte = motor grave, débil = motor agudo.
+  rumble(strong, weak, ms) {
+    const g = this._pad(), a = g && g.vibrationActuator;
+    if (a && a.playEffect) a.playEffect('dual-rumble', { duration: ms, strongMagnitude: strong, weakMagnitude: weak }).catch(() => {});
+  }
   // Llamar una vez por frame: deja `move` listo y devuelve los deltas acumulados.
-  poll() {
+  poll(dt = 0.016) {
     const k = this.keys;
     let x = (k.has('KeyD') || k.has('ArrowRight') ? 1 : 0) - (k.has('KeyA') || k.has('ArrowLeft') ? 1 : 0);
     let y = (k.has('KeyW') || k.has('ArrowUp') ? 1 : 0) - (k.has('KeyS') || k.has('ArrowDown') ? 1 : 0);
     if (x || y) { const l = Math.hypot(x, y); x /= l; y /= l; if (y < 0) this.auto = false; }
     else { x = this.joyVec.x; y = this.joyVec.y; }
+    let padJump = false, padDown = false, padBoost = false;
+    const g = this._pad();
+    if (g) {
+      const lx = dead(g.axes[0] || 0), ly = dead(g.axes[1] || 0), rx = dead(g.axes[2] || 0), ry = dead(g.axes[3] || 0);
+      if (!(x || y) && (lx || ly)) { x = lx; y = -ly; const l = Math.hypot(x, y); if (l > 1) { x /= l; y /= l; } if (y < -0.5) this.auto = false; }
+      // Stick derecho: mirar. Respuesta cuadrática, para apuntar fino cerca del centro y girar rápido a fondo.
+      if (rx || ry) { this.lookX += rx * Math.abs(rx) * 640 * dt; this.lookY += ry * Math.abs(ry) * 430 * dt; this.lastLook = performance.now() / 1000; }
+      const b = g.buttons, down = (i) => !!b[i] && (b[i].pressed || b[i].value > 0.5), P = this.padPrev;
+      for (let i = 0; i < 16 && i < b.length; i++) {
+        const d = down(i);
+        if (d && !P[i]) {
+          if (i === 0) this.jump = true;
+          if (i === 10) this.auto = !this.auto;
+          if (PAD[i]) this.handlers[PAD[i]]?.();
+        }
+        P[i] = d;
+      }
+      padJump = down(0); padDown = down(1) || down(6); padBoost = down(7);
+      if (down(12)) this.zoom -= dt * 3.5; if (down(13)) this.zoom += dt * 3.5; // cruceta arriba/abajo: acercar o alejar la cámara
+    }
     if (this.auto && !(x || y)) y = 1;
     this.move.x = x; this.move.y = y;
-    this.boost = k.has('ShiftLeft') || k.has('ShiftRight'); this.jumpHeld = k.has('Space') || this.touchJump;
+    this.boost = k.has('ShiftLeft') || k.has('ShiftRight') || padBoost;
+    this.jumpHeld = k.has('Space') || this.touchJump || padJump;
+    this.descend = k.has('KeyC') || this.touchDown || padDown;
     const out = { lookX: this.lookX, lookY: this.lookY, zoom: this.zoom, jump: this.jump };
     this.lookX = this.lookY = this.zoom = 0; this.jump = false;
     return out;

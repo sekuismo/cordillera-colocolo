@@ -177,4 +177,43 @@ button { font: inherit; color: inherit; cursor: pointer; border: 0; background: 
   #bigmap { max-height: calc(100dvh - 150px - var(--sat) - var(--sab)); }
   #intro { padding: 10px; } #intro h1 { font-size: 50px; margin: 2px 0 6px; } .lead { font-size: 14px; margin-bottom: 12px; } #start { padding: 10px 22px; font-size: 15px; margin-top: 2px; }
 }
+/* ---------- animales, habilidad y sonido ---------- */
+#animals { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 0 auto 18px; max-width: 640px; text-align: left; }
+.animal { text-align: left; padding: 12px 13px; border-radius: 14px; background: rgba(13, 18, 22, .55); border: 1px solid var(--line); transition: border-color .15s, background .15s, transform .15s; }
+.animal:hover { transform: translateY(-2px); border-color: rgba(232, 178, 92, .6); }
+.animal.on { border-color: var(--ochre); background: rgba(232, 178, 92, .14); box-shadow: 0 6px 26px rgba(232, 178, 92, .18); }
+.animal b { display: block; font: 600 17px/1.2 var(--serif); }
+.animal em { display: block; font-style: normal; color: var(--ochre); font-size: 11.5px; margin: 2px 0 6px; }
+.animal ul { margin: 0; padding: 0 0 0 14px; color: #d8d2c5; font-size: 11.5px; line-height: 1.4; }
+.intro-inner { max-width: 680px; }
+#ability { right: calc(12px + var(--sar)); bottom: calc(88px + var(--sab)); padding: 8px 12px; border-radius: 12px; display: flex; align-items: center; gap: 8px; overflow: hidden;
+  background: var(--glass); border: 1px solid var(--ochre); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); font-size: 13px; }
+#ability b { font-weight: 700; color: var(--ochre); position: relative; }
+#ability kbd { font: 700 11px var(--sans); padding: 2px 6px; border-radius: 5px; background: rgba(255, 255, 255, .12); color: var(--dim); position: relative; }
+#ability i { position: absolute; inset: 0; background: rgba(0, 0, 0, .55); transform-origin: left; transform: scaleX(var(--cd, 0)); transition: transform .2s linear; }
+#ability.wait { border-color: var(--line); } #ability.wait b { color: var(--dim); }
+#ability:not(.wait):hover { background: rgba(232, 178, 92, .22); }
+#down { right: calc(16px + var(--sar)); bottom: calc(176px + var(--sab)); width: 58px; height: 58px; border-radius: 50%; font-weight: 700; font-size: 12px; display: none;
+  background: var(--glass); border: 1px solid var(--line); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+#down:active { background: rgba(159, 216, 234, .45); }
+.panel label.slider { justify-content: space-between; cursor: default; padding: 3px 0; } .panel label.slider span { flex: none; width: 46%; } .panel label.slider input { margin: 0; }
+body.photo #hud, body.photo #labels, body.photo .panel { display: none !important; }
+/* La ficha va abajo a la izquierda, al lado del minimapa: en el centro tapaba al animal. */
+#card { left: calc(184px + var(--sal)); bottom: calc(12px + var(--sab)); width: min(430px, calc(100vw - 600px)); transform: none; }
+@keyframes rise { from { opacity: 0; transform: translateY(14px); } }
+@media (pointer: coarse) {
+  #ability { right: calc(96px + var(--sar)); bottom: calc(104px + var(--sab)); padding: 14px 14px; border-radius: 999px; } #ability kbd { display: none; }
+  body[data-animal="condor"] #down { display: block; }
+}
+@media (max-width: 820px) {
+  #animals { grid-template-columns: 1fr; gap: 6px; margin-bottom: 12px; } .animal { padding: 8px 12px; } .animal ul { display: none; } .animal em { margin-bottom: 0; }
+  #card { left: 10px; right: 10px; width: auto; bottom: auto; }
+  @keyframes rise { from { opacity: 0; transform: translateY(-10px); } }
+  #down { right: calc(100px + var(--sar)); bottom: calc(170px + var(--sab)); } /* a la izquierda del minimapa, que en vertical va sobre Saltar */
+}
+@media (max-height: 500px) and (orientation: landscape) {
+  #animals { grid-template-columns: repeat(3, 1fr); gap: 6px; margin-bottom: 8px; } .animal { padding: 6px 10px; } .animal b { font-size: 14px; } .animal ul { display: none; } .animal em { margin-bottom: 0; }
+  #card { left: 24%; right: 24%; width: auto; bottom: auto; }
+  #ability { bottom: calc(86px + var(--sab)); padding: 10px 12px; } #down { bottom: calc(146px + var(--sab)); width: 50px; height: 50px; }
+}
 @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }

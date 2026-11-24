@@ -1,5 +1,6 @@
 // Interfaz: HUD, fichas educativas, guía, mapa con viaje rápido y capas.
-import { LUGARES, PISOS, INTRO, ESTACIONES, TORMENTA } from './lugares.js';
+import { LUGARES, PISOS, ESTACIONES, TORMENTA } from './lugares.js';
+import { ANIMALS, ANIMAL_IDS } from './animals.js';
 import { SEASONS } from './env.js';
 import { SPEEDS } from './player.js';
 
@@ -8,9 +9,9 @@ const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.'
 const STORE = 'cordillera:v1';
 
 export class UI {
-  constructor({ manifest, player, labels, terrain, env, input, quality, border }) {
-    Object.assign(this, { m: manifest, player, labels, terrain, env, input, quality, border });
-    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5, year: 0.04, auto: true, epocas: [], tormenta: false };
+  constructor({ manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal }) {
+    Object.assign(this, { m: manifest, player, labels, terrain, env, input, quality, border, audio, onAnimal });
+    this.saved = { seen: [], pisos: [], layers: {}, hour: 9.5, year: 0.04, auto: true, epocas: [], tormenta: false, animal: 'colocolo', vol: { music: 0.7, sfx: 0.8 }, mute: false };
     try { Object.assign(this.saved, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch { /* almacenamiento bloqueado: se juega igual */ }
     this.seen = new Set(this.saved.seen); this.pisos = new Set(this.saved.pisos);
     this.lugares = LUGARES.map((l) => ({ ...l, x: (l.lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - l.lat) * manifest.mPerDegLat }));
@@ -23,6 +24,35 @@ export class UI {
     addEventListener('keydown', (e) => { if (e.code === 'Escape') { this.toggle(null); this.closeCard(); } });
     input.on('KeyM', () => this.toggle('mapa'));
     input.on('KeyH', () => this.toggle('ayuda'));
+    input.on('PadB', () => { this.toggle(null); this.closeCard(); });
+    input.on('KeyP', () => { if (document.body.classList.toggle('photo')) this.toggle(null); });
+    input.on('GearUp', () => this.setLevel(Math.min(SPEEDS.length - 1, player.level + 1)));
+    input.on('GearDown', () => this.setLevel(Math.max(0, player.level - 1)));
+    input.on('PadOn', () => this.toast('Control conectado: revisa los botones en la ayuda (Start)', 3600));
+    input.on('PadOff', () => this.toast('Control desconectado'));
+
+    // --- animal: tarjetas en la portada y selector en Ajustes
+    const cards = $('#animals'), seg = $('#animal-seg');
+    for (const id of ANIMAL_IDS) {
+      const a = ANIMALS[id], c = document.createElement('button'); c.className = 'animal'; c.type = 'button'; c.dataset.id = id;
+      c.innerHTML = '<b></b><em></em><ul></ul>';
+      c.querySelector('b').textContent = a.n; c.querySelector('em').textContent = a.lema;
+      for (const s of a.stats) { const li = document.createElement('li'); li.textContent = s; c.querySelector('ul').appendChild(li); }
+      c.addEventListener('click', () => this.pickAnimal(id)); cards.appendChild(c);
+      const b = document.createElement('button'); b.dataset.id = id; b.textContent = a.corto; b.addEventListener('click', () => this.pickAnimal(id)); seg.appendChild(b);
+    }
+    input.on('KeyT', () => this.cycleAnimal(1));
+    $('#ability').addEventListener('click', () => input.handlers.KeyQ?.());
+    const db = $('#down');
+    db.addEventListener('pointerdown', (e) => { e.preventDefault(); input.touchDown = true; });
+    for (const ev of ['pointerup', 'pointercancel', 'pointerleave']) db.addEventListener(ev, () => { input.touchDown = false; });
+
+    // --- sonido
+    const vm = $('#vol-music'), vs = $('#vol-sfx'), mute = $('#mute');
+    const applyVol = () => { audio.setVolume({ music: +vm.value, sfx: +vs.value }); audio.setMuted(mute.checked); };
+    vm.value = this.saved.vol.music; vs.value = this.saved.vol.sfx; mute.checked = !!this.saved.mute; applyVol();
+    for (const el of [vm, vs, mute]) el.addEventListener('input', () => { this.saved.vol = { music: +vm.value, sfx: +vs.value }; this.saved.mute = mute.checked; applyVol(); this.save(); });
+    input.on('KeyK', () => { mute.checked = !mute.checked; mute.dispatchEvent(new Event('input')); this.toast(mute.checked ? 'Sonido apagado' : 'Sonido encendido'); });
     input.on('KeyN', () => { const on = !Object.values(labels.enabled).some(Boolean); for (const g of ['cumbres', 'localidades', 'agua', 'lugares', 'relieve', 'vias']) this.setLayer(g, on); this.toast(on ? 'Nombres visibles' : 'Nombres ocultos'); });
 
     // --- capas
@@ -133,13 +163,29 @@ export class UI {
     if (save) { this.saved.layers[k] = on; this.save(); }
   }
   setLevel(i, announce = true) {
-    this.player.level = i; this.levelBtns.forEach((b, k) => b.classList.toggle('on', k === i));
-    if (announce) this.toast(`${SPEEDS[i].name} · ${Math.round(SPEEDS[i].v * 3.6)} km/h`);
+    const p = this.player, v = (p.flying ? p.animal.air : p.animal.speeds)[i];
+    p.level = i; this.levelBtns.forEach((b, k) => b.classList.toggle('on', k === i));
+    if (announce) { this.toast(`${SPEEDS[i].name} · ${Math.round(v * 3.6)} km/h`); this.audio.play('gear'); }
+  }
+  cycleAnimal(d) { this.pickAnimal(ANIMAL_IDS[(ANIMAL_IDS.indexOf(this.player.animal.id) + d + ANIMAL_IDS.length) % ANIMAL_IDS.length]); }
+  pickAnimal(id, announce = true) {
+    const a = ANIMALS[id] || ANIMALS.colocolo;
+    this.onAnimal(a.id); this.saved.animal = a.id; this.save();
+    for (const b of document.querySelectorAll('#animals .animal, #animal-seg button')) b.classList.toggle('on', b.dataset.id === a.id);
+    $('#start').textContent = `Comenzar como ${a.corto.toLowerCase()}`;
+    $('#ability-name').textContent = a.ability.n; $('#ability').title = a.ability.d;
+    document.body.dataset.animal = a.id;
+    if (announce) this.audio.play('ui');
+    if (announce && this.started) {
+      this.toast(`Ahora eres un ${a.n.toLowerCase()}`, 2600); this.queue.length = 0;
+      this.showCard({ tag: a.sci, title: a.n, text: a.d, foot: `Habilidad (Q): ${a.ability.n}` }, true);
+    }
   }
   toggle(name) {
     for (const p of document.querySelectorAll('.panel')) p.hidden = name === null || p.id !== 'panel-' + name || !p.hidden;
     const open = document.querySelector('.panel:not([hidden])');
     document.querySelectorAll('#menu button').forEach((b) => b.classList.toggle('on', !!open && open.id === 'panel-' + b.dataset.panel));
+    if (open) this.audio.play('ui');
     if (open && open.id === 'panel-mapa') { this.target = null; $('#map-go').hidden = true; $('#map-hint').textContent = 'Toca cualquier punto del mapa para viajar ahí.'; this.drawBig(); }
   }
   toast(text, ms = 2200) {
@@ -149,7 +195,7 @@ export class UI {
   travel(x, z, name) {
     const p = this.player;
     p.teleport(x, z, Math.atan2(x - p.x, z - p.z));
-    this.toggle(null); this.inside.clear();
+    this.toggle(null); this.inside.clear(); this.audio.play('travel');
     this.toast(name ? `Llegaste a ${name}` : 'Viaje rápido', 2600);
   }
 
@@ -166,7 +212,10 @@ export class UI {
     for (const l of this.lugares) l.li.classList.toggle('seen', this.seen.has(l.id));
     $('#guia-count').textContent = `${this.seen.size}/${this.lugares.length}`;
   }
-  intro() { this.showCard({ tag: INTRO.t, title: INTRO.n, text: INTRO.d, foot: 'Puedes apagar estas fichas en Capas.' }, true); }
+  intro() {
+    const a = this.player.animal; this.started = true;
+    this.showCard({ tag: a.sci, title: `Eres un ${a.n.toLowerCase()}`, text: a.d, foot: 'Cambia de animal con T o en Ajustes, donde también se apagan estas fichas.' }, true);
+  }
 
   // ¿De qué lado del límite está el punto? Rayo hacia el oeste: cruces impares = Argentina.
   _country(x, z) {
@@ -209,6 +258,10 @@ export class UI {
         const eta = p.speed > 1 ? nd / p.speed : 0;
         $('#place-next').textContent = `Próximo: ${nextL.n} · ${(nd / 1000).toFixed(nd < 1e4 ? 1 : 0).replace('.', ',')} km al ${dir}${eta > 5 ? ` · ${eta > 5400 ? (eta / 3600).toFixed(1).replace('.', ',') + ' h' : eta > 90 ? Math.round(eta / 60) + ' min' : Math.round(eta) + ' s'}` : ''}`;
       } else $('#place-next').textContent = '';
+      this.nextPlace = nextL;
+      // Recarga de la habilidad: el botón se va destapando.
+      const cd = Math.max(0, p.abilityReady - performance.now() / 1000), ab = $('#ability');
+      ab.classList.toggle('wait', cd > 0); ab.style.setProperty('--cd', (cd / p.animal.ability.cd).toFixed(3));
     }
     if ((this.tick -= dt) <= 0) {
       this.tick = 0.3;
@@ -217,7 +270,7 @@ export class UI {
         if (inside && !this.inside.has(l.id)) {
           const first = !this.seen.has(l.id);
           this.showCard({ tag: l.t, title: l.n, text: l.d, foot: first ? `Lugar ${this.seen.size + 1} de ${this.lugares.length} descubierto` : '' });
-          if (first) { this.seen.add(l.id); this.refreshGuide(); this.save(); }
+          if (first) { this.seen.add(l.id); this.refreshGuide(); this.save(); this.audio.play('discover'); }
         }
         inside ? this.inside.add(l.id) : this.inside.delete(l.id);
       }

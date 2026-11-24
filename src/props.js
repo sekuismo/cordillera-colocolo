@@ -34,9 +34,10 @@ uniform vec3 uLeaf; // x: hoja en los caducos (0 = invierno), y: color de otoño
 uniform sampler2D uCoreAlb, uShadow;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
-varying float vVar, vShade;
+varying float vVar, vShade, vAlong;
 void main() {
   vec3 p = position;
+  vAlong = 0.0;
   float fade = 1.0 - smoothstep(uRange * 0.72, uRange, length(iPR.xyz - uCamRel)); // se encoge al borde del alcance: sin "pop"
   float kind = floor(iSV.y), crown = step(0.5, uv.x);
   vec2 sway = vec2(sin(uTime * 0.9 + iPR.x * 0.2), cos(uTime * 0.7 + iPR.z * 0.2)) * 0.03 * crown;
@@ -52,7 +53,7 @@ void main() {
     p *= iSV.x * fade * vec3(1.0, sy, 1.0);
   #elif TYPE == 3
     // 0 espino (copa ancha y aplanada) · 1 quillay/litre · 2 peumo · 4 árbol urbano caduco
-    vec3 shape = kind < 0.5 ? vec3(1.35, 0.76, 1.35) : vec3(1.0, 0.9 + fract(iSV.y * 5.7) * 0.35, 1.0);
+    vec3 shape = kind < 0.5 ? vec3(1.25, 0.82, 1.25) : vec3(1.0, 0.9 + fract(iSV.y * 5.7) * 0.35, 1.0);
     p.xz += uv.y * sway;
     p.xz *= mix(1.0, 0.6, crown * step(3.5, kind) * (1.0 - uLeaf.x)); // sin hojas queda solo el ramaje
     p *= iSV.x * fade * shape;
@@ -60,9 +61,11 @@ void main() {
     if (iSV.x < 0.0) { // edificio real (zones.js): el rectángulo de su huella, con sus pisos (o un estimado)
       float q = -iSV.x, L = floor(q / 1000.0) * 0.1, Wd = (q - floor(q / 1000.0) * 1000.0) * 0.1;
       float floors = max(1.0, floor(iSV.y)), H = floors * 2.9 + 0.3;
-      float roofK = floors < 2.5 && Wd < 13.0 ? min(1.2, Wd / 5.4) : 0.04; // casas con techo a dos aguas; lo grande, plano
+      // Casas con techo a dos aguas; galpones y naves, con poca pendiente; de 3 pisos para arriba, techo plano.
+      float roofK = floors > 2.5 ? 0.04 : Wd < 13.0 ? min(1.2, Wd / 5.4) : min(2.2, Wd * 0.07);
       p.y = uv.x > 0.5 ? H + (p.y - 2.7) * roofK : p.y / 2.7 * H;
       p *= fade * vec3(L / 7.0, 1.0, Wd / 5.4);
+      vAlong = abs(normal.x) > 0.5 ? p.z : p.x; // metros a lo largo del muro: para repartir las ventanas
     } else {
       float tall = floor(iSV.y); // pisos extra: edificios en el centro de las ciudades
       p *= iSV.x * fade * vec3(1.0 + tall * 0.05, 1.0 + tall * 0.9, 1.0 + tall * 0.05);
@@ -95,7 +98,7 @@ uniform vec3 uCamRel;
 uniform float uCamY;
 varying vec3 vRel, vN, vGround;
 varying vec2 vUv;
-varying float vVar, vShade;
+varying float vVar, vShade, vAlong;
 // Hash sin seno: el moteado del follaje llama a esto 16 veces por píxel.
 float hash(vec3 p) { p = fract(p * 0.1031); p += dot(p, p.zyx + 31.32); return fract((p.x + p.y) * p.z); }
 float vnoise(vec3 p) {
@@ -104,6 +107,10 @@ float vnoise(vec3 p) {
              mix(mix(hash(i + vec3(0, 0, 1)), hash(i + vec3(1, 0, 1)), f.x), mix(hash(i + vec3(0, 1, 1)), hash(i + vec3(1, 1, 1)), f.x), f.y), f.z);
 }
 void main() {
+  // La cámara en tercera persona se mete a cada rato dentro de un arbusto o una copa: lo que queda a menos de
+  // ~2 m se deshace en un tramado en vez de tapar toda la pantalla.
+  float dcam = length(vRel);
+  if (dcam < 2.3 && (dcam - 0.5) / 1.8 < fract(52.9829189 * fract(dot(gl_FragCoord.xy, vec2(0.06711056, 0.00583715))))) discard;
   vec3 N = normalize(vN);
   if (!gl_FrontFacing) N = -N;
   vec3 col; float wrap = 0.0;
@@ -119,7 +126,7 @@ void main() {
     col = mix(col, vGround * 1.25, 0.25); wrap = 0.6; N = normalize(N + vec3(0.0, 1.4, 0.0));
   #elif TYPE == 1    // roca: toma el color del suelo, más gris
     float g = dot(vGround, vec3(0.33));
-    col = mix(vGround, vec3(g), 0.45) * (0.8 + v * 0.55) * (0.85 + 0.3 * speck);
+    col = mix(vGround, vec3(g), 0.45) * (1.0 + v * 0.55) * (0.85 + 0.3 * speck); wrap = 0.3;
   #elif TYPE == 2
     vec3 base = kind < 0.5 ? mix(vec3(0.03, 0.042, 0.016), vec3(0.075, 0.08, 0.032), v)   // matorral esclerófilo: oliva oscuro
       : kind < 1.5 ? mix(vec3(0.10, 0.105, 0.035), vec3(0.17, 0.155, 0.05), v)             // neneo: cojín amarillento del piso andino
@@ -128,20 +135,26 @@ void main() {
     col = base * (0.55 + 0.9 * speck) * (0.6 + 0.5 * vUv.y); wrap = 0.5;
     col = mix(col, vec3(0.62, 0.50, 0.52), uLeaf.z * step(2.5, kind) * smoothstep(0.45, 0.7, speck)); // frutales en flor
   #elif TYPE == 3
-    vec3 leaf = kind < 0.5 ? mix(vec3(0.05, 0.062, 0.03), vec3(0.085, 0.095, 0.045), v)   // espino: verde grisáceo, copa rala
-      : kind < 1.5 ? mix(vec3(0.022, 0.04, 0.015), vec3(0.055, 0.072, 0.028), v)           // quillay y litre
-      : kind < 2.5 ? mix(vec3(0.014, 0.03, 0.012), vec3(0.03, 0.05, 0.02), v)              // peumo: el más oscuro, en quebradas
+    vec3 leaf = kind < 0.5 ? mix(vec3(0.075, 0.088, 0.042), vec3(0.115, 0.125, 0.06), v)  // espino: verde grisáceo, copa rala
+      : kind < 1.5 ? mix(vec3(0.036, 0.058, 0.023), vec3(0.075, 0.095, 0.04), v)           // quillay y litre
+      : kind < 2.5 ? mix(vec3(0.022, 0.043, 0.018), vec3(0.045, 0.07, 0.03), v)            // peumo: el más oscuro, en quebradas
       : decid;                                                                              // árbol urbano
-    col = vUv.x < 0.5 ? vec3(0.055, 0.04, 0.028) * (0.7 + 0.6 * speck) : leaf * (0.5 + 1.0 * speck) * (0.55 + 0.55 * vUv.y);
+    // Manchones de follaje: aclaran, oscurecen y tuercen la normal, para que la copa no se lea como una bola lisa.
+    float clump = vnoise(wp * 1.4 + v * 17.0);
+    col = vUv.x < 0.5 ? vec3(0.055, 0.04, 0.028) * (0.7 + 0.6 * speck) : leaf * (0.5 + 1.0 * speck) * (0.5 + 0.6 * vUv.y) * (0.62 + 0.76 * clump);
     wrap = vUv.x < 0.5 ? 0.0 : 0.5;
+    if (vUv.x >= 0.5) N = normalize(N + vec3(clump - 0.5, 0.25, speck - 0.5) * 0.9);
   #elif TYPE == 4    // quisco: cactus columnar con costillas
     float rib = 0.72 + 0.28 * abs(sin(vUv.x * 37.7));
     col = vec3(0.075, 0.12, 0.06) * rib * (0.8 + 0.4 * v); wrap = 0.25;
-  #elif TYPE == 5    // casas y edificios: muros claros, techos de zinc o teja
-    vec3 wall = v < 0.3 ? vec3(0.40, 0.38, 0.33) : v < 0.55 ? vec3(0.33, 0.26, 0.18) : v < 0.8 ? vec3(0.35, 0.35, 0.34) : vec3(0.27, 0.32, 0.34);
-    vec3 roof = v < 0.4 ? vec3(0.20, 0.21, 0.23) : v < 0.75 ? vec3(0.24, 0.085, 0.055) : vec3(0.11, 0.11, 0.12);
-    float win = step(0.45, fract(vUv.y * (1.6 + kind * 1.6) * 1.57)) * step(0.4, fract((wp.x + wp.z) * 0.42 + wp.y * 0.01));
-    col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) : wall * (1.0 - 0.5 * win * step(abs(N.y), 0.5));
+  #elif TYPE == 5    // casas: muros estucados blancos, crema, ocre o adobe; techos de zinc (lo más común), teja o zinc oxidado
+    vec3 wall = v < 0.28 ? vec3(0.55, 0.53, 0.48) : v < 0.5 ? vec3(0.47, 0.40, 0.29) : v < 0.68 ? vec3(0.40, 0.29, 0.19) : v < 0.86 ? vec3(0.44, 0.43, 0.40) : vec3(0.36, 0.33, 0.25);
+    vec3 roof = v < 0.45 ? vec3(0.30, 0.31, 0.32) : v < 0.7 ? vec3(0.25, 0.10, 0.065) : v < 0.88 ? vec3(0.21, 0.13, 0.09) : vec3(0.13, 0.13, 0.14);
+    // Ventanas: un vano por tramo de muro y por piso (una franja corrida hace ver bloques de oficinas). El modelo mide 4,1 de alto y el muro 2,7.
+    float tw = clamp(vUv.y * 4.1 / 2.7, 0.0, 1.0), fl = max(1.0, kind);
+    vec2 wv = vec2(fract(vAlong / 3.4 + v * 3.0), fract(tw * fl));
+    float win = step(0.3, wv.x) * step(wv.x, 0.64) * step(0.38, wv.y) * step(wv.y, 0.78) * step(abs(N.y), 0.5);
+    col = vUv.x > 0.5 ? roof * (0.85 + 0.3 * speck) : mix(wall * (0.86 + 0.14 * tw) * (0.94 + 0.12 * speck), vec3(0.035, 0.045, 0.055), win * 0.85);
   #elif TYPE == 6
     vec3 leaf = kind < 0.5 ? decid * 1.15                                                  // álamo: el amarillo del otoño en el Cajón
       : kind < 1.5 ? mix(vec3(0.014, 0.032, 0.016), vec3(0.03, 0.055, 0.026), v)           // ciprés de la cordillera
@@ -158,9 +171,10 @@ void main() {
   float sn = smoothstep(uSnowLine - 40.0, uSnowLine + 220.0, wp.y) * smoothstep(-0.1, 0.65, N.y);
   col = mix(col, vec3(0.64, 0.68, 0.74), sn * 0.88);
   float ndl = clamp((dot(N, uSunDir) + wrap) / (1.0 + wrap), 0.0, 1.0);
-  vec3 c = col * (uSunColor * ndl * vShade + uAmbient * (0.55 + 0.45 * N.y));
-  float dist = length(vRel);
-  c = applyFog(c, uCamY, vRel, dist);
+  // Luz ambiente: cielo (menos azul de lo que es, o los muros blancos se ven celestes) más el rebote cálido del suelo asoleado.
+  vec3 amb = mix(uAmbient, vec3(dot(uAmbient, vec3(0.333))), 0.4) * (0.55 + 0.45 * N.y);
+  vec3 c = col * (uSunColor * ndl * vShade + amb + vGround * uSunColor * (0.5 - 0.5 * N.y) * max(uSunDir.y, 0.0) * 0.35 * vShade);
+  c = applyFog(c, uCamY, vRel, dcam);
   gl_FragColor = vec4(c, 1.0);
   #include <tonemapping_fragment>
   #include <colorspace_fragment>
@@ -222,8 +236,10 @@ function geometries() {
   const rock = blob(1, 0.42, 1.7); rock.translate(0, 0.35, 0);
   const bush = blob(1, 0.5, 4.2, 0.72, true); bush.translate(0, 0.5, 0);
   const trunk = new THREE.CylinderGeometry(0.07, 0.13, 1.5, 6, 1, true); trunk.translate(0, 0.6, 0);
-  const crownA = blob(1, 0.5, 9.1, 0.8, true); crownA.scale(1.05, 1.0, 1.05); crownA.translate(0, 1.85, 0);
-  const crownB = blob(1, 0.4, 2.3, 0.7, true); crownB.scale(0.8, 0.8, 0.8); crownB.translate(0.75, 1.45, 0.3);
+  // Copa en tres masas que parten bajo: con una sola bola arriba de un tronco largo, el árbol parece chupete.
+  const crownA = blob(1, 0.5, 9.1, 0.85, true); crownA.scale(1.1, 1.0, 1.1); crownA.translate(0, 1.72, 0);
+  const crownB = blob(1, 0.4, 2.3, 0.7, true); crownB.scale(0.8, 0.8, 0.8); crownB.translate(0.75, 1.3, 0.3);
+  const crownC = blob(0, 0.4, 6.7, 0.75, true); crownC.scale(0.72, 0.72, 0.72); crownC.translate(-0.6, 1.2, -0.5);
   // Casa: caja + techo a dos aguas (prisma triangular).
   const walls = new THREE.BoxGeometry(7, 3.2, 5.4); walls.translate(0, 1.1, 0);
   const rp = [-3.8, 2.7, -3.0, 3.8, 2.7, -3.0, -3.8, 2.7, 3.0, 3.8, 2.7, 3.0, -3.8, 4.1, 0, 3.8, 4.1, 0];
@@ -240,7 +256,7 @@ function geometries() {
     pasto: merge([{ geo: pasto, part: 0 }]),
     roca: merge([{ geo: rock, part: 0 }]),
     arbusto: merge([{ geo: bush, part: 1 }]),
-    arbol: merge([{ geo: trunk, part: 0 }, { geo: crownA, part: 1 }, { geo: crownB, part: 1 }]),
+    arbol: merge([{ geo: trunk, part: 0 }, { geo: crownA, part: 1 }, { geo: crownB, part: 1 }, { geo: crownC, part: 1 }]),
     quisco: merge([{ geo: col(0.17, 2.4, 0, -0.2, 0), ang: [0, 0] }, { geo: col(0.13, 1.3, 0.42, 0.5, 0.05), ang: [0.42, 0.05] }, { geo: col(0.12, 0.9, -0.3, 0.9, -0.22), ang: [-0.3, -0.22] }]),
     casa: merge([{ geo: walls, part: 0 }, { geo: roofGeo, part: 1 }]),
     alto: merge([{ geo: tallTrunk, part: 0 }, { geo: tallCrown, part: 1 }]),
@@ -350,8 +366,9 @@ export class Props {
     for (let n = job.b; n < bEnd; n += 6) {
       if (B[n + 5] >= 5) continue; // los edificios altos están en el skyline (city.js), que se dibuja a cualquier distancia
       const x = B[n], z = B[n + 1], L = B[n + 2], W = B[n + 3], area = L * W, r = hash2(Math.round(x * 4), Math.round(z * 4), 13);
-      // Sin dato de pisos (casi todo lo que no es OSM): casas de 1–2 pisos según la huella; lo muy grande es galpón.
-      const floors = B[n + 5] || (area < 110 ? 1 : area < 350 ? (r < 0.6 ? 1 : 2) : area < 2500 ? 2 : 3);
+      // Sin dato de pisos (casi todo lo que no es OSM): un piso. Solo en ciudad una parte de las casas medianas tiene dos.
+      // Una huella grande no es un edificio alto: es un galpón, un colegio o varias casas pareadas fundidas en una.
+      const floors = B[n + 5] || (area > 110 && area < 320 && r < 0.3 && this._cls(x, z) === 5 && hf.base(x, z) < 900 ? 2 : 1);
       push(5, x, z, -B[n + 4], -(Math.min(3200, Math.round(L * 10)) * 1000 + Math.min(999, Math.round(W * 10))), Math.min(99, floors) + r * 0.999);
     }
     job.b = bEnd; return bEnd >= B.length;

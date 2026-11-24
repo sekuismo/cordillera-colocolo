@@ -1,6 +1,6 @@
 # Cordillera
 
-Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus colocola*) y recorres, a escala real y en 3D, la cordillera de Santiago y el Cajón del Maipo, desde la ciudad hasta pasado el límite con Argentina.
+Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus colocola*), un **puma** (*Puma concolor*) o un **cóndor andino** (*Vultur gryphus*) y recorres, a escala real y en 3D, la cordillera de Santiago y el Cajón del Maipo, desde la ciudad hasta pasado el límite con Argentina.
 
 **Jugar:** https://sekuismo.github.io/cordillera-colocolo/
 
@@ -13,7 +13,9 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 - Sombras arrojadas por los cerros según la hora y la época.
 - Calles reales de Santiago y los pueblos (110 mil vías de OSM, incluidos pasajes); las casas se ordenan paralelas a su calle y los árboles urbanos van en la vereda.
 - Santiago reconocible desde los cerros: skyline por barrio e hitos a escala real (Gran Torre Costanera, Torre Entel, La Moneda, Estadio Nacional, Templo Bahá’í, Virgen del San Cristóbal…).
-- Funciona en escritorio y en móvil (joystick táctil, calidad adaptativa).
+- Tres animales con habilidades distintas: el colocolo salta dos veces y usa el olfato para marcar el próximo lugar por descubrir; el puma salta más lejos, corre más rápido y embiste; el cóndor vuela, planea con el viento de ladera y sube en una térmica.
+- Música andina generada por código en La menor pentatónica (quena, zampoña, charango y bombo sintetizados) y efectos de sonido procedurales: viento, río, lluvia, pasos y aleteos. Sin archivos de audio.
+- Funciona en escritorio, en móvil (joystick táctil) y con control de consola; la calidad se adapta sola al equipo.
 
 ## Controles
 
@@ -23,10 +25,15 @@ Un juego de exploración en el navegador: eres un **gato colocolo** (*Leopardus 
 | Arrastrar | Mirar alrededor |
 | Rueda, `V` | Acercar o alejar la cámara, primera persona |
 | `1`–`5`, `Shift` | Marchas: Paseo, Trote, Carrera, Turbo, Híper |
-| `Espacio`, `E` | Saltar (mantener = más alto), avance automático |
+| `Espacio`, `E` | Saltar (mantener = más alto; con el cóndor, despegar y subir), avance automático |
+| `C` | Bajar en picada (cóndor) |
+| `Q`, `T` | Habilidad especial, cambiar de animal |
 | `M`, `N` | Mapa (viaje rápido), mostrar/ocultar nombres |
+| `P`, `K` | Modo foto (oculta la interfaz), silenciar |
 
 En móvil: joystick en el lado izquierdo, arrastrar en el derecho para mirar, pellizcar para alejar.
+
+Con control (mapeo estándar): stick izquierdo para moverse y derecho para mirar, `A` salta o aletea, `B`/`LT` baja, `X` habilidad, `Y` mapa, `LB`/`RB` marchas, `RT` acelera, cruceta arriba/abajo acerca la cámara, `Select` cambia de animal y `Start` abre la ayuda.
 
 ## Cómo está hecho
 
@@ -46,6 +53,10 @@ Es solo frontend estático, sin build: módulos ES + [three.js](https://threejs.
 | Sombras del relieve | Barrido O(N) sobre el DEM en CPU (altura de sombra por línea paralela al sol), repartido en varios cuadros y subido como textura de 1 canal. |
 | Vegetación | Raster de clases de 1 byte por texel (1,5 MB) compartido por CPU y GPU: la CPU decide qué especie instanciar en cada punto y el shader pinta cultivos, dosel y hielo. |
 | Estaciones | Un solo parámetro (fracción del año) mueve la declinación solar, la línea de nieve, el verdor y la probabilidad de frentes. |
+| Animales | `src/animals.js` define cifras y textos; `src/cat.js` arma colocolo y puma del mismo esqueleto y `src/condor.js` el cóndor. El vuelo es una velocidad vertical que busca su equilibrio entre planeo, aleteo, pérdida por falta de velocidad y viento de ladera. |
+| Sonido | `src/audio.js`: Web Audio sin archivos. Música generativa en La menor pentatónica con instrumentos sintetizados (Karplus-Strong para el charango) y capas que entran según lo que hace el animal. |
+| Color | Tone mapping AgX más un ajuste propio de saturación y contraste (`CustomToneMapping` en `src/main.js`): ACES teñía de morado el cielo y saturaba los cerros. |
+| Resolución adaptativa | Con `EXT_disjoint_timer_query_webgl2` se mide el tiempo real de GPU por cuadro y se ajustan la resolución interna y la densidad de la malla del relieve para caber en 12,5 ms; sin esa extensión, se estima por fps detectando si el navegador limita los cuadros. |
 
 `src/heightfield.js` (CPU) y `HEIGHT_GLSL` en `src/shaders.js` (GPU) son la misma función escrita dos veces: si se cambia una, hay que cambiar la otra.
 

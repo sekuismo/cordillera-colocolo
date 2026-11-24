@@ -37,13 +37,18 @@ void main() {
   vec3 V = vRel / dist, col = vCol;
   float wall = step(abs(N.y), 0.5), lit = 0.0;
   if (vInfo.z < 1.5) {
-    // Ventanas: franjas por piso (3,4 m) y módulos de 3 m; de lejos se promedian solas.
-    vec2 cell = vec2(vInfo.x / 3.0, vInfo.y / 3.4);
-    float aa = clamp(1.0 - fwidth(cell.y) * 1.5, 0.0, 1.0);
-    float win = step(0.32, fract(cell.y)) * step(0.22, fract(cell.x)) * wall;
-    float glass = step(0.5, vInfo.z);
-    col = mix(col, mix(col * 0.42, skyColor(reflect(V, N)) * 0.55 + col * 0.25, glass), win * mix(0.55, 1.0, aa) * mix(0.75, 0.9, glass));
-    lit = step(0.62, hash(floor(cell) + floor(vInfo.x * 0.01))) * win; // al caer la tarde se prenden algunas
+    // Fachada: pisos de 3,1 m y módulos de 3 m. Hormigón: ventanas recortadas en el muro, cada una con su cortina o su
+    // reflejo; vidrio: muro cortina de perfiles delgados que refleja el cielo. La planta baja es zócalo. De lejos se promedia sola.
+    vec2 cell = vec2(vInfo.x / 3.0, vInfo.y / 3.1), f = fract(cell);
+    float aa = clamp(1.0 - fwidth(cell.y) * 1.5, 0.0, 1.0), glass = step(0.5, vInfo.z), rnd = hash(floor(cell));
+    float fres = 0.25 + 0.75 * pow(1.0 - max(dot(-V, N), 0.0), 3.0), upper = step(3.4, vInfo.y);
+    vec3 refl = skyColor(reflect(V, N));
+    float punched = step(0.36, f.y) * step(f.y, 0.84) * step(0.16, f.x) * step(f.x, 0.84);
+    float win = mix(punched, step(0.07, f.y) * step(0.04, f.x), glass) * wall * upper;
+    vec3 pane = mix(col * 0.3 + refl * 0.22 * fres, refl * (0.28 + 0.5 * fres) + col * 0.4, glass) * (0.75 + 0.5 * rnd);
+    col *= (1.0 - 0.3 * (1.0 - upper) * wall) * (0.93 + 0.14 * hash(floor(vInfo.xy / vec2(15.0, 3.1)) + 7.0)); // zócalo y paños desiguales
+    col = mix(col, pane, win * mix(0.5, 1.0, aa));
+    lit = step(0.62, rnd) * win; // al caer la tarde se prenden algunas
   }
   float ndl = max(dot(N, uSunDir), 0.0);
   // Las caras sin sol directo reciben luz del cielo (azulada) más el rebote cálido del suelo iluminado.

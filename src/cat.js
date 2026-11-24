@@ -1,5 +1,6 @@
 // Gato colocolo (Leopardus colocola) procedural: geometría por primitivas, pelaje por shader y
 // animación de marcha/trote/galope calculada a partir de la distancia recorrida. Sin assets externos.
+// El puma (Puma concolor) sale del mismo esqueleto: más largo, de cola larga y pelaje leonado liso, sin bandas ni anillos.
 import * as THREE from 'three';
 import { COMMON_VERT } from './shaders.js';
 
@@ -17,7 +18,7 @@ void main() {
 
 const FRAG = /* glsl */ `
 uniform vec3 uSunDir, uSunColor, uAmbient;
-uniform float uPart, uSeg, uShade;
+uniform float uPart, uSeg, uShade, uPuma;
 varying vec3 vPos, vNrm, vViewPos, vViewNrm;
 
 float hash(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
@@ -32,30 +33,30 @@ const vec3 DARK = vec3(0.016, 0.01, 0.007); // anillos de patas y cola
 
 void main() {
   vec3 n = normalize(vNrm);
-  vec3 col = BASE;
-  float fuzz = 1.0;
+  vec3 col = mix(BASE, vec3(0.30, 0.205, 0.11), uPuma); // puma: leonado parejo
+  float fuzz = 1.0, pat = 1.0 - uPuma;                   // las marcas del colocolo se apagan en el puma
   if (uPart < 0.5) {            // tronco: bandas oblicuas, línea dorsal y vientre claro
     float wob = vnoise(vPos.zy * 38.0) * 1.6;
     float band = sin((vPos.z + vPos.y * 0.85) * 62.0 + wob * 2.2);
     float flank = smoothstep(0.25, 0.75, abs(n.x)) * smoothstep(-0.55, 0.0, n.y);
-    col = mix(col, RUST, smoothstep(0.2, 0.75, band) * flank * 0.9);
-    col = mix(col, RUST * 0.8, smoothstep(0.82, 0.97, n.y) * 0.75);
+    col = mix(col, RUST, smoothstep(0.2, 0.75, band) * flank * 0.9 * pat);
+    col = mix(col, RUST * 0.8, smoothstep(0.82, 0.97, n.y) * (0.75 - 0.5 * uPuma));
     col = mix(col, CREAM, smoothstep(-0.25, -0.75, n.y));
     col *= 0.86 + 0.28 * vnoise(vPos.zy * 150.0);
   } else if (uPart < 1.5) {     // patas: anillos oscuros bien marcados, típicos de la especie
     float ring = smoothstep(0.1, 0.6, sin(vPos.y * 118.0 + vnoise(vPos.xz * 60.0) * 1.5));
-    col = mix(col, DARK, ring * 0.92);
+    col = mix(col, DARK, ring * 0.92 * pat);
     col = mix(col, CREAM, smoothstep(0.3, 0.9, -n.z) * 0.25);
   } else if (uPart < 2.5) {     // cola gruesa anillada con punta oscura
     float ring = smoothstep(0.0, 0.5, sin(uSeg * 3.14159 + vPos.z * 40.0));
-    col = mix(col, mix(RUST, DARK, 0.55), ring * 0.85);
+    col = mix(col, mix(RUST, DARK, 0.55), ring * 0.85 * pat);
     col = mix(col, DARK, step(5.5, uSeg));
     col *= 0.86 + 0.28 * vnoise(vPos.xz * 150.0);
   } else if (uPart < 3.5) {     // cabeza: hocico claro, rayas en mejillas y frente
     float cheek = smoothstep(0.55, 0.9, sin(vPos.y * 150.0 + abs(vPos.x) * 60.0 + 1.0)) * smoothstep(0.35, 0.8, abs(n.x)) * step(vPos.z, 0.035);
-    col = mix(col, RUST * 0.7, cheek * 0.85);
+    col = mix(col, RUST * 0.7, cheek * 0.85 * pat);
     float brow = smoothstep(0.5, 0.9, sin(vPos.x * 210.0)) * smoothstep(0.55, 0.9, n.y) * smoothstep(-0.02, 0.03, vPos.z);
-    col = mix(col, RUST * 0.6, brow * 0.7);
+    col = mix(col, RUST * 0.6, brow * 0.7 * pat);
     col = mix(col, CREAM, smoothstep(-0.1, -0.6, n.y) * 0.8);
   } else if (uPart < 4.5) {     // hocico y mentón
     col = CREAM * 1.12;
@@ -81,32 +82,34 @@ void main() {
 }`;
 
 export class Cat {
-  constructor(env) {
+  constructor(env, { puma = false, scale = CAT_SCALE } = {}) {
     this.root = new THREE.Group();
-    this.root.scale.setScalar(CAT_SCALE);
+    this.scale = scale; this.root.scale.setScalar(scale);
+    const P = puma ? 1 : 0, bodyY = (this.bodyY = 0.3 + 0.028 * P);
     this.shade = { value: 1 }; // baja a 0 cuando el gato está a la sombra de un cerro
     const mat = (part, seg = 0) => new THREE.ShaderMaterial({
-      uniforms: { uSunDir: env.uSunDir, uSunColor: env.uSunColor, uAmbient: env.uAmbient, uLogF: env.uLogF, uShade: this.shade, uPart: { value: part }, uSeg: { value: seg } },
+      uniforms: { uSunDir: env.uSunDir, uSunColor: env.uSunColor, uAmbient: env.uAmbient, uLogF: env.uLogF, uShade: this.shade, uPuma: { value: P }, uPart: { value: part }, uSeg: { value: seg } },
       vertexShader: VERT, fragmentShader: FRAG,
     });
     const mesh = (geo, m, parent, x = 0, y = 0, z = 0) => { const o = new THREE.Mesh(geo, m); o.position.set(x, y, z); o.frustumCulled = false; parent.add(o); return o; };
     const grp = (parent, x = 0, y = 0, z = 0) => { const g = new THREE.Group(); g.position.set(x, y, z); parent.add(g); return g; };
 
-    const body = (this.body = grp(this.root, 0, 0.3, 0));
+    const body = (this.body = grp(this.root, 0, bodyY, 0));
     // Tronco: perfil torneado (grupa → cintura → pecho) acostado sobre el eje Z.
     const profile = [[0, -0.235], [0.045, -0.228], [0.074, -0.19], [0.086, -0.12], [0.082, -0.02], [0.088, 0.08], [0.09, 0.15], [0.076, 0.2], [0.05, 0.228], [0, 0.236]];
     const torsoGeo = new THREE.LatheGeometry(profile.map(([r, t]) => new THREE.Vector2(r, t)), 20);
-    torsoGeo.rotateX(Math.PI / 2); torsoGeo.scale(0.9, 1.04, 1); torsoGeo.computeVertexNormals();
+    torsoGeo.rotateX(Math.PI / 2); torsoGeo.scale(0.9, 1.04 - 0.04 * P, 1 + 0.14 * P); torsoGeo.computeVertexNormals();
     this.torso = mesh(torsoGeo, mat(0), body);
 
     // Cuello y cabeza.
-    const neck = (this.neck = grp(body, 0, 0.035, 0.19));
+    const neck = (this.neck = grp(body, 0, 0.035, 0.19 + 0.025 * P));
     const neckGeo = new THREE.CapsuleGeometry(0.052, 0.07, 6, 12); neckGeo.rotateX(Math.PI / 2 - 0.75); neckGeo.translate(0, 0.03, 0.035);
     mesh(neckGeo, mat(0), neck);
     const head = (this.head = grp(neck, 0, 0.075, 0.085));
+    if (puma) head.scale.setScalar(0.9); // cabeza chica para su cuerpo, de orejas redondas
     const headGeo = new THREE.SphereGeometry(0.064, 20, 14); headGeo.scale(1.08, 0.92, 1.0);
     mesh(headGeo, mat(3), head);
-    for (const s of [-1, 1]) { // mejillas con pelo largo: la cara ancha del colocolo
+    if (!puma) for (const s of [-1, 1]) { // mejillas con pelo largo: la cara ancha del colocolo
       const cg = new THREE.SphereGeometry(0.036, 12, 10); cg.scale(1, 0.85, 0.9);
       mesh(cg, mat(3), head, s * 0.045, -0.022, 0.012);
     }
@@ -115,7 +118,7 @@ export class Cat {
     mesh(new THREE.SphereGeometry(0.009, 8, 6), mat(7), head, 0, -0.01, 0.08);
     this.ears = [];
     for (const s of [-1, 1]) {
-      const eg = new THREE.ConeGeometry(0.03, 0.055, 4, 1); eg.rotateY(Math.PI / 4); eg.scale(1, 1, 0.5); eg.translate(0, 0.0275, 0);
+      const eg = new THREE.ConeGeometry(0.03 - 0.004 * P, 0.055 - 0.014 * P, 4 + 4 * P, 1); eg.rotateY(Math.PI / 4); eg.scale(1, 1, 0.5); eg.translate(0, 0.0275, 0);
       const ear = mesh(eg, mat(5), head, s * 0.042, 0.042, -0.006); ear.rotation.set(-0.12, 0, -s * 0.42);
       this.ears.push(ear);
       const eye = mesh(new THREE.SphereGeometry(0.0115, 10, 8), mat(6), head, s * 0.027, 0.012, 0.054);
@@ -135,15 +138,17 @@ export class Cat {
       return { hip, knee, front, rest: front ? [-0.12, 0.24] : [0.45, -0.9] };
     };
     // Orden: delantera izq., delantera der., trasera izq., trasera der.
-    this.legs = [leg(0.052, 0.155, 0.125, true), leg(-0.052, 0.155, 0.125, true), leg(0.058, -0.15, 0.14, false), leg(-0.058, -0.15, 0.14, false)];
+    const zf = 0.155 + 0.02 * P, zb = -0.15 - 0.02 * P, lf = 0.125 + 0.014 * P, lb = 0.14 + 0.014 * P;
+    this.legs = [leg(0.052, zf, lf, true), leg(-0.052, zf, lf, true), leg(0.058, zb, lb, false), leg(-0.058, zb, lb, false)];
 
     // Cola: cadena de segmentos para que ondule.
     this.tail = [];
-    let parent = grp(body, 0, 0.03, -0.215);
-    for (let i = 0; i < 7; i++) {
-      const r = 0.031 - i * 0.0012, len = 0.05;
+    let parent = grp(body, 0, 0.03, -0.215 - 0.03 * P);
+    const nTail = puma ? 9 : 7; // la del puma es larga y pareja, con la punta oscura; la del colocolo, corta, gruesa y anillada
+    for (let i = 0; i < nTail; i++) {
+      const r = puma ? 0.023 - i * 0.0005 : 0.031 - i * 0.0012, len = puma ? 0.066 : 0.05;
       const tg = new THREE.CapsuleGeometry(r, len, 4, 10); tg.rotateX(Math.PI / 2); tg.translate(0, 0, -len / 2);
-      mesh(tg, mat(2, i), parent);
+      mesh(tg, mat(2, i === nTail - 1 ? 6 : Math.min(i, 5)), parent);
       this.tail.push(parent);
       parent = grp(parent, 0, 0, -len);
     }
@@ -165,7 +170,7 @@ export class Cat {
     this.root.quaternion.setFromRotationMatrix(this._m);
 
     this.speedSmooth += (speed - this.speedSmooth) * (1 - Math.exp(-dt * 8));
-    const v = this.speedSmooth / CAT_SCALE; // velocidad en "tamaños de gato"
+    const v = this.speedSmooth / this.scale; // velocidad en "tamaños de gato"
     // 0 = paso, 1 = trote, 2 = galope
     const gaitTarget = v < 0.15 ? 0 : v < 2.2 ? 0 : v < 5 ? 1 : 2;
     this.gait += (gaitTarget - this.gait) * (1 - Math.exp(-dt * 6));
@@ -191,7 +196,7 @@ export class Cat {
     });
 
     const gal = Math.max(0, g - 1), breathe = Math.sin(t * 2.2) * 0.004 * (1 - moving);
-    this.body.position.y = 0.3 + breathe + Math.abs(Math.sin(ph)) * 0.012 * moving * (1 + gal * 2.2);
+    this.body.position.y = this.bodyY + breathe + Math.abs(Math.sin(ph)) * 0.012 * moving * (1 + gal * 2.2);
     this.body.rotation.x = Math.sin(ph + 0.6) * 0.1 * gal * moving - this.air * THREE.MathUtils.clamp(vy * 0.045, -0.5, 0.5);
     this.body.rotation.z = Math.sin(ph) * 0.03 * moving * (1 - gal);
     this.torso.scale.set(1, 1 + breathe * 6, 1 + gal * 0.06 * Math.sin(ph * 1 + 1.2) * moving);

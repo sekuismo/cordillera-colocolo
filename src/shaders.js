@@ -118,10 +118,10 @@ void main() {
   float d0 = length(vec3(relXZ.x, h0 - uCamPos.y, relXZ.y));
   float k = clamp((d0 - range * MORPH_START) / (range * (1.0 - MORPH_START)), 0.0, 1.0);
   vec2 shift = fract(g * 0.5) * 2.0 * cell * k;
-  absXZ -= shift; relXZ -= shift;
-
-  float w = coreWeight(absXZ);
-  float h = baseHeight(absXZ, w);
+  // Solo los vértices que de verdad se deslizan (los impares, en el borde del rango: un tercio del total) leen la
+  // altura por segunda vez; el resto ya la tiene. El vertex shader es lo más caro del relieve en gráficas integradas.
+  float w = coreWeight(absXZ), h = h0;
+  if (shift.x + shift.y > 0.0) { absXZ -= shift; relXZ -= shift; w = coreWeight(absXZ); h = baseHeight(absXZ, w); }
   vec2 s = macroSlope(absXZ, w);
   float d1 = length(vec3(relXZ.x, h - uCamPos.y, relXZ.y));
   vec2 cv = carveAt(absXZ);
@@ -282,7 +282,8 @@ void main() {
   alb = mix(alb, vec3(0.20, 0.17, 0.12) * (0.9 + cvar * 0.3), lane * farm * 0.8);
   }
   // Parques (pasto regado), vegas y humedales (el verde intenso de la alta cordillera).
-  alb = mix(alb, vec3(0.085, 0.16, 0.045) * (0.85 + cvar * 0.4), IS(12.0) * 0.6 + IS(9.0) * 0.72);
+  // El pasto regado solo existe en lo plano: un parque en ladera (San Cristóbal, Mahuida) es cerro seco con árboles.
+  alb = mix(alb, vec3(0.075, 0.125, 0.045) * (0.85 + cvar * 0.4), IS(12.0) * 0.5 * (1.0 - smoothstep(0.003, 0.02, s2)) + IS(9.0) * 0.72);
   // Bosque y plantaciones: más allá del alcance de los árboles instanciados, el dosel sigue leyéndose como bosque.
   float canopy = (IS(1.0) + IS(13.0)) * smoothstep(150.0, 520.0, dist) * (1.0 - smoothstep(1900.0, 2300.0, y));
   alb = mix(alb, vec3(0.04, 0.068, 0.028) * (0.65 + 0.7 * smoothstep(-0.35, 0.4, t2.w + t3.w * 0.7)), canopy * 0.55);
@@ -356,7 +357,8 @@ void main() {
     vec3 Nw = normalize(vec3(nxz.x * 0.4 - wg.x * 0.010, 1.0, nxz.y * 0.4 - wg.y * 0.010));
     float fres = 0.03 + 0.97 * pow(1.0 - max(dot(-V, Nw), 0.0), 5.0);
     vec3 R = reflect(V, Nw); R.y = abs(R.y);
-    vec3 body = mix(vec3(0.02, 0.07, 0.085), alb * 0.7, 0.45) * (uSunColor * max(uSunDir.y, 0.0) * 0.5 + uAmbient);
+    // El color del agua sale sobre todo de la imagen real: el Maipo baja café con leche por el sedimento glaciar y el embalse El Yeso es turquesa.
+    vec3 body = mix(vec3(0.05, 0.075, 0.07), alb * 0.85, 0.7) * (uSunColor * max(uSunDir.y, 0.0) * 0.5 + uAmbient);
     // Rápidos: espuma donde el río corre con pendiente.
     float foam = smoothstep(0.004, 0.05, s2) * smoothstep(-0.2, 0.6, textureGrad(uNoise, wuv * 1.9 + flow * 3.0, wdx * 1.9, wdy * 1.9).w);
     body = mix(body, vec3(0.75, 0.78, 0.78) * (uSunColor * 0.3 + uAmbient), foam * 0.7);

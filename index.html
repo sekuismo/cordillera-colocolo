@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#0d1216">
-<meta name="description" content="Recorre en 3D la cordillera de Santiago y el Cajón del Maipo como un gato colocolo. Relieve real, nombres de cerros y datos de cada lugar.">
+<meta name="description" content="Recorre en 3D la cordillera de Santiago y el Cajón del Maipo como un gato colocolo, un puma o un cóndor. Relieve real, nombres de cerros y datos de cada lugar.">
 <title>Cordillera · Un colocolo en los Andes de Santiago</title>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='7' fill='%230d1216'/%3E%3Cpath d='M3 25 12 10l5 7 4-5 8 13z' fill='%23e8b25c'/%3E%3Cpath d='m12 10 2.6 3.6-2.6 1.6-2-1.8z' fill='%23fff'/%3E%3C/svg%3E">
 <link rel="stylesheet" href="./css/style.css">
@@ -31,6 +31,9 @@
 <link rel="modulepreload" href="./src/infra.js">
 <link rel="modulepreload" href="./src/carve.js">
 <link rel="modulepreload" href="./src/zones.js">
+<link rel="modulepreload" href="./src/animals.js">
+<link rel="modulepreload" href="./src/condor.js">
+<link rel="modulepreload" href="./src/audio.js">
 <link rel="preload" href="./data/manifest.json" as="fetch" crossorigin>
 <script type="importmap">{ "imports": { "three": "./vendor/three.module.min.js" } }</script>
 </head>
@@ -43,7 +46,7 @@
   <div id="place"><b id="place-name">Sierra de Ramón</b><span id="place-meta"></span><span id="place-clima"></span><span id="place-next"></span></div>
   <div id="compass" aria-hidden="true"><div id="compass-tape"></div><i></i></div>
   <nav id="menu">
-    <button data-panel="capas">Capas</button>
+    <button data-panel="capas">Ajustes</button>
     <button data-panel="guia">Guía <em id="guia-count"></em></button>
     <button data-panel="mapa">Mapa</button>
     <button data-panel="ayuda" aria-label="Ayuda">?</button>
@@ -62,13 +65,21 @@
       <button data-level="0">Paseo</button><button data-level="1">Trote</button><button data-level="2">Carrera</button><button data-level="3">Turbo</button><button data-level="4">Híper</button>
     </div>
   </div>
+  <button id="ability" aria-label="Habilidad especial"><i></i><b id="ability-name">Olfato</b><kbd>Q</kbd></button>
   <button id="jump" aria-label="Saltar">Saltar</button>
+  <button id="down" aria-label="Bajar">Bajar</button>
   <div id="stick"><i></i></div>
 </div>
 
 <section class="panel" id="panel-capas" hidden>
-  <header><h2>Capas</h2><button class="close" aria-label="Cerrar">×</button></header>
+  <header><h2>Ajustes</h2><button class="close" aria-label="Cerrar">×</button></header>
   <div class="body">
+    <h3>Animal</h3>
+    <div class="seg" id="animal-seg"></div>
+    <h3>Sonido</h3>
+    <label class="slider"><span>Música andina</span><input type="range" id="vol-music" min="0" max="1" step="0.05" value="0.7"></label>
+    <label class="slider"><span>Efectos y ambiente</span><input type="range" id="vol-sfx" min="0" max="1" step="0.05" value="0.8"></label>
+    <label><input type="checkbox" id="mute"><span>Silenciar todo</span></label>
     <h3>Nombres en el paisaje</h3>
     <label><input type="checkbox" data-layer="cumbres" checked><span>Cumbres, volcanes y pasos</span></label>
     <label><input type="checkbox" data-layer="localidades" checked><span>Ciudades y localidades</span></label>
@@ -110,19 +121,34 @@
   <header><h2>Cómo se juega</h2><button class="close" aria-label="Cerrar">×</button></header>
   <div class="body">
     <dl class="keys desktop">
-      <dt>W A S D / flechas</dt><dd>Moverse (la cámara sigue al gato)</dd>
+      <dt>W A S D / flechas</dt><dd>Moverse (la cámara sigue al animal)</dd>
       <dt>Arrastrar</dt><dd>Mirar alrededor, también hacia arriba</dd>
       <dt>Rueda · V</dt><dd>Alejar o acercar la cámara · primera persona</dd>
       <dt>1 2 3 4 5</dt><dd>Paseo, Trote, Carrera, Turbo, Híper</dd>
       <dt>Shift</dt><dd>Subir una marcha mientras lo aprietas</dd>
-      <dt>Espacio</dt><dd>Saltar (mantener para saltar más alto)</dd>
+      <dt>Espacio</dt><dd>Saltar. Con el cóndor: despegar, y mantener para subir</dd>
+      <dt>C</dt><dd>Bajar en picada (cóndor)</dd>
+      <dt>Q</dt><dd>Habilidad especial del animal</dd>
+      <dt>T</dt><dd>Cambiar de animal</dd>
       <dt>E</dt><dd>Avance automático</dd>
       <dt>M · N</dt><dd>Mapa · mostrar/ocultar nombres</dd>
+      <dt>P · K</dt><dd>Modo foto (oculta la interfaz) · silenciar</dd>
     </dl>
     <dl class="keys touch">
       <dt>Lado izquierdo</dt><dd>Joystick para moverse</dd>
       <dt>Lado derecho</dt><dd>Arrastra para mirar; pellizca para alejar la cámara</dd>
-      <dt>Botones</dt><dd>Elige la marcha y salta</dd>
+      <dt>Botones</dt><dd>Marcha, saltar, bajar (cóndor) y habilidad</dd>
+    </dl>
+    <h3>Con control</h3>
+    <dl class="keys">
+      <dt>Stick izq. · der.</dt><dd>Moverse · mirar</dd>
+      <dt>A</dt><dd>Saltar; con el cóndor, aletear</dd>
+      <dt>B o LT</dt><dd>Bajar (cóndor) · cerrar paneles</dd>
+      <dt>X · Y</dt><dd>Habilidad · mapa</dd>
+      <dt>LB · RB</dt><dd>Bajar o subir de marcha</dd>
+      <dt>RT</dt><dd>Una marcha más mientras lo aprietas</dd>
+      <dt>Cruceta ↑ ↓</dt><dd>Acercar o alejar la cámara</dd>
+      <dt>Select · Start</dt><dd>Cambiar de animal · esta ayuda</dd>
     </dl>
     <p class="note">El mundo está a escala real: cruzar a pie de Santiago a Argentina toma horas. Para eso están las marchas Turbo e Híper y el viaje rápido del mapa.</p>
     <p class="note credits">Relieve: Copernicus DEM GLO-30 © DLR/Airbus, ESA. Imagen: Sentinel-2 cloudless 2016 por EOX (CC BY 4.0), contiene datos Copernicus Sentinel modificados. Cobertura de suelo: © ESA WorldCover 2021 (CC BY 4.0). Nombres, caminos, puentes, líneas eléctricas y ríos: © colaboradores de OpenStreetMap (ODbL). Árboles: High Resolution Canopy Height Maps © WRI y Meta (CC BY 4.0). Edificios: Overture Maps Foundation (ODbL), con datos de OpenStreetMap, Microsoft y Google Open Buildings.</p>
@@ -133,7 +159,8 @@
   <div class="intro-inner">
     <p class="kicker">Andes centrales · 33° S</p>
     <h1>Cordillera</h1>
-    <p class="lead">Recorre a escala real la cordillera de Santiago y el Cajón del Maipo, de la ciudad a la frontera, en las patas de un gato colocolo.</p>
+    <p class="lead">Recorre a escala real la cordillera de Santiago y el Cajón del Maipo, de la ciudad a la frontera, como un gato colocolo, un puma o un cóndor.</p>
+    <div id="animals" role="group" aria-label="Elige tu animal" hidden></div>
     <div id="bar"><i></i></div>
     <p id="status">Cargando relieve…</p>
     <button id="start" hidden>Comenzar a explorar</button>
