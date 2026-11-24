@@ -22,6 +22,9 @@ Desarrollado por **Esteban Muñoz**.
 - **Exploración.** El mapa parte tapado y se abre con lo que se recorre; llegar a una cumbre la anota en el libro de cumbres, cuenta el desnivel subido, dice qué cerros se ven de verdad desde ahí y destapa el mapa alrededor. Hay secretos (lugares reales que no figuran en ninguna lista hasta que se llega) y solo se puede viajar por el mapa a lo que ya se conoce.
 - **Pueblos como son.** Nombres reales de las calles sobre la calle misma, carteles con el nombre real de cada local y servicio en su edificio, casas distintas entre sí (alto, techo, vanos, protecciones, color), rejas y panderetas en los antejardines, postes con tendido, defensas camineras donde el camino da al barranco, y los edificios relevados uno por uno toman su color y sus pisos reales. San José de Maipo está relevado edificio por edificio (209, mirando la calle): su plaza con la pileta, la iglesia parroquial con su torre, y cada fachada del centro con su color y su cartel. Los puentes del Cajón llevan su baranda real y los distintos (el arco del río Colorado, el reticulado de El Ingenio, el mecano de San Alfonso) están modelados como son.
 - **Imagen de alta resolución** por streaming (Esri World Imagery, ~0,5 m por píxel) sobre la Sentinel-2 del repo; los techos de las casas toman su color de la foto. El río lleva su lecho de piedras, sus bolones y su agua turbia.
+- **Cumbres verificadas.** Las ~45 cumbres que todo andinista de Santiago conoce tienen su altitud de Andeshandbook/IGM, la etiqueta puesta en la cima real del relieve (antes el Marmolejo, el Maipo o el San José quedaban en una ladera) y un dato propio en su ficha (`src/cumbres.js`). Se agrupan en colecciones con sello: Sierra de Ramón, Primeros cuatromiles, Grupo Plomo, El Morado y Lo Valdés, Murallas del Yeso, Volcanes y Seismiles.
+- **Desafío del mirador.** Al hacer cumbre el juego esconde los nombres y pregunta dónde está cada cerro que se ve desde ahí; se apunta con la mira y se marca con `F`. Puntúa por el error en grados y después muestra dónde estaba. Se puede repetir en cualquier cumbre ya subida.
+- **Senderos reales.** 193 senderos con nombre de OSM (543 km), medidos sobre el relieve: al pisar uno aparece su ficha con largo, subida y cotas, y al recorrerlo casi entero queda en la bitácora.
 - Piruetas: en el aire, con Truco, mortales y giros que dan puntos y un impulso si se aterriza derecho; chocar a la carrera contra una casa o un árbol bota al animal.
 - Funciona en escritorio, en móvil (joystick táctil) y con control de consola; la calidad se adapta sola al equipo.
 
@@ -35,6 +38,7 @@ Desarrollado por **Esteban Muñoz**.
 | `1`–`5`, `Shift` | Marchas: Paseo, Trote, Carrera, Turbo, Híper |
 | `Espacio`, `E` | Saltar (mantener = más alto; con el cóndor, despegar y subir), avance automático |
 | `C` | Bajar en picada (cóndor) |
+| `F` | Desafío del mirador (en una cumbre ya subida) y marcar la respuesta |
 | `Q`, `T` | Habilidad especial, cambiar de animal |
 | `M`, `N` | Mapa (viaje rápido), mostrar/ocultar nombres |
 | `P`, `K` | Modo foto (oculta la interfaz), silenciar |
@@ -97,6 +101,7 @@ node check_lugares.mjs     # valida las coordenadas de las fichas contra OSM
 node extract_streets.mjs && node build_streets.mjs
 node extract_infra.mjs && node build_infra.mjs   # puentes, torres, tuberías, andariveles y etiquetas de rutas
 node build_street_names.mjs && node build_pois.mjs  # nombres de calles y de locales por zona (del mismo PBF)
+node build_senderos.mjs                             # senderos con nombre, medidos sobre el DEM → data/senderos.json
 node build_pueblos.mjs                              # edificios relevados a mano (tools/relevamientos/*.txt) → src/pueblos_data.js
 node download.mjs sat14 && python extract_buildings.py && python build_buildings.py && python build_trees.py
 node build_zones.mjs                                # imagen, árboles y edificios por zona → data/zones/

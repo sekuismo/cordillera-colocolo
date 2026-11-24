@@ -1,7 +1,7 @@
 // Entrada unificada: teclado + mouse en escritorio, joystick virtual + arrastre + pellizco en pantallas táctiles,
 // y control de consola (Gamepad API, mapeo estándar: Xbox, PlayStation, Switch Pro y la mayoría de los genéricos).
 // Botones del control → la misma acción que su tecla. Los que se mantienen apretados (saltar, bajar, acelerar) se leen aparte.
-const PAD = { 0: 'PadA', 1: 'PadB', 2: 'KeyQ', 3: 'KeyM', 4: 'GearDown', 5: 'GearUp', 8: 'KeyT', 9: 'KeyH', 11: 'KeyV', 14: 'PadLeft', 15: 'PadRight' };
+const PAD = { 0: 'PadA', 1: 'PadB', 2: 'KeyQ', 3: 'KeyM', 4: 'GearDown', 5: 'GearUp', 8: 'KeyT', 9: 'KeyH', 10: 'KeyF', 11: 'KeyV', 14: 'PadLeft', 15: 'PadRight' };
 const dead = (v) => (Math.abs(v) < 0.16 ? 0 : (v - Math.sign(v) * 0.16) / 0.84); // zona muerta: los sticks nunca vuelven al cero exacto
 
 export class Input {

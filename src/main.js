@@ -24,6 +24,9 @@ import { Zones } from './zones.js';
 import { Sat } from './sat.js';
 import { StreetNames } from './streetnames.js';
 import { Progress } from './progreso.js';
+import { corregirCumbres } from './cumbres.js';
+import { Senderos } from './senderos.js';
+import { Mirador } from './mirador.js';
 import { Signs } from './signs.js';
 import { Roadside } from './roadside.js';
 import { PuebloHitos } from './hitos_pueblo.js';
@@ -34,7 +37,7 @@ const $ = (s) => document.querySelector(s);
 
 // Versión del código que está corriendo. version.json se pide sin caché: si no coincide, el navegador tiene archivos
 // viejos guardados y se avisa. Hay que cambiar los dos juntos en cada deploy.
-const VERSION = '2026-11-24b';
+const VERSION = '2026-11-24c';
 $('#ver').textContent = 'versión ' + VERSION;
 fetch(new URL('../version.json', import.meta.url), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
   if (version !== VERSION) { $('#ver').textContent = `Estás viendo una versión guardada (${VERSION}); la publicada es ${version}. Recarga con Ctrl+Shift+R.`; $('#ver').classList.add('old'); }
@@ -156,6 +159,7 @@ vec3 CustomToneMapping(vec3 color) {
   const player = new Player(hf, manifest);
   player.teleport((START.lon - manifest.core.west) * manifest.mPerDegLon, (manifest.core.north - START.lat) * manifest.mPerDegLat, START.yaw);
   const labels = new Labels($('#labels'), data.labels, hf, manifest, quality.maxLabels);
+  const { renombres } = corregirCumbres(labels, manifest); // altitudes y posiciones revisadas de las cumbres emblemáticas
   labels.add(HITOS.map((h) => ({ name: h.n, x: h.x, z: h.z, y: h.top + 8, note: h.nota })));
   player.collide = (x, z) => props.collide(x, z);
   // ¿Hay camino de vehículos bajo las patas? (calles, rutas y huellas; los senderos no cuentan.) Turbo e Híper dependen de esto.
@@ -172,7 +176,15 @@ vec3 CustomToneMapping(vec3 color) {
     player.setAnimal(a); player.camDist = a.camDist * zoom; terrain.uniforms.uCatR.value = a.scale;
   };
   const ui = new UI({ manifest, player, labels, terrain, env, input, quality, border: data.lines.border, audio, onAnimal: setAnimal, sat, streetNames });
-  const progress = (ui.progress = new Progress({ manifest, player, labels, hf, audio, ui }));
+  const progress = (ui.progress = new Progress({ manifest, player, labels, hf, audio, ui, renombres }));
+  const mirador = (progress.mirador = new Mirador({ labels, ui, audio, hf, player, progress }));
+  const senderos = (ui.senderos = new Senderos({ labels, ui, audio, player, hf, progress }));
+  input.on('KeyF', () => {
+    if (mirador.active) return mirador.mark();
+    const c = progress.summitHere();
+    if (!c) return ui.toast('El desafío del mirador se juega parado en una cumbre que ya subiste', 2800);
+    if (!mirador.start(c)) ui.toast('Desde aquí no se ven cumbres importantes', 2400);
+  });
   for (const l of ui.lugares) if (ui.seen.has(l.id)) progress.reveal(l.x, l.z, 2500); // lo descubierto antes de que existiera la niebla
   ui.refreshProgress(); player.free = !!ui.saved.libre;
   let offT = 0;
@@ -337,6 +349,8 @@ vec3 CustomToneMapping(vec3 color) {
 
     if (started) {
       progress.update(dt);
+      senderos.update(dt);
+      mirador.update(dt, camera);
       signs.update(dt, player.x, player.z, camera);
       if (player.offroad && (offT -= dt) <= 0) { offT = 9; ui.toast('Turbo e Híper solo corren por caminos: el cerro se sube a pata', 3200); }
       streetNames.update(dt, player.x, player.z, Math.sin(player.camYaw), Math.cos(player.camYaw), player.speed);
@@ -382,7 +396,7 @@ vec3 CustomToneMapping(vec3 color) {
     }
   };
   renderer.setAnimationLoop(frame);
-  window.__juego = { frame, sat, streetNames, progress, signs, roadside, hitos, speedfx, zones, carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, get cat() { return cat; }, models, setAnimal, audio, quality, input, start: () => $('#start').click() };
+  window.__juego = { frame, senderos, mirador, sat, streetNames, progress, signs, roadside, hitos, speedfx, zones, carve, carveState, infra, props, scene, shadows, city, player, terrain, hf, env, renderer, camera, overlay, labels, ui, get cat() { return cat; }, models, setAnimal, audio, quality, input, start: () => $('#start').click() };
 
   $('#intro').classList.add('ready'); $('#bar').hidden = true; $('#status').textContent = '';
   $('#start').hidden = false; $('#animals').hidden = false;

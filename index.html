@@ -71,6 +71,14 @@
     <p id="card-text"></p>
     <footer id="card-foot"></footer>
   </article>
+  <div id="quiz" hidden>
+    <div id="quiz-tag"></div>
+    <div id="quiz-q"></div>
+    <p id="quiz-hint"></p>
+    <div class="row"><button id="quiz-mark">Marcar (F)</button><button id="quiz-skip">Saltar</button></div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="quiz-flash" hidden></div>
   <div id="speed">
     <span id="kmh">0 km/h</span>
     <div id="stam" title="Aguante: subir y correr lo gastan; descansar lo devuelve"><i></i></div>
@@ -125,7 +133,7 @@
 
 <section class="panel" id="panel-guia" hidden>
   <header><h2>Guía de la cordillera</h2><button class="close" aria-label="Cerrar">×</button></header>
-  <div class="body"><p class="note" id="progreso"></p><ul id="logros"></ul><p class="note">Los lugares se marcan cuando llegas a ellos. Toca uno para leer su ficha; solo puedes viajar directo a los que ya conoces.</p><ul id="guia-list"></ul></div>
+  <div class="body"><p class="note" id="progreso"></p><ul id="logros"></ul><p class="note">Al hacer cumbre sale el desafío del mirador: el juego esconde los nombres y te pregunta dónde está cada cerro. Los senderos con nombre son trazados reales: recórrelos casi enteros y quedan en tu bitácora. Los lugares se marcan cuando llegas a ellos. Toca uno para leer su ficha; solo puedes viajar directo a los que ya conoces.</p><ul id="guia-list"></ul></div>
 </section>
 
 <section class="panel wide" id="panel-mapa" hidden>
@@ -147,6 +155,7 @@
       <dt>C</dt><dd>Bajar en picada (cóndor)</dd>
       <dt>C + W A S D</dt><dd>Piruetas en el aire (colocolo y puma): mortales y giros. Aterriza derecho o te caes</dd>
       <dt>Q</dt><dd>Habilidad especial del animal</dd>
+      <dt>F</dt><dd>Desafío del mirador: en una cumbre que ya subiste, adivina dónde está cada cerro (y marca la respuesta)</dd>
       <dt>T</dt><dd>Cambiar de animal</dd>
       <dt>E</dt><dd>Avance automático</dd>
       <dt>M · N</dt><dd>Mapa · mostrar/ocultar nombres</dd>

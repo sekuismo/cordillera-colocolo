@@ -3,6 +3,7 @@ import { LUGARES, PISOS, ESTACIONES, TORMENTA } from './lugares.js';
 import { ANIMALS, ANIMAL_IDS } from './animals.js';
 import { SEASONS } from './env.js';
 import { SPEEDS } from './player.js';
+import { COLECCIONES } from './cumbres.js';
 
 const $ = (s) => document.querySelector(s);
 const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
@@ -227,10 +228,19 @@ export class UI {
   refreshProgress() {
     const P = this.progress; if (!P) return;
     const cs = Object.entries(P.data.cumbres).sort((a, b) => b[1][0] - a[1][0]);
-    $('#progreso').textContent = `Has visto el ${P.pct.toFixed(P.pct < 10 ? 1 : 0).replace('.', ',')} % del mapa · ${cs.length} de ${P.cumbres.length} cumbres · ${P.found.size} de ${P.secretos.length} secretos · ${fmt(P.data.desnivel)} m subidos${P.data.muertes ? ' · ' + P.data.muertes + (P.data.muertes === 1 ? ' caída fatal' : ' caídas fatales') : ''}`;
+    const S = this.senderos;
+    $('#progreso').textContent = `Has visto el ${P.pct.toFixed(P.pct < 10 ? 1 : 0).replace('.', ',')} % del mapa · ${cs.length} de ${P.cumbres.length} cumbres · ${S && S.total ? S.done + ' de ' + S.total + ' senderos · ' : ''}${P.found.size} de ${P.secretos.length} secretos · ${fmt(P.data.desnivel)} m subidos${P.data.muertes ? ' · ' + P.data.muertes + (P.data.muertes === 1 ? ' caída fatal' : ' caídas fatales') : ''}`;
     const ul = $('#logros'); ul.textContent = '';
     const add = (cls, name, note) => { const li = document.createElement('li'); li.className = cls; li.appendChild(document.createElement('b')).textContent = name; li.appendChild(document.createElement('small')).textContent = note; ul.appendChild(li); };
+    // Colecciones: completas con su sello; las empezadas con cuánto falta. Las no empezadas no se listan (no es una lista de tareas).
+    for (const c of COLECCIONES) {
+      const n = c.c.filter((x) => P.data.cumbres[x]).length;
+      if (P.data.sellos && P.data.sellos[c.id]) add('sello', c.n, 'sello · colección completa');
+      else if (n) add('col', c.n, `${n} de ${c.c.length} · faltan ${c.c.filter((x) => !P.data.cumbres[x]).join(', ')}`);
+    }
     for (const s of P.secretos) if (P.found.has(s.id)) add('sec', s.n, 'secreto · ' + s.cat);
+    if (S) for (const s of S.doneList()) add('sen', s.name, `sendero · ${(s.len / 1000).toFixed(1).replace('.', ',')} km · +${fmt(s.up)} m`);
+    for (const [name, pts] of Object.entries(P.data.miradores || {})) add('mir', 'Mirador de ' + name, `desafío · ${pts} de 300 puntos`);
     for (const [name, v] of cs.slice(0, 12)) add('cum', name, fmt(v[0]) + ' m');
     if (cs.length > 12) add('cum', `… y ${cs.length - 12} cumbres más`, '');
   }

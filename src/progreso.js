@@ -3,12 +3,13 @@
 // va abriendo con las patas: el mapa parte tapado, una cumbre destapa todo lo que se ve desde ella, y los secretos
 // no figuran en ninguna parte hasta que se llega.
 import { SECRETOS } from './secretos.js';
+import { COLECCIONES } from './cumbres.js';
 
 const KEY = 'cordillera:progreso:v1', CELL = 500; // m por celda de la niebla
 const fmt = (n) => Math.round(n).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 
 export class Progress {
-  constructor({ manifest, player, labels, hf, audio, ui }) {
+  constructor({ manifest, player, labels, hf, audio, ui, renombres }) {
     Object.assign(this, { m: manifest, player, labels, hf, audio, ui });
     this.gw = Math.ceil(manifest.core.sizeX / CELL); this.gh = Math.ceil(manifest.core.sizeZ / CELL);
     this.fog = new Uint8Array(this.gw * this.gh); this.seen = 0; // 1 = visto
@@ -18,6 +19,9 @@ export class Progress {
       if (s) { Object.assign(this.data, s.data); const b = atob(s.fog || ''); for (let i = 0; i < b.length && i * 8 < this.fog.length; i++) for (let k = 0; k < 8; k++) if (b.charCodeAt(i) & (1 << k)) this.fog[i * 8 + k] = 1; }
     } catch { /* sin almacenamiento o dato corrupto: se parte de cero */ }
     for (let i = 0; i < this.fog.length; i++) this.seen += this.fog[i];
+    // Cumbres que cambiaron de nombre al corregirlas (src/cumbres.js): lo ya subido se conserva con el nombre nuevo.
+    if (renombres) for (const [a, b] of renombres) if (this.data.cumbres[a] && !this.data.cumbres[b]) { this.data.cumbres[b] = this.data.cumbres[a]; delete this.data.cumbres[a]; this.dirty = true; }
+    this.data.sellos ??= {};
     this.cumbres = labels.items.filter((it) => it.group === 'cumbres' && !it.far && it.ele > 0 && it.kind !== 'paso');
     this.secretos = SECRETOS.map((s) => ({ ...s, x: (s.lon - manifest.core.west) * manifest.mPerDegLon, z: (manifest.core.north - s.lat) * manifest.mPerDegLat, hinted: -1e9 }));
     this.found = new Set(this.data.secretos);
@@ -26,7 +30,7 @@ export class Progress {
     this.g = this.cv.getContext('2d'); this.img = this.g.createImageData(this.gw, this.gh);
     for (let i = 0; i < this.fog.length; i++) { this.img.data[i * 4] = 9; this.img.data[i * 4 + 1] = 13; this.img.data[i * 4 + 2] = 17; this.img.data[i * 4 + 3] = this.fog[i] ? 0 : 215; }
     this.g.putImageData(this.img, 0, 0);
-    this.tick = 0; this.dirty = false; this.tSave = 0; this.lastY = null; this.ascent = 0; this.tAsc = performance.now();
+    this.tick = 0; this.dirty = !!this.dirty; this.tSave = 0; this.lastY = null; this.ascent = 0; this.tAsc = performance.now();
     addEventListener('visibilitychange', () => { if (document.hidden) this.save(); });
   }
   get pct() { return (this.seen / this.fog.length) * 100; }
@@ -94,22 +98,32 @@ export class Progress {
     const n = Object.keys(this.data.cumbres).length + 1, mins = Math.max(1, Math.round((performance.now() - this.tAsc) / 60000));
     this.data.cumbres[it.name] = [it.ele, Date.now()]; this.dirty = true;
     this.reveal(it.x, it.z, 7500); // desde arriba se ve todo: la cumbre destapa el mapa a su alrededor
-    // Qué cumbres importantes se ven de verdad desde aquí (línea de vista sobre el relieve).
-    const top = this.hf.base(it.x, it.z) + 3, vis = [];
-    for (const o of this.cumbres) {
-      if (o === it || o.rank > 1) continue;
-      const d = Math.hypot(o.x - it.x, o.z - it.z);
-      if (d < 70000 && this.hf.visible(it.x, top, it.z, o.x, this.hf.base(o.x, o.z), o.z)) vis.push(o);
-    }
-    vis.sort((a, b) => a.rank - b.rank || b.ele - a.ele);
-    const see = vis.slice(0, 5).map((o) => `${o.name} (${fmt(o.ele)} m)`).join(', ');
+    // Qué cumbres importantes se ven de verdad desde aquí (línea de vista sobre el relieve). Sin nombrarlas: eso lo
+    // pregunta el desafío del mirador, que arranca solo si hay al menos dos a la vista.
+    const vis = this.mirador ? this.mirador.visibles(it, this.hf.base(it.x, it.z) + 3) : [];
+    const col = COLECCIONES.find((c) => c.c.includes(it.name));
+    let foot = 'Queda anotada en tu libro de cumbres (Guía).';
+    if (col) foot = `${col.n}: ${col.c.filter((c) => this.data.cumbres[c]).length} de ${col.c.length} cumbres.`;
     this.ui.queue.length = 0;
     this.ui.showCard({
       tag: `Cumbre ${n} de ${this.cumbres.length}`, title: it.name,
-      text: `${fmt(it.ele)} m sobre el nivel del mar. Subiste ${fmt(this.ascent)} m de desnivel en ${mins} min para llegar aquí.` + (see ? ` Desde esta cumbre se ven: ${see}.` : '') + ' El mapa se abrió a tu alrededor.',
-      foot: 'Queda anotada en tu libro de cumbres (Guía).',
+      text: `${fmt(it.ele)} m sobre el nivel del mar. Subiste ${fmt(this.ascent)} m de desnivel en ${mins} min para llegar aquí.` + (it.dato ? ' ' + it.dato : '') + (vis.length ? ` Desde aquí se ven ${vis.length} cumbres importantes: ¿las reconoces?` : '') + ' El mapa se abrió a tu alrededor.',
+      foot,
     }, true);
+    // Colección recién completada: un sello que queda en la bitácora.
+    for (const c of COLECCIONES) {
+      if (this.data.sellos[c.id] || !c.c.every((x) => this.data.cumbres[x])) continue;
+      this.data.sellos[c.id] = Date.now();
+      this.ui.showCard({ tag: 'Sello de cumbres', title: c.n, text: `Completaste las ${c.c.length} cumbres: ${c.c.join(', ')}. ${c.d}`, foot: 'El sello queda en tu bitácora (Guía).' });
+    }
+    if (vis.length >= 2 && this.mirador) setTimeout(() => this.mirador.start(it), 1800);
     this.audio.play('summit'); this.ascent = 0; this.tAsc = performance.now(); this.save(); this.ui.refreshProgress();
+  }
+  // Cumbre ya subida en la que está parado el jugador (para repetir el desafío del mirador), o null.
+  summitHere() {
+    const p = this.player; if (!p.grounded) return null;
+    for (const it of this.cumbres) if (this.data.cumbres[it.name] && Math.hypot(it.x - p.x, it.z - p.z) < 90) return it;
+    return null;
   }
   discover(s) {
     this.found.add(s.id); this.dirty = true; this.reveal(s.x, s.z, 2500);
