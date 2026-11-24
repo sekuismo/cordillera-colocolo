@@ -270,7 +270,7 @@ export class UI {
   drawBig() {
     const cv = this.big, img = this.mapImg, p = this.player, m = this.m;
     if (!img.complete || !img.naturalWidth) return;
-    if (cv.width !== img.naturalWidth * 2) { cv.width = img.naturalWidth * 2; cv.height = img.naturalHeight * 2; }
+    if (cv.width !== 818) { cv.width = 818; cv.height = Math.round((818 * img.naturalHeight) / img.naturalWidth); } // tamaño fijo: los marcadores y textos están pensados para él
     const g = cv.getContext('2d'), W = cv.width, H = cv.height, X = (v) => (v / m.core.sizeX) * W, Z = (v) => (v / m.core.sizeZ) * H;
     g.imageSmoothingQuality = 'high'; g.drawImage(img, 0, 0, W, H);
     const b = this.border;

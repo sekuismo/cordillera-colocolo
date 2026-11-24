@@ -17,6 +17,7 @@ export const M_PER_DEG_LON = 92700;
 
 export const CORE_HI = { w: 3272, h: 4080 }; // ~34 m por texel
 export const CORE_LO = { w: 1636, h: 2040 }; // ~68 m por texel
+export const CORE_XL = { w: 6544, h: 8160 }; // ~17 m por texel: solo la imagen (la resolución nativa de SAT_Z), para GPU con texturas de 8192
 export const CTX_DEM = { w: 1024, h: 1152 }; // ~362 m por texel
 export const CTX_IMG = { w: 2048, h: 2304 };
 

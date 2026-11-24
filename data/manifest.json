@@ -35,7 +35,12 @@
    "img": "core_hi.webp",
    "land": "land_hi.bin",
    "w": 3272,
-   "h": 4080
+   "h": 4080,
+   "imgXL": {
+    "file": "core_xl.webp",
+    "w": 6544,
+    "h": 8160
+   }
   },
   "lo": {
    "dem": "core_lo.dem",
@@ -49,6 +54,7 @@
  "lines": "lines.bin",
  "map": "mapa.webp",
  "bytes": {
+  "core_xl.webp": 8039394,
   "core_hi.dem": 7637552,
   "core_hi.webp": 2819386,
   "core_lo.dem": 2460297,

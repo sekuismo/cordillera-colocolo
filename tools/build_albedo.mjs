@@ -2,7 +2,7 @@
 import path from 'node:path';
 import { statSync } from 'node:fs';
 import sharp from 'sharp';
-import { RAW, DATA, CORE, CTX, CORE_HI, CORE_LO, CTX_IMG, SAT_Z, CTX_SAT_Z, tileRange, lon2x, lat2y } from './config.mjs';
+import { RAW, DATA, CORE, CTX, CORE_HI, CORE_LO, CORE_XL, CTX_IMG, SAT_Z, CTX_SAT_Z, tileRange, lon2x, lat2y } from './config.mjs';
 
 async function mosaic(dir, bounds, z) {
   const r = tileRange(bounds, z), w = (r.x1 - r.x0 + 1) * 256, h = (r.y1 - r.y0 + 1) * 256;
@@ -62,9 +62,15 @@ if (!which.length || which.includes('core')) {
   await save(hi, CORE_HI.w, CORE_HI.h, 'core_hi.webp', 80);
   const lo = await sharp(hi, { raw: { width: CORE_HI.w, height: CORE_HI.h, channels: 3 } }).resize(CORE_LO.w, CORE_LO.h, { kernel: 'lanczos3' }).raw().toBuffer();
   await save(lo, CORE_LO.w, CORE_LO.h, 'core_lo.webp', 80);
-  // Miniatura para el minimapa.
-  const mini = await sharp(hi, { raw: { width: CORE_HI.w, height: CORE_HI.h, channels: 3 } }).resize(409, 510).raw().toBuffer();
-  await save(mini, 409, 510, 'mapa.webp', 78);
+}
+if (!which.length || which.includes('xl')) {
+  // La misma imagen a la resolución nativa de las teselas, y de ella el mapa: el minimapa muestra 16 km a lo ancho,
+  // así que necesita ~68 m/px para no verse borroso.
+  const m = await mosaic('sat', CORE, SAT_Z);
+  const xl = reproject(m, CORE, CORE_XL.w, CORE_XL.h, 2);
+  await save(xl, CORE_XL.w, CORE_XL.h, 'core_xl.webp', 80);
+  const mini = await sharp(xl, { raw: { width: CORE_XL.w, height: CORE_XL.h, channels: 3 } }).resize(CORE_LO.w, CORE_LO.h, { kernel: 'lanczos3' }).raw().toBuffer();
+  await save(mini, CORE_LO.w, CORE_LO.h, 'mapa.webp', 78);
 }
 if (!which.length || which.includes('ctx')) {
   const m = await mosaic('ctxsat', CTX, CTX_SAT_Z);

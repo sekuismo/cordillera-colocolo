@@ -22,7 +22,7 @@ const $ = (s) => document.querySelector(s);
 
 // Versión del código que está corriendo. version.json se pide sin caché: si no coincide, el navegador tiene archivos
 // viejos guardados y se avisa. Hay que cambiar los dos juntos en cada deploy.
-const VERSION = '2026-11-23b';
+const VERSION = '2026-11-23c';
 $('#ver').textContent = 'versión ' + VERSION;
 fetch(new URL('../version.json', import.meta.url), { cache: 'no-store' }).then((r) => r.json()).then(({ version }) => {
   if (version !== VERSION) { $('#ver').textContent = `Estás viendo una versión guardada (${VERSION}); la publicada es ${version}. Recarga con Ctrl+Shift+R.`; $('#ver').classList.add('old'); }

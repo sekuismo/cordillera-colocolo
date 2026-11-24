@@ -27,8 +27,12 @@ export function pickQuality(maxTexture) {
   if (tier !== 'hi' && tier !== 'lo') tier = mobile || (navigator.deviceMemory && navigator.deviceMemory < 4) ? 'lo' : 'hi';
   if (maxTexture < 4096) tier = 'lo';
   const hi = tier === 'hi';
+  // Imagen del core a ~17 m/px (6544×8160, ~285 MB de memoria de video con mipmaps): solo en calidad alta, si la GPU
+  // acepta texturas de ese tamaño y el equipo tiene memoria. ?img=xl / ?img=hi mandan.
+  const img = params.get('img');
+  const xl = hi && maxTexture >= 8192 && (img === 'xl' || (img !== 'hi' && !mobile && !(navigator.deviceMemory && navigator.deviceMemory < 8)));
   return {
-    tier, mobile,
+    tier, mobile, xl,
     cells: hi ? 32 : 16,          // celdas por lado en cada nodo del terreno
     lodBias: 1,
     overlayRes: hi ? 2048 : 1024,
@@ -41,7 +45,8 @@ export function pickQuality(maxTexture) {
 export async function loadAll(manifest, quality, onProgress) {
   const base = new URL('../data/', import.meta.url);
   const streets = (manifest.streets || []).filter((s) => s.tiers.includes(quality.tier)).map((s) => s.file);
-  const tier = manifest.tiers[quality.tier], files = [tier.dem, tier.img, manifest.ctx.dem, manifest.ctx.img, manifest.lines, ...streets];
+  const tier = manifest.tiers[quality.tier], coreImgFile = quality.xl && tier.imgXL ? tier.imgXL.file : tier.img;
+  const files = [tier.dem, coreImgFile, manifest.ctx.dem, manifest.ctx.img, manifest.lines, ...streets];
   const total = files.reduce((s, f) => s + (manifest.bytes[f] || 0), 0), loaded = {};
   const report = (f, n) => { loaded[f] = n; onProgress(Math.min(1, Object.values(loaded).reduce((a, b) => a + b, 0) / total)); };
 
@@ -70,7 +75,7 @@ export async function loadAll(manifest, quality, onProgress) {
     viaWorker('dem', tier.dem, { texelX: manifest.core.sizeX / tier.w, texelZ: manifest.core.sizeZ / tier.h }),
     viaWorker('dem', manifest.ctx.dem, { texelX: manifest.ctx.sizeX / manifest.ctx.demSize.w, texelZ: manifest.ctx.sizeZ / manifest.ctx.demSize.h }),
     viaWorker('lines', manifest.lines),
-    image(tier.img), image(manifest.ctx.img),
+    image(coreImgFile), image(manifest.ctx.img),
     fetch(new URL(manifest.labels, base)).then((r) => r.json()),
   ]);
   for (const s of await streetsP) Object.assign(lines, s); // calles menores: mismas estructuras, otras clases

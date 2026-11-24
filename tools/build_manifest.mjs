@@ -1,7 +1,7 @@
 // data/manifest.json: la geometría que el juego necesita para ubicar cada capa en el mundo.
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { DATA, CORE, CTX, CORE_HI, CORE_LO, CTX_DEM, CTX_IMG, M_PER_DEG_LAT, M_PER_DEG_LON, sizeMeters } from './config.mjs';
+import { DATA, CORE, CTX, CORE_HI, CORE_LO, CORE_XL, CTX_DEM, CTX_IMG, M_PER_DEG_LAT, M_PER_DEG_LON, sizeMeters } from './config.mjs';
 
 const core = sizeMeters(CORE), ctx = sizeMeters(CTX);
 const manifest = {
@@ -15,6 +15,8 @@ const manifest = {
   },
   labels: 'labels.json', lines: 'lines.bin', map: 'mapa.webp',
 };
+// Imagen del core a resolución completa (opcional: build_albedo.mjs xl). Solo la usa la calidad alta si la GPU acepta su tamaño.
+try { (manifest.bytes ??= {})['core_xl.webp'] = (await fs.stat(path.join(DATA, 'core_xl.webp'))).size; manifest.tiers.hi.imgXL = { file: 'core_xl.webp', ...CORE_XL }; } catch { /* aún no generada */ }
 for (const f of ['core_hi.dem', 'core_hi.webp', 'core_lo.dem', 'core_lo.webp', 'ctx.dem', 'ctx.webp', 'lines.bin', 'labels.json', 'land_hi.bin', 'land_lo.bin'])
   (manifest.bytes ??= {})[f] = (await fs.stat(path.join(DATA, f))).size;
 // Calles menores (opcionales: existen si se corrió download_streets + build_streets). Las residenciales solo en calidad alta.
